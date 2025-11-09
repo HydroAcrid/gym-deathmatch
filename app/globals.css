@@ -1,3 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -8,8 +12,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +25,152 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
+
+/* Arcade gradient background */
+.bg-arcade {
+  background: radial-gradient(circle at top left, #0B002B, #120040 50%, #3B0066);
+}
+
+/* Poster cream background */
+.bg-poster {
+  background:
+    radial-gradient(1200px 600px at 50% 20%, rgba(255,255,255,0.04), transparent 60%),
+    linear-gradient(180deg, #1E1714, #2B211D);
+}
+.paper-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+  background-image:
+    radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 1px, transparent 2px, transparent 3px);
+  background-size: 8px 8px, 100% 3px;
+  z-index: 10;
+}
+
+/* CRT scanline overlay utility */
+.crt-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.05),
+      rgba(255,255,255,0.05) 1px,
+      rgba(0,0,0,0.05) 2px,
+      rgba(0,0,0,0.05) 3px
+    );
+  opacity: 0.15;
+  mix-blend-mode: overlay;
+  z-index: 10;
+}
+
+/* Neon glows */
+.glow-cyan { box-shadow: 0 0 15px #00FFFF; }
+.glow-pink { box-shadow: 0 0 15px #FF00FF; }
+.glow-purple { box-shadow: 0 0 20px #A020F0; }
+
+/* Neon panels and buttons */
+.panel-neon {
+  background: rgba(11, 0, 43, 0.6);
+  border: 2px solid #00FFFF;
+  border-radius: 12px;
+  box-shadow: 0 0 15px rgba(0,255,255,0.4), inset 0 0 12px rgba(0,255,255,0.15);
+  backdrop-filter: blur(4px);
+}
+.btn-neon {
+  transition: all 0.2s ease-in-out;
+  transform-origin: center;
+}
+.btn-neon:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 5px var(--neonColor, #00FFFF));
+}
+.btn-neon-pink {
+  background: #FF00FF;
+  color: #0B002B;
+}
+.btn-neon-cyan {
+  background: #00FFFF;
+  color: #0B002B;
+}
+
+/* Digital fonts */
+.font-press { font-family: 'Press Start 2P', monospace; }
+.font-vt { font-family: 'VT323', monospace; }
+.font-bebas { font-family: 'Bebas Neue', system-ui, sans-serif; }
+.font-playfair { font-family: 'Playfair Display', serif; }
+
+/* Flicker and blink */
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+  20%, 24%, 55% { opacity: 0.8; }
+}
+.flicker { animation: flicker 2s infinite; }
+
+@keyframes blink { 50% { opacity: 0; } }
+.blinking-colon { animation: blink 1s infinite; }
+
+/* Pixel-ish hearts */
+.pixel-heart { filter: drop-shadow(0 0 6px #ff3366); }
+
+/* Neon tab active beep cursor */
+.tab-active::after {
+  content: "_";
+  margin-left: 6px;
+  animation: blink 1s infinite;
+}
+
+/* Poster utilities */
+.poster-headline {
+  font-family: 'Bebas Neue', system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.paper-card {
+  background: #2B211D;
+  border-radius: 0.35rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+}
+.paper-grain { position: relative; }
+.paper-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.15;
+  mix-blend-mode: overlay;
+  background-image:
+    radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 1px, transparent 2px, transparent 3px);
+  background-size: 8px 8px, 100% 3px;
+  border-radius: inherit;
+}
+.ink-edge {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -2px 0 rgba(0,0,0,0.4);
+}
+.btn-vintage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  background: #E1542A;
+  color: #F5E7D3;
+  border-radius: 0.35rem;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.5);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+.btn-vintage:hover { background: #c6441f; transform: translateY(1px); }
+.btn-vintage-teal { background: #7FA39A; color: #1E1714; }
+.btn-vintage-teal:hover { background: #436055; }
+
