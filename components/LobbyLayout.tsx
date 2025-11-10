@@ -8,12 +8,14 @@ import { CashPool } from "./CashPool";
 import { PlayerCard } from "./PlayerCard";
 import { InvitePlayerCard } from "./InvitePlayerCard";
 import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
 	const search = useSearchParams();
 	const stravaConnected = search.get("stravaConnected");
 	const connectedPlayerId = search.get("playerId");
+	const stravaError = search.get("stravaError");
 	const container = {
 		hidden: {},
 		show: {
@@ -33,8 +35,32 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			const name = players.find(p => p.id === connectedPlayerId)?.name ?? "A player";
 			return `${name} connected Strava ✅`;
 		}
+		if (stravaError === "1" && connectedPlayerId) {
+			const name = players.find(p => p.id === connectedPlayerId)?.name ?? "A player";
+			return `${name}: Strava connection failed. Please try again.`;
+		}
 		return null;
-	}, [stravaConnected, connectedPlayerId, players]);
+	}, [stravaConnected, stravaError, connectedPlayerId, players]);
+
+	useEffect(() => {
+		let ignore = false;
+		async function loadLive() {
+			try {
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
+				if (!res.ok) return;
+				const data = await res.json();
+				if (ignore) return;
+				if (data?.lobby?.players) {
+					setPlayers(data.lobby.players);
+				}
+			} catch {
+				// ignore network errors; show mock values
+			}
+		}
+		loadLive();
+		// re-fetch after connect or error banners too
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [lobby.id, stravaConnected, stravaError]);
 
 	return (
 		<div className="mx-auto max-w-6xl">
@@ -69,7 +95,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 					</motion.div>
 				))}
 				<motion.div variants={item}>
-					<InvitePlayerCard onAdd={(np) => setPlayers(prev => [...prev, np])} />
+					<InvitePlayerCard lobbyId={lobby.id} onAdd={(np) => setPlayers(prev => [...prev, np])} />
 				</motion.div>
 			</motion.div>
 		</div>

@@ -5,9 +5,10 @@ import { Player } from "@/types/game";
 
 interface Props {
 	onAdd(player: Player): void;
+	lobbyId: string;
 }
 
-export function InvitePlayerCard({ onAdd }: Props) {
+export function InvitePlayerCard({ onAdd, lobbyId }: Props) {
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [avatarUrl, setAvatarUrl] = useState("");
@@ -27,7 +28,18 @@ export function InvitePlayerCard({ onAdd }: Props) {
 			quip: quip.trim() || "Ready to rumble!",
 			isStravaConnected: false
 		};
-		// In a real app, call API to persist and return updated lobby.
+		// Persist to API; if it fails, still add locally
+		fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				id: newPlayer.id,
+				name: newPlayer.name,
+				avatarUrl: newPlayer.avatarUrl,
+				location: null,
+				quip: newPlayer.quip
+			})
+		}).catch(() => {});
 		onAdd(newPlayer);
 		setOpen(false);
 		setName("");

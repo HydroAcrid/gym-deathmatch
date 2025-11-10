@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { IntroGuide } from "./IntroGuide";
 
 const tabs = [
 	{ href: "/lobby/kevin-nelly", label: "Home" },
@@ -20,7 +21,7 @@ export function Navbar() {
 					<div className="poster-headline text-2xl text-deepBrown">GYM DEATHMATCH</div>
 					<span className="font-playfair text-s text-deepBrown/70">Put your money where your mouth is!</span>
 				</div>
-				<nav className="flex gap-4 py-2 px-3">
+				<nav className="flex items-center gap-4 py-2 px-3">
 					{tabs.map((t) => {
 						const active = pathname === t.href || (t.href.startsWith("/lobby") && pathname.startsWith("/lobby"));
 						return (
@@ -51,6 +52,9 @@ export function Navbar() {
 							</Link>
 						);
 					})}
+					<div className="ml-auto">
+						<IntroGuide />
+					</div>
 				</nav>
 			</div>
 		</div>

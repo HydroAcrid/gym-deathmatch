@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForToken } from "@/lib/strava";
 import { setTokensForPlayer } from "@/lib/stravaStore";
+import { ensureLobbyAndPlayers, upsertStravaTokens } from "@/lib/persistence";
 
 export async function GET(req: NextRequest) {
 	const url = new URL(req.url);
@@ -24,6 +25,9 @@ export async function GET(req: NextRequest) {
 	try {
 		const tokens = await exchangeCodeForToken(code);
 		setTokensForPlayer(playerId, tokens);
+		// ensure lobby and both default players exist before token upsert
+		await ensureLobbyAndPlayers("kevin-nelly");
+		await upsertStravaTokens(playerId, tokens);
 		console.log("Strava connected for player", playerId);
 	} catch (e) {
 		console.error("Callback error", e);
