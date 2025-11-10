@@ -3,8 +3,7 @@
 import { useMemo, useState } from "react";
 import { Lobby, Player } from "@/types/game";
 import { motion } from "framer-motion";
-import { Countdown } from "./Countdown";
-import { CashPool } from "./CashPool";
+import { Scoreboard } from "./Scoreboard";
 import { PlayerCard } from "./PlayerCard";
 import { InvitePlayerCard } from "./InvitePlayerCard";
 import { useSearchParams } from "next/navigation";
@@ -91,7 +90,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	return (
 		<div className="mx-auto max-w-6xl">
 			{/* Season header strip */}
-			<div className="relative mb-3">
+			<div className="relative mb-2">
 				<motion.div className="paper-card paper-grain ink-edge px-4 py-3 border-b-4" style={{ borderColor: "#E1542A" }}>
 					<div className="flex flex-wrap items-center gap-3">
 						<button
@@ -111,18 +110,17 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 						</button>
 						<div className="poster-headline text-2xl">{lobby.name.toUpperCase()}</div>
 						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · WINTER GRIND</div>
-						<div className="ml-auto flex items-center gap-2">
-							<Countdown endIso={lobby.seasonEnd} />
-						</div>
 					</div>
 				</motion.div>
 				
 			</div>
 			
 
-			{/* Cash Pool */}
+			<div className="header-divider-glow mb-3" />
+
+			{/* Scoreboard */}
 			<div className="mb-6">
-				<CashPool amount={lobby.cashPool} />
+				<Scoreboard amount={lobby.cashPool} endIso={lobby.seasonEnd} />
 			</div>
 
 			{/* Players grid */}
