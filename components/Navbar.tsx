@@ -30,7 +30,7 @@ export function Navbar() {
 						return (
 							<Link key={t.href} href={t.href} className="relative">
 								<motion.span className="poster-headline text-sm tracking-wide relative block"
-									whileHover={{ y: -1 }}
+									whileHover={{ y: -1, filter: "brightness(1.1)" }}
 								>
 									<span className="px-1">{t.label.toUpperCase()}</span>
 									<motion.span

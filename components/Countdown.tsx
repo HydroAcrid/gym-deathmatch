@@ -15,10 +15,18 @@ export function Countdown({ endIso }: { endIso: string }) {
 	const end = useMemo(() => new Date(endIso), [endIso]);
 	const [remaining, setRemaining] = useState(() => getRemaining(end));
 	const prefersReduced = useReducedMotion();
+	const [seconds, setSeconds] = useState<number | null>(null); // client-only to avoid hydration mismatch
 	useEffect(() => {
 		const t = setInterval(() => setRemaining(getRemaining(end)), 1000);
 		return () => clearInterval(t);
 	}, [end]);
+	useEffect(() => {
+		// Initialize seconds on client only
+		const tick = () => setSeconds(new Date().getSeconds());
+		tick();
+		const s = setInterval(tick, 1000);
+		return () => clearInterval(s);
+	}, []);
 	const numVariants = {
 		initial: prefersReduced ? {} : { opacity: 0, rotateX: -90, y: -6 },
 		animate: prefersReduced ? {} : { opacity: 1, rotateX: 0, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
@@ -46,9 +54,11 @@ export function Countdown({ endIso }: { endIso: string }) {
 					</motion.span>
 				</AnimatePresence>
 				<span>·</span>
-				<motion.span className="text-xl">
-					{String(new Date().getSeconds()).padStart(2, "0")} S
-				</motion.span>
+				{seconds !== null && (
+					<motion.span className="text-xl" key={`s-${seconds}`}>
+						{String(seconds).padStart(2, "0")} S
+					</motion.span>
+				)}
 			</div>
 		</div>
 	);

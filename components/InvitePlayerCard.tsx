@@ -5,10 +5,11 @@ import { Player } from "@/types/game";
 
 interface Props {
 	onAdd(player: Player): void;
+	onReplace?(players: Player[]): void;
 	lobbyId: string;
 }
 
-export function InvitePlayerCard({ onAdd, lobbyId }: Props) {
+export function InvitePlayerCard({ onAdd, onReplace, lobbyId }: Props) {
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [avatarUrl, setAvatarUrl] = useState("");
@@ -42,9 +43,15 @@ export function InvitePlayerCard({ onAdd, lobbyId }: Props) {
 				quip: newPlayer.quip
 			})
 		})
-			.then(() => {
-				// re-fetch live lobby to sync from server
-				fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" }).catch(() => {});
+			.then(async () => {
+				// re-fetch live lobby to sync from server and replace list if provided
+				try {
+					const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+					if (res.ok) {
+						const data = await res.json();
+						if (data?.lobby?.players && onReplace) onReplace(data.lobby.players);
+					}
+				} catch { /* ignore */ }
 			})
 			.finally(() => setSaving(false));
 		onAdd(newPlayer);

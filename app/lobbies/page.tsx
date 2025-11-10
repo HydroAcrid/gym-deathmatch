@@ -36,7 +36,7 @@ export default function LobbiesPage() {
 								{l.name}
 							</Link>
 							{playerId && l.owner_id === playerId && (
-								<button className="px-2 py-1 rounded-md border border-deepBrown/30 text-deepBrown text-xs hover:bg-deepBrown/10"
+								<button className="btn-vintage-teal px-3 py-2 rounded-md text-xs"
 									onClick={() => setEditLobby(l)}>
 									Edit
 								</button>
@@ -65,7 +65,10 @@ export default function LobbiesPage() {
 					defaultWeekly={editLobby.weekly_target ?? 3}
 					defaultLives={editLobby.initial_lives ?? 3}
 					defaultSeasonEnd={editLobby.season_end ?? new Date().toISOString()}
+					autoOpen
+					hideTrigger
 					onSaved={() => { setEditLobby(null); fetch("/api/lobbies").then(r=>r.json()).then(d=>setLobbies(d.lobbies??[])); }}
+					onClose={() => setEditLobby(null)}
 				/>
 			)}
 		</div>

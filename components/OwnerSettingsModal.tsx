@@ -9,15 +9,21 @@ export function OwnerSettingsModal({
 	defaultWeekly,
 	defaultLives,
 	defaultSeasonEnd,
-	onSaved
+	onSaved,
+	autoOpen,
+	hideTrigger,
+	onClose
 }: {
 	lobbyId: string;
 	defaultWeekly: number;
 	defaultLives: number;
 	defaultSeasonEnd: string;
 	onSaved: () => void;
+	autoOpen?: boolean;
+	hideTrigger?: boolean;
+	onClose?: () => void;
 }) {
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useState<boolean>(!!autoOpen);
 	const [weekly, setWeekly] = useState<number>(defaultWeekly);
 	const [lives, setLives] = useState<number>(defaultLives);
 	const [seasonStart, setSeasonStart] = useState<string>("");
@@ -42,6 +48,7 @@ export function OwnerSettingsModal({
 				toast.push("Settings saved");
 				onSaved();
 				setOpen(false);
+				onClose?.();
 			} else {
 				toast.push("Failed to save settings");
 			}
@@ -52,13 +59,18 @@ export function OwnerSettingsModal({
 
 	return (
 		<>
-			<button
-				className="px-2 py-1 rounded-md border border-deepBrown/30 text-deepBrown text-xs hover:bg-deepBrown/10"
-				title="Lobby settings"
-				onClick={() => setOpen(true)}
-			>
-				⚙️
-			</button>
+			{!hideTrigger && (
+				<button
+					className="px-2 py-1 rounded-md border border-deepBrown/30 text-deepBrown text-xs hover:bg-deepBrown/10"
+					title="Lobby settings"
+					onClick={() => setOpen(true)}
+				>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+						<circle cx="12" cy="12" r="3" />
+						<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .66.26 1.3.73 1.77.47.47 1.11.73 1.77.73H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+					</svg>
+				</button>
+			)}
 			<AnimatePresence>
 				{open && (
 					<motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
@@ -88,7 +100,7 @@ export function OwnerSettingsModal({
 										value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
 								</label>
 								<div className="md:col-span-4 flex justify-end gap-2">
-									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setOpen(false)}>Cancel</button>
+									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
 									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 								</div>
 							</div>

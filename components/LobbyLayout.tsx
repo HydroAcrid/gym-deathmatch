@@ -10,7 +10,6 @@ import { InvitePlayerCard } from "./InvitePlayerCard";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useToast } from "./ToastProvider";
-import { OwnerSettingsModal } from "./OwnerSettingsModal";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
@@ -97,7 +96,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 					<div className="flex flex-wrap items-center gap-3">
 						<button
 							aria-label="Copy invite link"
-							className="px-2 py-1 rounded-md border border-deepBrown/30 text-deepBrown text-xs hover:bg-deepBrown/10"
+							className="p-1 text-xs"
 							onClick={() => {
 								if (typeof window !== "undefined") {
 									navigator.clipboard?.writeText(`${window.location.origin}/join/${lobby.id}`);
@@ -114,15 +113,6 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · WINTER GRIND</div>
 						<div className="ml-auto flex items-center gap-2">
 							<Countdown endIso={lobby.seasonEnd} />
-							{(me && lobby.ownerId && me === lobby.ownerId) && (
-								<OwnerSettingsModal
-									lobbyId={lobby.id}
-									defaultWeekly={lobby.weeklyTarget ?? 3}
-									defaultLives={lobby.initialLives ?? 3}
-									defaultSeasonEnd={lobby.seasonEnd}
-									onSaved={() => { reloadLive(); }}
-								/>
-							)}
 						</div>
 					</div>
 				</motion.div>
@@ -143,7 +133,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 					</motion.div>
 				))}
 				<motion.div variants={item}>
-					<InvitePlayerCard lobbyId={lobby.id} onAdd={(np) => { setPlayers(prev => [...prev, np]); reloadLive(); }} />
+					<InvitePlayerCard lobbyId={lobby.id} onAdd={(np) => { setPlayers(prev => [...prev, np]); }} onReplace={(plist)=> setPlayers(plist)} />
 				</motion.div>
 			</motion.div>
 			{/* Reconnect banner if errors */}
