@@ -41,7 +41,9 @@ export async function ensurePlayerExists(lobbyId: string, playerId: string): Pro
 			season_number: mockLobby.seasonNumber,
 			season_start: mockLobby.seasonStart,
 			season_end: mockLobby.seasonEnd,
-			cash_pool: mockLobby.cashPool
+			cash_pool: mockLobby.cashPool,
+			weekly_target: mockLobby.weeklyTarget ?? 3,
+			initial_lives: mockLobby.initialLives ?? 3
 		},
 		{ onConflict: "id" }
 	);
@@ -80,7 +82,9 @@ export async function ensureLobbyAndPlayers(lobbyId: string): Promise<boolean> {
 			season_number: mockLobby.seasonNumber,
 			season_start: mockLobby.seasonStart,
 			season_end: mockLobby.seasonEnd,
-			cash_pool: mockLobby.cashPool
+			cash_pool: mockLobby.cashPool,
+			weekly_target: mockLobby.weeklyTarget ?? 3,
+			initial_lives: mockLobby.initialLives ?? 3
 		},
 		{ onConflict: "id" }
 	);

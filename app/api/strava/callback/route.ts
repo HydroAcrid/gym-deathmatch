@@ -11,9 +11,11 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json({ error: "Missing code or state" }, { status: 400 });
 	}
 	let playerId = "";
+	let lobbyId = "kevin-nelly";
 	try {
 		const state = JSON.parse(stateParam);
 		playerId = state.playerId as string;
+		if (state.lobbyId) lobbyId = state.lobbyId as string;
 	} catch {
 		return NextResponse.json({ error: "Invalid state" }, { status: 400 });
 	}
@@ -26,19 +28,17 @@ export async function GET(req: NextRequest) {
 		const tokens = await exchangeCodeForToken(code);
 		setTokensForPlayer(playerId, tokens);
 		// ensure lobby and both default players exist before token upsert
-		await ensureLobbyAndPlayers("kevin-nelly");
+		await ensureLobbyAndPlayers(lobbyId);
 		await upsertStravaTokens(playerId, tokens);
 		console.log("Strava connected for player", playerId);
 	} catch (e) {
 		console.error("Callback error", e);
 		// Redirect with error flag to keep UX flowing
-		const lobbyId = "kevin-nelly";
 		return NextResponse.redirect(`${baseUrl}/lobby/${lobbyId}?stravaError=1&playerId=${encodeURIComponent(playerId)}`, {
 			status: 302
 		});
 	}
 	// Redirect to default lobby for now; in multi-lobby, store lobby ID in state too.
-	const lobbyId = "kevin-nelly";
 	return NextResponse.redirect(`${baseUrl}/lobby/${lobbyId}?stravaConnected=1&playerId=${encodeURIComponent(playerId)}`, {
 		status: 302
 	});

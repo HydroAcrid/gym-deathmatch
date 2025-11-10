@@ -56,12 +56,49 @@ export async function fetchRecentActivities(accessToken: string): Promise<unknow
 		if (!res.ok) {
 			const text = await res.text();
 			console.error("Strava activities fetch failed:", res.status, text);
-			throw new Error("Failed to fetch Strava activities");
+			const err: any = new Error("Failed to fetch Strava activities");
+			err.status = res.status;
+			throw err;
 		}
 		return await res.json();
 	} catch (err) {
 		console.error("fetchRecentActivities error", err);
 		return [];
+	}
+}
+
+export async function refreshAccessToken(refreshToken: string): Promise<StravaTokens> {
+	try {
+		const clientId = process.env.STRAVA_CLIENT_ID;
+		const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+		if (!clientId || !clientSecret) {
+			throw new Error("Missing STRAVA_CLIENT_ID or STRAVA_CLIENT_SECRET");
+		}
+		const body = new URLSearchParams({
+			client_id: String(clientId),
+			client_secret: String(clientSecret),
+			grant_type: "refresh_token",
+			refresh_token: refreshToken
+		});
+		const res = await fetch(STRAVA_TOKEN_URL, {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body
+		});
+		if (!res.ok) {
+			const text = await res.text();
+			console.error("Strava token refresh failed:", res.status, text);
+			throw new Error("Failed to refresh token");
+		}
+		const data = await res.json();
+		return {
+			accessToken: data.access_token,
+			refreshToken: data.refresh_token ?? refreshToken,
+			expiresAt: data.expires_at
+		};
+	} catch (e) {
+		console.error("refreshAccessToken error", e);
+		throw e;
 	}
 }
 

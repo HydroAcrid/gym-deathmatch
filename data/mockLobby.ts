@@ -7,6 +7,8 @@ export const defaultLobby: Lobby = {
 	seasonStart: new Date(new Date().getFullYear(), 0, 1).toISOString(),
 	seasonEnd: new Date(new Date().getFullYear(), 11, 31).toISOString(),
 	cashPool: 120,
+	weeklyTarget: 3,
+	initialLives: 3,
 	players: [
 		{
 			id: "kevin",

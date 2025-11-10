@@ -6,7 +6,7 @@ import { Player } from "@/types/game";
 import { HeartDisplay } from "./HeartDisplay";
 import { QuipBubble } from "./QuipBubble";
 
-export function PlayerCard({ player }: { player: Player }) {
+export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lobbyId?: string; mePlayerId?: string }) {
 	const avatar = player.avatarUrl || "";
 	return (
 		<motion.div
@@ -37,12 +37,14 @@ export function PlayerCard({ player }: { player: Player }) {
 							CONNECTED
 						</span>
 					) : (
-						<a
-							href={`/api/strava/authorize?playerId=${encodeURIComponent(player.id)}`}
-							className="btn-vintage px-3 py-2 rounded-md text-[10px] transition-all duration-300"
-						>
-							CONNECT STRAVA
-						</a>
+						mePlayerId === player.id ? (
+							<a
+								href={`/api/strava/authorize?playerId=${encodeURIComponent(player.id)}&lobbyId=${encodeURIComponent(lobbyId ?? "kevin-nelly")}`}
+								className="btn-vintage px-3 py-2 rounded-md text-[10px] transition-all duration-300"
+							>
+								CONNECT STRAVA
+							</a>
+						) : null
 					)}
 				</div>
 			</div>

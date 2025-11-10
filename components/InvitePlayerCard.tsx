@@ -13,6 +13,7 @@ export function InvitePlayerCard({ onAdd, lobbyId }: Props) {
 	const [name, setName] = useState("");
 	const [avatarUrl, setAvatarUrl] = useState("");
 	const [quip, setQuip] = useState("");
+	const [saving, setSaving] = useState(false);
 
 	function submit() {
 		if (!name.trim()) return;
@@ -29,6 +30,7 @@ export function InvitePlayerCard({ onAdd, lobbyId }: Props) {
 			isStravaConnected: false
 		};
 		// Persist to API; if it fails, still add locally
+		setSaving(true);
 		fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -39,7 +41,12 @@ export function InvitePlayerCard({ onAdd, lobbyId }: Props) {
 				location: null,
 				quip: newPlayer.quip
 			})
-		}).catch(() => {});
+		})
+			.then(() => {
+				// re-fetch live lobby to sync from server
+				fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" }).catch(() => {});
+			})
+			.finally(() => setSaving(false));
 		onAdd(newPlayer);
 		setOpen(false);
 		setName("");
@@ -79,8 +86,8 @@ export function InvitePlayerCard({ onAdd, lobbyId }: Props) {
 					className="px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown placeholder:text-deepBrown/50"
 				/>
 				<div className="flex gap-2 mt-2">
-					<button onClick={submit} className="btn-vintage px-3 py-2 rounded-md text-[10px]">
-						Add
+					<button onClick={submit} className="btn-vintage px-3 py-2 rounded-md text-[10px]" disabled={saving}>
+						{saving ? "Saving..." : "Add"}
 					</button>
 					<button onClick={() => setOpen(false)} className="px-3 py-2 rounded-md border border-deepBrown/40 text-deepBrown text-[10px]">
 						Cancel

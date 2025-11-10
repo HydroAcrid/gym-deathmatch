@@ -12,6 +12,7 @@ import { useEffect } from "react";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
+	const [me, setMe] = useState<string | null>(null);
 	const search = useSearchParams();
 	const stravaConnected = search.get("stravaConnected");
 	const connectedPlayerId = search.get("playerId");
@@ -42,20 +43,30 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		return null;
 	}, [stravaConnected, stravaError, connectedPlayerId, players]);
 
+	const reloadLive = async () => {
+		try {
+			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
+			if (!res.ok) return;
+			const data = await res.json();
+			if (data?.lobby?.players) {
+				setPlayers(data.lobby.players);
+			}
+			// show reconnect hint if there are errors
+			if (data?.errors?.length) {
+				// noop: banner below will cover
+			}
+		} catch {
+			// ignore
+		}
+	};
+
 	useEffect(() => {
 		let ignore = false;
+		const meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
+		setMe(meId);
 		async function loadLive() {
-			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
-				if (!res.ok) return;
-				const data = await res.json();
-				if (ignore) return;
-				if (data?.lobby?.players) {
-					setPlayers(data.lobby.players);
-				}
-			} catch {
-				// ignore network errors; show mock values
-			}
+			if (ignore) return;
+			await reloadLive();
 		}
 		loadLive();
 		// re-fetch after connect or error banners too
@@ -91,13 +102,28 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			<motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4" variants={container} initial="hidden" animate="show">
 				{players.map((p) => (
 					<motion.div key={p.id} variants={item}>
-						<PlayerCard player={p} />
+						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
 					</motion.div>
 				))}
 				<motion.div variants={item}>
-					<InvitePlayerCard lobbyId={lobby.id} onAdd={(np) => setPlayers(prev => [...prev, np])} />
+					<InvitePlayerCard lobbyId={lobby.id} onAdd={(np) => { setPlayers(prev => [...prev, np]); reloadLive(); }} />
 				</motion.div>
 			</motion.div>
+			{/* Reconnect banner if errors */}
+			{/* In a next pass, we could show per-player lines; for now a simple CTA */}
+			{/* The live endpoint returns errors: [{ playerId, reason }] */}
+			{/* We re-fetch above; here we derive from missing isStravaConnected */}
+			{players.some(p => p.isStravaConnected === false) && (
+				<div className="mt-4 text-xs bg-cream border border-deepBrown/40 text-deepBrown px-3 py-2 rounded-md ink-edge">
+					Some connections need attention. Reconnect:
+					{" "}
+					{players.filter(p => p.isStravaConnected === false).map((p, i) => (
+						<a key={p.id} className="underline ml-1" href={`/api/strava/authorize?playerId=${encodeURIComponent(p.id)}&lobbyId=${encodeURIComponent(lobby.id)}`}>
+							{p.name}{i < players.filter(pp => pp.isStravaConnected === false).length - 1 ? "," : ""}
+						</a>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

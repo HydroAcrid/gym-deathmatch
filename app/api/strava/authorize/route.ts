@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
 	const playerId = searchParams.get("playerId");
+	const lobbyId = searchParams.get("lobbyId") ?? "kevin-nelly";
 	if (!playerId) {
 		return NextResponse.json({ error: "Missing playerId" }, { status: 400 });
 	}
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 	authorizeUrl.searchParams.set("redirect_uri", redirectUri);
 	authorizeUrl.searchParams.set("approval_prompt", "auto");
 	authorizeUrl.searchParams.set("scope", "read,activity:read_all");
-	authorizeUrl.searchParams.set("state", JSON.stringify({ playerId }));
+	authorizeUrl.searchParams.set("state", JSON.stringify({ playerId, lobbyId }));
 
 	return NextResponse.redirect(authorizeUrl.toString(), { status: 302 });
 }

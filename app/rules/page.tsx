@@ -20,10 +20,14 @@ export default function RulesPage() {
 					</ul>
 				</div>
 				<div className="paper-card paper-grain ink-edge p-5">
-					<div className="poster-headline text-lg mb-2">HOW WINS ARE TRACKED</div>
-					<p className="text-deepBrown/80">
-						Strava connections will later be used to compute streaks and totals. For now, stats are mock values.
+					<div className="poster-headline text-lg mb-2">HOW LIVES WORK</div>
+					<p className="text-deepBrown/80 mb-2">
+						We check your Strava activities inside the season window. Each week you need to meet the lobby’s weekly target. Miss it and you lose a life.
 					</p>
+					<div className="text-sm text-deepBrown/80">
+						<span className="font-semibold">Weekly Target:</span> 3 workouts (default)<br />
+						<span className="font-semibold">Starting Lives:</span> 3 (default)
+					</div>
 				</div>
 			</div>
 		</div>

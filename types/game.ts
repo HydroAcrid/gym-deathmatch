@@ -23,6 +23,8 @@ export interface Lobby {
 	seasonStart: string; // ISO date
 	seasonEnd: string;   // ISO date
 	cashPool: number;
+	weeklyTarget?: number;
+	initialLives?: number;
 }
 
 
