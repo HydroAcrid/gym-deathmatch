@@ -8,6 +8,7 @@ import { JoinLobby } from "./JoinLobby";
 
 const tabs = [
 	{ href: "/lobby/kevin-nelly", label: "Home" },
+	{ href: "/lobbies", label: "Lobbies" },
 	{ href: "/stats", label: "Stats" },
 	{ href: "/history", label: "History" },
 	{ href: "/rules", label: "Rules" }

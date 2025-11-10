@@ -84,6 +84,16 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 						<div className="ml-auto">
 							<Countdown endIso={lobby.seasonEnd} />
 						</div>
+						<button
+							className="ml-3 px-2 py-1 rounded-md border border-deepBrown/30 text-deepBrown text-xs hover:bg-deepBrown/10"
+							onClick={() => {
+								if (typeof window !== "undefined") {
+									navigator.clipboard?.writeText(`${window.location.origin}/join/${lobby.id}`);
+								}
+							}}
+						>
+							Copy invite link
+						</button>
 					</div>
 				</motion.div>
 				{banner && (
