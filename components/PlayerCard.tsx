@@ -10,7 +10,12 @@ import { QuipBubble } from "./QuipBubble";
 export function PlayerCard({ player }: { player: Player }) {
 	const avatar = player.avatarUrl || "";
 	return (
-		<motion.div className="paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden">
+		<motion.div
+			className="paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300"
+			initial={{ opacity: 0, scale: 0.96, y: 12 }}
+			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
+			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
+		>
 			{/* Burnt orange stripe */}
 			<div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: "#E1542A" }} />
 

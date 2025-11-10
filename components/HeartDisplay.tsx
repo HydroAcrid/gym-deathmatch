@@ -1,8 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 export function HeartDisplay({ lives }: { lives: number }) {
+	const prefersReduced = useReducedMotion();
 	return (
 		<div className="flex items-center gap-2 pl-2">
 			{[0, 1, 2].map((i) => {
@@ -12,6 +13,16 @@ export function HeartDisplay({ lives }: { lives: number }) {
 						key={i}
 						className={`text-2xl ${filled ? "text-deepBrown" : "text-deepBrown/40"}`}
 						whileHover={{ scale: 1.08 }}
+						animate={
+							prefersReduced
+								? undefined
+								: { scale: filled ? [1, 1.06, 1] : 1 }
+						}
+						transition={
+							prefersReduced
+								? undefined
+								: { duration: 1.8, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }
+						}
 						aria-label={filled ? "life" : "lost life"}
 					>
 						{filled ? "❤️" : "🤍"}

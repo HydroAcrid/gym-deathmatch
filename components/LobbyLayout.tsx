@@ -14,6 +14,19 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const search = useSearchParams();
 	const stravaConnected = search.get("stravaConnected");
 	const connectedPlayerId = search.get("playerId");
+	const container = {
+		hidden: {},
+		show: {
+			transition: {
+				staggerChildren: 0.08,
+				delayChildren: 0.12
+			}
+		}
+	};
+	const item = {
+		hidden: { opacity: 0, y: 12, scale: 0.98 },
+		show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" } }
+	};
 
 	const banner = useMemo(() => {
 		if (stravaConnected === "1" && connectedPlayerId) {
@@ -49,12 +62,16 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			</div>
 
 			{/* Players grid */}
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+			<motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4" variants={container} initial="hidden" animate="show">
 				{players.map((p) => (
-					<PlayerCard key={p.id} player={p} />
+					<motion.div key={p.id} variants={item}>
+						<PlayerCard player={p} />
+					</motion.div>
 				))}
-				<InvitePlayerCard onAdd={(np) => setPlayers(prev => [...prev, np])} />
-			</div>
+				<motion.div variants={item}>
+					<InvitePlayerCard onAdd={(np) => setPlayers(prev => [...prev, np])} />
+				</motion.div>
+			</motion.div>
 		</div>
 	);
 }

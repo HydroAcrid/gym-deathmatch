@@ -173,4 +173,10 @@ body {
 .btn-vintage:hover { background: #c6441f; transform: translateY(1px); }
 .btn-vintage-teal { background: #7FA39A; color: #1E1714; }
 .btn-vintage-teal:hover { background: #436055; }
+.btn-vintage:active { transform: translateY(2px); filter: brightness(0.95); transition-duration: 20ms; }
+
+/* Reduced motion: disable decorative loops */
+@media (prefers-reduced-motion: reduce) {
+  .flicker, .blinking-colon { animation: none !important; }
+}
 

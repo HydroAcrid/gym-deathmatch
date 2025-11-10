@@ -25,12 +25,28 @@ export function Navbar() {
 						const active = pathname === t.href || (t.href.startsWith("/lobby") && pathname.startsWith("/lobby"));
 						return (
 							<Link key={t.href} href={t.href} className="relative">
-								<motion.span
-									className="poster-headline text-sm tracking-wide"
+								<motion.span className="poster-headline text-sm tracking-wide relative block"
 									whileHover={{ y: -1 }}
 								>
 									<span className="px-1">{t.label.toUpperCase()}</span>
-									{active && <span className="block h-1 mt-1 rounded-sm" style={{ backgroundColor: "#E1542A" }} />}
+									<motion.span
+										layoutId={`nav-underline`}
+										className="absolute left-0 -bottom-1 h-1 rounded-sm"
+										style={{ backgroundColor: "#E1542A" }}
+										initial={false}
+										animate={{
+											width: active ? "100%" : "0%"
+										}}
+										transition={{ duration: 0.3, ease: "easeInOut" }}
+									/>
+									{active && (
+										<motion.span
+											className="absolute left-0 -bottom-1 h-1 rounded-sm"
+											style={{ backgroundColor: "transparent" }}
+											animate={{ opacity: [0.6, 1, 0.6] }}
+											transition={{ repeat: Infinity, duration: 2 }}
+										/>
+									)}
 								</motion.span>
 							</Link>
 						);
