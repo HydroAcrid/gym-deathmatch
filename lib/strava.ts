@@ -102,4 +102,30 @@ export async function refreshAccessToken(refreshToken: string): Promise<StravaTo
 	}
 }
 
+export type RawStravaActivity = {
+	name: string;
+	type: string;
+	start_date?: string;
+	start_date_local?: string;
+	moving_time?: number; // seconds
+	distance?: number; // meters
+};
+
+export function toActivitySummary(raw: RawStravaActivity) {
+	const start = raw.start_date_local || raw.start_date || new Date().toISOString();
+	const d = new Date(start);
+	const hour = d.getHours();
+	const durationMinutes = Math.round((raw.moving_time || 0) / 60);
+	const distanceKm = Math.round(((raw.distance || 0) / 1000) * 100) / 100;
+	return {
+		name: raw.name || "Workout",
+		type: raw.type || "Workout",
+		startDate: d.toISOString(),
+		durationMinutes,
+		distanceKm,
+		isMorning: hour >= 5 && hour <= 10,
+		isNight: hour >= 20 || hour < 5
+	};
+}
+
 

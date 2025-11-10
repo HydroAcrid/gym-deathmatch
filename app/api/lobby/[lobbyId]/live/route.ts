@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLobbyById } from "@/lib/lobbies";
 import { getTokensForPlayer } from "@/lib/stravaStore";
-import { fetchRecentActivities, refreshAccessToken } from "@/lib/strava";
+import { fetchRecentActivities, refreshAccessToken, toActivitySummary } from "@/lib/strava";
 import { calculateAverageWorkoutsPerWeek, calculateLongestStreak, calculateStreakFromActivities, calculateTotalWorkouts } from "@/lib/streaks";
 import type { LiveLobbyResponse } from "@/types/api";
 import { setTokensForPlayer } from "@/lib/stravaStore";
@@ -90,6 +90,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				const longestStreak = calculateLongestStreak(activities, seasonStart, seasonEnd);
 				const avg = calculateAverageWorkoutsPerWeek(activities, seasonStart, seasonEnd);
 				const { livesRemaining, events } = computeLivesAndEvents(activities as any[], { seasonStart, seasonEnd, weeklyTarget, initialLives });
+				const recentActivities = (activities as any[]).slice(0, 5).map(toActivitySummary);
 				return {
 					...p,
 					isStravaConnected: true,
@@ -98,7 +99,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					longestStreak,
 					averageWorkoutsPerWeek: Number.isFinite(avg) ? Number(avg.toFixed(2)) : 0,
 					livesRemaining,
-					events
+					events,
+					recentActivities
 				};
 			} catch (e: any) {
 				// Attempt token refresh on 401/403
@@ -113,6 +115,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						const longestStreak = calculateLongestStreak(activities, seasonStart, seasonEnd);
 						const avg = calculateAverageWorkoutsPerWeek(activities, seasonStart, seasonEnd);
 						const { livesRemaining, events } = computeLivesAndEvents(activities as any[], { seasonStart, seasonEnd, weeklyTarget, initialLives });
+						const recentActivities = (activities as any[]).slice(0, 5).map(toActivitySummary);
 						return {
 							...p,
 							isStravaConnected: true,
@@ -121,7 +124,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							longestStreak,
 							averageWorkoutsPerWeek: Number.isFinite(avg) ? Number(avg.toFixed(2)) : 0,
 							livesRemaining,
-							events
+							events,
+							recentActivities
 						};
 					} catch (refreshErr) {
 						console.error("refresh failed for player", p.id, refreshErr);

@@ -28,4 +28,14 @@ export interface Lobby {
 	ownerId?: PlayerId;
 }
 
+export interface ActivitySummary {
+	name: string;
+	type: string;
+	startDate: string; // ISO
+	durationMinutes: number;
+	distanceKm: number;
+	isMorning: boolean;
+	isNight: boolean;
+}
+
 
