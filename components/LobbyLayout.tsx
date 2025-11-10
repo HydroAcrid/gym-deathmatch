@@ -9,6 +9,8 @@ import { InvitePlayerCard } from "./InvitePlayerCard";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useToast } from "./ToastProvider";
+import { RecentFeed } from "./RecentFeed";
+import { oneLinerFromActivity } from "@/lib/messages";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
@@ -44,6 +46,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		return null;
 	}, [stravaConnected, stravaError, connectedPlayerId, players]);
 	const toast = useToast();
+	const [feedEvents, setFeedEvents] = useState<{ message: string; timestamp: string }[]>([]);
 
 	const reloadLive = async () => {
 		try {
@@ -52,6 +55,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			const data = await res.json();
 			if (data?.lobby?.players) {
 				setPlayers(data.lobby.players);
+				setFeedEvents(buildFeedFromPlayers(data.lobby.players));
 			}
 			// show reconnect hint if there are errors
 			if (data?.errors?.length) {
@@ -79,6 +83,12 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		// re-fetch after connect or error banners too
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobby.id, stravaConnected, stravaError]);
+	// periodic refresh to keep feed fresh
+	useEffect(() => {
+		const id = setInterval(() => { reloadLive(); }, 12 * 60 * 1000);
+		return () => clearInterval(id);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [lobby.id]);
 	// Welcome toast after join
 	useEffect(() => {
 		if (joined === "1" && connectedPlayerId) {
@@ -123,9 +133,16 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				<Scoreboard amount={lobby.cashPool} endIso={lobby.seasonEnd} />
 			</div>
 
-			{/* Players grid */}
-			<motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4" variants={container} initial="hidden" animate="show">
-				{players.map((p) => (
+			<div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_320px] gap-4 items-start">
+				{players.slice(0, 2).map((p) => (
+					<motion.div key={p.id} variants={item}>
+						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
+					</motion.div>
+				))}
+				<div>
+					<RecentFeed lobbyId={lobby.id} events={feedEvents} />
+				</div>
+				{players.slice(2).map((p) => (
 					<motion.div key={p.id} variants={item}>
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
 					</motion.div>
@@ -133,7 +150,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				<motion.div variants={item}>
 					<InvitePlayerCard lobbyId={lobby.id} onAdd={(np) => { setPlayers(prev => [...prev, np]); }} onReplace={(plist)=> setPlayers(plist)} />
 				</motion.div>
-			</motion.div>
+			</div>
 			{/* Reconnect banner if errors */}
 			{/* In a next pass, we could show per-player lines; for now a simple CTA */}
 			{/* The live endpoint returns errors: [{ playerId, reason }] */}
@@ -155,3 +172,37 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 
 // (inline OwnerSettings removed; replaced by OwnerSettingsModal)
 
+function buildFeedFromPlayers(players: any[]) {
+	const evs: { message: string; timestamp: string }[] = [];
+	for (const p of players) {
+		const name = p.name || "Player";
+		for (const a of (p.recentActivities ?? [])) {
+			evs.push({
+				message: `${name}: ${a.durationMinutes}m ${readableType(a.type)} — ${a.name}`,
+				timestamp: a.startDate
+			});
+		}
+		for (const e of (p.events ?? [])) {
+			evs.push({
+				message: e.met ? `${name} hit weekly target (${e.count}) ✅` : `${name} missed target (${e.count}) 💀`,
+				timestamp: e.weekStart
+			});
+		}
+	}
+	evs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+	// last 24h only, keep up to 5
+	const day = 24 * 60 * 60 * 1000;
+	const now = Date.now();
+	const recent = evs.filter(e => now - new Date(e.timestamp).getTime() <= day);
+	return (recent.length ? recent : evs).slice(0, 5);
+}
+
+function readableType(t: string) {
+	const s = (t || "").toLowerCase();
+	if (s.includes("run")) return "run 🏃";
+	if (s.includes("ride") || s.includes("bike")) return "ride 🚴";
+	if (s.includes("swim")) return "swim 🏊";
+	if (s.includes("walk")) return "walk 🚶";
+	if (s.includes("hike")) return "hike 🥾";
+	return "session 💪";
+}

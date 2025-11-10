@@ -10,7 +10,7 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 	const avatar = player.avatarUrl || "";
 	return (
 		<motion.div
-			className="paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300"
+			className="paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 md:min-h-[420px]"
 			initial={{ opacity: 0, scale: 0.96, y: 12 }}
 			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
 			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
