@@ -15,17 +15,19 @@ export async function exchangeCodeForToken(code: string): Promise<StravaTokens> 
 			throw new Error("Missing STRAVA_CLIENT_ID or STRAVA_CLIENT_SECRET");
 		}
 
+		const body = new URLSearchParams({
+			client_id: String(clientId),
+			client_secret: String(clientSecret),
+			code,
+			grant_type: "authorization_code"
+		});
+
 		const res = await fetch(STRAVA_TOKEN_URL, {
 			method: "POST",
 			headers: {
-				"Content-Type": "application/json"
+				"Content-Type": "application/x-www-form-urlencoded"
 			},
-			body: JSON.stringify({
-				client_id: clientId,
-				client_secret: clientSecret,
-				code,
-				grant_type: "authorization_code"
-			})
+			body
 		});
 		if (!res.ok) {
 			const text = await res.text();

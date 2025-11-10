@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Player } from "@/types/game";
 import { HeartDisplay } from "./HeartDisplay";
@@ -38,12 +37,12 @@ export function PlayerCard({ player }: { player: Player }) {
 							CONNECTED
 						</span>
 					) : (
-						<Link
+						<a
 							href={`/api/strava/authorize?playerId=${encodeURIComponent(player.id)}`}
-							className="btn-vintage px-3 py-2 rounded-md text-[10px]"
+							className="btn-vintage px-3 py-2 rounded-md text-[10px] transition-all duration-300"
 						>
 							CONNECT STRAVA
-						</Link>
+						</a>
 					)}
 				</div>
 			</div>

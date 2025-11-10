@@ -16,17 +16,26 @@ export async function GET(req: NextRequest) {
 	} catch {
 		return NextResponse.json({ error: "Invalid state" }, { status: 400 });
 	}
+	const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+	if (!baseUrl) {
+		console.error("Missing NEXT_PUBLIC_BASE_URL");
+		return NextResponse.json({ error: "Missing NEXT_PUBLIC_BASE_URL" }, { status: 500 });
+	}
 	try {
 		const tokens = await exchangeCodeForToken(code);
 		setTokensForPlayer(playerId, tokens);
 		console.log("Strava connected for player", playerId);
 	} catch (e) {
 		console.error("Callback error", e);
-		// Continue redirecting to lobby even if token exchange fails, to keep UX flowing
+		// Redirect with error flag to keep UX flowing
+		const lobbyId = "kevin-nelly";
+		return NextResponse.redirect(`${baseUrl}/lobby/${lobbyId}?stravaError=1&playerId=${encodeURIComponent(playerId)}`, {
+			status: 302
+		});
 	}
 	// Redirect to default lobby for now; in multi-lobby, store lobby ID in state too.
 	const lobbyId = "kevin-nelly";
-	return NextResponse.redirect(`/lobby/${lobbyId}?stravaConnected=1&playerId=${encodeURIComponent(playerId)}`, {
+	return NextResponse.redirect(`${baseUrl}/lobby/${lobbyId}?stravaConnected=1&playerId=${encodeURIComponent(playerId)}`, {
 		status: 302
 	});
 }
