@@ -8,7 +8,8 @@ create table if not exists lobby (
   season_end timestamptz not null,
   cash_pool int not null default 0,
   weekly_target int not null default 3,
-  initial_lives int not null default 3
+  initial_lives int not null default 3,
+  owner_id text references player(id)
 );
 
 create table if not exists player (

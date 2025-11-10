@@ -28,6 +28,8 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 			});
 			localStorage.setItem("gymdm_playerId", id);
 			setNewPlayerId(id);
+			// Navigate to the lobby so the Connect button appears on your card
+			window.location.href = `/lobby/${encodeURIComponent(lobbyId)}?joined=1&playerId=${encodeURIComponent(id)}`;
 		} finally {
 			setSubmitting(false);
 		}

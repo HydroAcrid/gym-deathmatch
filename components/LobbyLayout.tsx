@@ -9,6 +9,8 @@ import { PlayerCard } from "./PlayerCard";
 import { InvitePlayerCard } from "./InvitePlayerCard";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import { useToast } from "./ToastProvider";
+import { OwnerSettingsModal } from "./OwnerSettingsModal";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
@@ -17,6 +19,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const stravaConnected = search.get("stravaConnected");
 	const connectedPlayerId = search.get("playerId");
 	const stravaError = search.get("stravaError");
+	const joined = search.get("joined");
 	const container = {
 		hidden: {},
 		show: {
@@ -42,6 +45,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		}
 		return null;
 	}, [stravaConnected, stravaError, connectedPlayerId, players]);
+	const toast = useToast();
 
 	const reloadLive = async () => {
 		try {
@@ -53,7 +57,12 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			}
 			// show reconnect hint if there are errors
 			if (data?.errors?.length) {
-				// noop: banner below will cover
+				const names: string[] = [];
+				for (const err of data.errors) {
+					const n = data.lobby.players.find((p: any) => p.id === err.playerId)?.name ?? err.playerId;
+					names.push(n);
+				}
+				toast.push(`Some connections need attention: ${names.join(", ")}`);
 			}
 		} catch {
 			// ignore
@@ -72,36 +81,54 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		// re-fetch after connect or error banners too
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobby.id, stravaConnected, stravaError]);
+	// Welcome toast after join
+	useEffect(() => {
+		if (joined === "1" && connectedPlayerId) {
+			toast.push("Welcome! You joined the lobby.");
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [joined, connectedPlayerId]);
 
 	return (
 		<div className="mx-auto max-w-6xl">
 			{/* Season header strip */}
-			<div className="relative mb-6">
+			<div className="relative mb-3">
 				<motion.div className="paper-card paper-grain ink-edge px-4 py-3 border-b-4" style={{ borderColor: "#E1542A" }}>
 					<div className="flex flex-wrap items-center gap-3">
-						<div className="poster-headline text-lg">{lobby.name.toUpperCase()}</div>
-						<div className="text-xs text-deepBrown/70">SEASON {lobby.seasonNumber} · WINTER GRIND</div>
-						<div className="ml-auto">
-							<Countdown endIso={lobby.seasonEnd} />
-						</div>
 						<button
-							className="ml-3 px-2 py-1 rounded-md border border-deepBrown/30 text-deepBrown text-xs hover:bg-deepBrown/10"
+							aria-label="Copy invite link"
+							className="px-2 py-1 rounded-md border border-deepBrown/30 text-deepBrown text-xs hover:bg-deepBrown/10"
 							onClick={() => {
 								if (typeof window !== "undefined") {
 									navigator.clipboard?.writeText(`${window.location.origin}/join/${lobby.id}`);
+									toast.push("Invite link copied");
 								}
 							}}
 						>
-							Copy invite link
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+								<path d="M10 13a5 5 0 0 0 7.07 0l3.54-3.54a5 5 0 0 0-7.07-7.07L11 4" />
+								<path d="M14 11a5 5 0 0 0-7.07 0L3.39 14.54a5 5 0 1 0 7.07 7.07L13 20" />
+							</svg>
 						</button>
+						<div className="poster-headline text-2xl">{lobby.name.toUpperCase()}</div>
+						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · WINTER GRIND</div>
+						<div className="ml-auto flex items-center gap-2">
+							<Countdown endIso={lobby.seasonEnd} />
+							{(me && lobby.ownerId && me === lobby.ownerId) && (
+								<OwnerSettingsModal
+									lobbyId={lobby.id}
+									defaultWeekly={lobby.weeklyTarget ?? 3}
+									defaultLives={lobby.initialLives ?? 3}
+									defaultSeasonEnd={lobby.seasonEnd}
+									onSaved={() => { reloadLive(); }}
+								/>
+							)}
+						</div>
 					</div>
 				</motion.div>
-				{banner && (
-					<div className="mt-2 text-xs bg-cream border border-deepBrown/40 text-deepBrown px-3 py-2 rounded-md ink-edge">
-						{banner}
-					</div>
-				)}
+				
 			</div>
+			
 
 			{/* Cash Pool */}
 			<div className="mb-6">
@@ -138,4 +165,5 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	);
 }
 
+// (inline OwnerSettings removed; replaced by OwnerSettingsModal)
 

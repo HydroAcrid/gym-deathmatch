@@ -16,7 +16,7 @@ export function Countdown({ endIso }: { endIso: string }) {
 	const [remaining, setRemaining] = useState(() => getRemaining(end));
 	const prefersReduced = useReducedMotion();
 	useEffect(() => {
-		const t = setInterval(() => setRemaining(getRemaining(end)), 30_000);
+		const t = setInterval(() => setRemaining(getRemaining(end)), 1000);
 		return () => clearInterval(t);
 	}, [end]);
 	const numVariants = {
@@ -45,6 +45,10 @@ export function Countdown({ endIso }: { endIso: string }) {
 						{remaining.minutes} M
 					</motion.span>
 				</AnimatePresence>
+				<span>·</span>
+				<motion.span className="text-xl">
+					{String(new Date().getSeconds()).padStart(2, "0")} S
+				</motion.span>
 			</div>
 		</div>
 	);

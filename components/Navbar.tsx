@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { IntroGuide } from "./IntroGuide";
 import { JoinLobby } from "./JoinLobby";
+import { CreateLobby } from "./CreateLobby";
 
 const tabs = [
 	{ href: "/lobby/kevin-nelly", label: "Home" },
@@ -55,6 +56,7 @@ export function Navbar() {
 						);
 					})}
 					<div className="ml-auto flex items-center gap-2">
+						<CreateLobby />
 						<JoinLobby lobbyId="kevin-nelly" />
 						<IntroGuide />
 					</div>

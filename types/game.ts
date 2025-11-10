@@ -25,6 +25,7 @@ export interface Lobby {
 	cashPool: number;
 	weeklyTarget?: number;
 	initialLives?: number;
+	ownerId?: PlayerId;
 }
 
 

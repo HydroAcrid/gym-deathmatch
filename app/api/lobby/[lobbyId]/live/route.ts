@@ -7,10 +7,62 @@ import type { LiveLobbyResponse } from "@/types/api";
 import { setTokensForPlayer } from "@/lib/stravaStore";
 import { upsertStravaTokens } from "@/lib/persistence";
 import { computeLivesAndEvents } from "@/lib/rules";
+import { getServerSupabase } from "@/lib/supabaseClient";
+import type { Lobby, Player } from "@/types/game";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const lobby = getLobbyById(lobbyId);
+	let lobby = getLobbyById(lobbyId);
+	// Hydrate lobby config from Supabase if available (and also support lobbies that don't exist in mock)
+	try {
+		const supabase = getServerSupabase();
+		if (supabase) {
+			const { data: lrow } = await supabase.from("lobby").select("*").eq("id", lobbyId).single();
+			if (lrow) {
+				if (lobby) {
+					// Merge config onto mock lobby
+					lobby = {
+						...lobby,
+						seasonNumber: lrow.season_number ?? lobby.seasonNumber,
+						seasonStart: lrow.season_start ?? lobby.seasonStart,
+						seasonEnd: lrow.season_end ?? lobby.seasonEnd,
+						cashPool: lrow.cash_pool ?? lobby.cashPool,
+						weeklyTarget: lrow.weekly_target ?? lobby.weeklyTarget,
+						initialLives: lrow.initial_lives ?? lobby.initialLives,
+						ownerId: lrow.owner_id ?? lobby.ownerId
+					};
+				} else {
+					// Create lobby from DB rows
+					const { data: prows } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
+					const players: Player[] = (prows ?? []).map((p: any) => ({
+						id: p.id,
+						name: p.name,
+						avatarUrl: p.avatar_url ?? "",
+						location: p.location ?? "",
+						currentStreak: 0,
+						longestStreak: 0,
+						livesRemaining: (lrow.initial_lives as number) ?? 3,
+						totalWorkouts: 0,
+						averageWorkoutsPerWeek: 0,
+						quip: p.quip ?? "",
+						isStravaConnected: false
+					}));
+					lobby = {
+						id: lobbyId,
+						name: lrow.name,
+						players,
+						seasonNumber: lrow.season_number ?? 1,
+						seasonStart: lrow.season_start ?? new Date().toISOString(),
+						seasonEnd: lrow.season_end ?? new Date().toISOString(),
+						cashPool: lrow.cash_pool ?? 0,
+						weeklyTarget: lrow.weekly_target ?? 3,
+						initialLives: lrow.initial_lives ?? 3,
+						ownerId: lrow.owner_id ?? undefined
+					} as Lobby;
+				}
+			}
+		}
+	} catch { /* ignore */ }
 	if (!lobby) {
 		return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
 	}

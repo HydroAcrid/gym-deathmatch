@@ -9,6 +9,7 @@ export const defaultLobby: Lobby = {
 	cashPool: 120,
 	weeklyTarget: 3,
 	initialLives: 3,
+	ownerId: "kevin",
 	players: [
 		{
 			id: "kevin",
