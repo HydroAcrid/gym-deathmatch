@@ -58,7 +58,7 @@ export function CreateLobby() {
 
 	return (
 		<>
-			<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={() => setOpen(true)}>
+			<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setOpen(true)}>
 				＋ Create Lobby
 			</button>
 			<AnimatePresence>

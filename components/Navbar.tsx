@@ -33,22 +33,12 @@ export function Navbar() {
 									whileHover={{ y: -1, filter: "brightness(1.1)" }}
 								>
 									<span className="px-1">{t.label.toUpperCase()}</span>
-									<motion.span
-										layoutId={`nav-underline`}
-										className="absolute left-0 -bottom-1 h-1 rounded-sm"
-										style={{ backgroundColor: "#E1542A" }}
-										initial={false}
-										animate={{
-											width: active ? "100%" : "0%"
-										}}
-										transition={{ duration: 0.3, ease: "easeInOut" }}
-									/>
 									{active && (
 										<motion.span
+											layoutId={`nav-underline`}
 											className="absolute left-0 -bottom-1 h-1 rounded-sm"
-											style={{ backgroundColor: "transparent" }}
-											animate={{ opacity: [0.6, 1, 0.6] }}
-											transition={{ repeat: Infinity, duration: 2 }}
+											style={{ backgroundColor: "#E1542A", width: "100%" }}
+											transition={{ type: "spring", stiffness: 500, damping: 35 }}
 										/>
 									)}
 								</motion.span>

@@ -180,3 +180,28 @@ body {
   .flicker, .blinking-colon { animation: none !important; }
 }
 
+/* Secondary button (black/white outline) */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  background: transparent;
+  color: #F5E7D3; /* deepBrown (light) on dark bg */
+  border: 1px solid #F5E7D3;
+  border-radius: 0.35rem;
+  padding: 0.5rem 1rem;
+  transition: transform 0.12s ease, background-color 0.12s ease, color 0.12s ease, filter 0.12s ease;
+}
+.btn-secondary:hover {
+  background: #F5E7D3;
+  color: #1E1714; /* dark text on light bg */
+  filter: brightness(1.01);
+}
+.btn-secondary:active {
+  transform: translateY(2px);
+  transition-duration: 20ms;
+}
+

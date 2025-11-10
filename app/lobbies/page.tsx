@@ -36,7 +36,7 @@ export default function LobbiesPage() {
 								{l.name}
 							</Link>
 							{playerId && l.owner_id === playerId && (
-								<button className="btn-vintage-teal px-3 py-2 rounded-md text-xs"
+								<button className="btn-secondary px-3 py-2 rounded-md text-xs"
 									onClick={() => setEditLobby(l)}>
 									Edit
 								</button>
