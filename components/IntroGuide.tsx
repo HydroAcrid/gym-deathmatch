@@ -29,8 +29,8 @@ export function IntroGuide() {
 		}
 	}, []);
 
-	function close(dontShowAgain: boolean) {
-		if (dontShowAgain) localStorage.setItem("gymdm_seen_intro", "1");
+	function close(markSeen: boolean) {
+		if (markSeen) localStorage.setItem("gymdm_seen_intro", "1");
 		setOpen(false);
 	}
 
@@ -38,7 +38,7 @@ export function IntroGuide() {
 		<>
 			<button
 				type="button"
-				className="ml-3 px-2 py-1 rounded-md border border-deepBrown/30 text-deepBrown text-xs hover:bg-deepBrown/10"
+				className="ml-3 btn-secondary px-2 py-1 text-xs"
 				onClick={() => {
 					setIdx(0);
 					setOpen(true);
@@ -68,11 +68,8 @@ export function IntroGuide() {
 									Step {idx + 1} / {STEPS.length}
 								</div>
 								<div className="flex gap-2">
-									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => close(true)}>
-										Don’t show again
-									</button>
 									{idx > 0 && (
-										<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setIdx((i) => i - 1)}>
+										<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setIdx((i) => i - 1)}>
 											Back
 										</button>
 									)}
