@@ -45,7 +45,7 @@ export function ProfileAvatar() {
 		setBusy(true);
 		try {
 			const supabase = getBrowserSupabase();
-			if (!supabase) {
+			if (!supabase || !user) {
 				alert("Upload not configured. Paste an image URL instead.");
 				return;
 			}
@@ -77,6 +77,7 @@ export function ProfileAvatar() {
 	}
 
 	async function save() {
+		if (!user) return;
 		setBusy(true);
 		try {
 			// Save to user_profile

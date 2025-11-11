@@ -37,7 +37,7 @@ export async function upsertStravaTokens(playerId: string, tokens: StravaTokens)
 	const supabase = getServerSupabase();
 	if (!supabase) return false;
 	const expiresAtIso = new Date(tokens.expiresAt * 1000).toISOString();
-	const { error } = await supabase.from<StravaTokenRow>("strava_token").upsert(
+	const { error } = await supabase.from("strava_token").upsert(
 		{
 			player_id: playerId,
 			access_token: tokens.accessToken,

@@ -23,10 +23,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		if (!supabase) return;
 		let ignore = false;
-		supabase.auth.getUser().then(({ data }) => {
+		supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
 			if (!ignore) setUser(data.user ?? null);
 		});
-		const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+		const { data: sub } = supabase.auth.onAuthStateChange((_e: any, session: any) => {
 			setUser(session?.user ?? null);
 		});
 		return () => {
