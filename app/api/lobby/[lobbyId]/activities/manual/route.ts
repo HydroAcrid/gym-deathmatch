@@ -24,7 +24,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		const { data: prow } = await supabase.from("player").select("id").eq("id", playerId).eq("lobby_id", lobbyId).maybeSingle();
 		if (!prow) return NextResponse.json({ error: "Player not in lobby" }, { status: 400 });
 
-		const voteDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 		const { data, error } = await supabase.from("manual_activities").insert({
 			lobby_id: lobbyId,
 			player_id: playerId,
@@ -35,8 +34,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			notes,
 			photo_url: photoUrl,
 			caption,
-			status: "pending",
-			vote_deadline: voteDeadline
+			status: "approved",
+			vote_deadline: null
 		}).select("*").single();
 		if (error) throw error;
 

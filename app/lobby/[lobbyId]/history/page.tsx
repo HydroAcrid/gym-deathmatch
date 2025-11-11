@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
 type PlayerLite = { id: string; name: string; avatar_url?: string | null; user_id?: string | null };
@@ -24,51 +24,70 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [busy, setBusy] = useState(false);
 	const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 	const [historyEvents, setHistoryEvents] = useState<EventRow[]>([]);
+	const [lobbyName, setLobbyName] = useState<string>("");
 
 	useEffect(() => {
 		(async () => {
 			const { lobbyId } = await params;
 			setLobbyId(lobbyId);
-			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
-			if (!supabase) return;
-			const [{ data: prows }, { data: lrow }] = await Promise.all([
-				supabase.from("player").select("*").eq("lobby_id", lobbyId),
-				supabase.from("lobby").select("*").eq("id", lobbyId).maybeSingle()
-			]);
-			setPlayers((prows ?? []) as any);
-			setOwnerPlayerId((lrow as any)?.owner_id ?? null);
-			if (user?.id) {
-				const mine = (prows ?? []).find((p: any) => p.user_id === user.id);
-				setMyPlayerId(mine?.id ?? null);
-			}
+			// Wait for user to be known; the API requires x-user-id
+			if (!user?.id) return;
 			await reloadActivities(lobbyId);
 		})();
 	}, [params, user?.id]);
 
+	// Also refresh when a global refresh event is fired (after posting)
+	useEffect(() => {
+		function onRefresh() { reloadActivities(); }
+		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
+		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [lobbyId]);
+
 	async function reloadActivities(lid: string = lobbyId) {
-		const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
-		if (!supabase || !lid) return;
-		const { data: acts } = await supabase
-			.from("manual_activities")
-			.select("*")
-			.eq("lobby_id", lid)
-			.order("created_at", { ascending: false })
-			.limit(50);
-		setActivities((acts ?? []) as any);
-		// history events
-		const { data: evs } = await supabase.from("history_events").select("*").eq("lobby_id", lid).order("created_at", { ascending: false }).limit(50);
-		setHistoryEvents((evs ?? []) as any);
-		const ids = (acts ?? []).map((a: any) => a.id);
-		if (!ids.length) { setVotesByAct({}); return; }
-		const { data: allVotes } = await supabase.from("activity_votes").select("*").in("activity_id", ids);
-		const map: Record<string, { legit: number; sus: number; mine?: "legit" | "sus" }> = {};
-		for (const id of ids) map[id] = { legit: 0, sus: 0 };
-		for (const v of (allVotes ?? [])) {
-			if (!map[v.activity_id]) map[v.activity_id] = { legit: 0, sus: 0 };
-			if (v.choice === "legit") map[v.activity_id].legit++;
-			if (v.choice === "sus") map[v.activity_id].sus++;
-			if (v.voter_player_id === myPlayerId) map[v.activity_id].mine = v.choice;
+		if (!lid) return;
+		// Prefer server API (validates membership with service key) to avoid client RLS pitfalls
+		const me = user?.id || "";
+		const res = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history`, {
+			headers: me ? { "x-user-id": me } as any : undefined,
+			cache: "no-store"
+		});
+		if (res.ok) {
+			const j = await res.json();
+			const acts = (j?.activities ?? []) as ActivityRow[];
+			const prows = (j?.players ?? []) as PlayerLite[];
+			const lrow = j?.lobby as any;
+			setLobbyName(lrow?.name || lid);
+			setPlayers(prows as any);
+			setActivities(acts as any);
+			setHistoryEvents((j?.events ?? []) as any);
+			// derive owner and my player id
+			if (user?.id) {
+				const mine = (prows ?? []).find((p: any) => (p as any).user_id === user.id);
+				setMyPlayerId(mine?.id ?? null);
+			}
+			// owner: we don't return owner_user_id here; leave owner tools unchanged (we keep previous logic)
+			// fetch votes client-side for convenience
+			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+			if (supabase && acts.length) {
+				const ids = acts.map((a: any) => a.id);
+				const { data: allVotes } = await supabase.from("activity_votes").select("*").in("activity_id", ids);
+				const map: Record<string, { legit: number; sus: number; mine?: "legit" | "sus" }> = {};
+				for (const id of ids) map[id] = { legit: 0, sus: 0 };
+				for (const v of (allVotes ?? [])) {
+					if (!map[v.activity_id]) map[v.activity_id] = { legit: 0, sus: 0 };
+					if (v.choice === "legit") map[v.activity_id].legit++;
+					if (v.choice === "sus") map[v.activity_id].sus++;
+					if (v.voter_player_id === myPlayerId) map[v.activity_id].mine = v.choice;
+				}
+				setVotesByAct(map);
+				return;
+			}
 		}
+		// Fallback: empty
+		setActivities([]);
+		setHistoryEvents([]);
+		const map: Record<string, { legit: number; sus: number; mine?: "legit" | "sus" }> = {};
 		setVotesByAct(map);
 	}
 
@@ -129,14 +148,43 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 
 	const isOwner = ownerPlayerId && myPlayerId && ownerPlayerId === myPlayerId;
 
-	// Merge posts and system events into a single feed
-	const combined = [...(activities as any[]).map(a => ({ kind: "post" as const, createdAt: a.created_at || a.date, a })), ...(historyEvents as any[]).map(e => ({ kind: "event" as const, createdAt: e.created_at, e }))].sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
+	// Build a single-column feed of items, newest first
+	const items = useMemo(() => {
+		const arr: Array<{ kind: "post" | "event"; createdAt: string; a?: ActivityRow; e?: EventRow }> = [];
+		for (const a of activities as any[]) arr.push({ kind: "post", createdAt: (a.created_at || a.date) as string, a });
+		for (const e of historyEvents as any[]) arr.push({ kind: "event", createdAt: e.created_at as string, e });
+		arr.sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
+		return arr;
+	}, [activities, historyEvents]);
+
+	// Fallback signed URLs for photos if the bucket is not public
+	const [signedUrlByAct, setSignedUrlByAct] = useState<Record<string, string>>({});
+	async function resolveSignedUrl(activityId: string, publicUrl: string) {
+		try {
+			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+			if (!supabase || !publicUrl) return;
+			// public URL looks like .../storage/v1/object/public/<bucket>/<path>
+			const marker = "/object/public/";
+			const idx = publicUrl.indexOf(marker);
+			if (idx === -1) return;
+			const sub = publicUrl.slice(idx + marker.length);
+			const slash = sub.indexOf("/");
+			if (slash === -1) return;
+			const bucket = sub.slice(0, slash);
+			const objectPath = sub.slice(slash + 1);
+			const { data, error } = await supabase.storage.from(bucket).createSignedUrl(objectPath, 60 * 60 * 12);
+			if (error || !data?.signedUrl) return;
+			setSignedUrlByAct(prev => ({ ...prev, [activityId]: data.signedUrl }));
+		} catch {
+			// ignore
+		}
+	}
 
 	return (
-		<div className="mx-auto max-w-6xl">
+		<div className="mx-auto max-w-4xl">
 			<div className="paper-card paper-grain ink-edge p-5 mb-6 border-b-4" style={{ borderColor: "#E1542A" }}>
 				<div className="poster-headline text-lg">HISTORY</div>
-				<div className="text-deepBrown/70 text-xs">Manual posts and decisions • Lobby: {lobbyId}</div>
+				<div className="text-deepBrown/70 text-xs">Manual posts and decisions • Lobby: {lobbyName || lobbyId}</div>
 			</div>
 
 			{isOwner ? (
@@ -156,8 +204,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 				</div>
 			) : null}
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-				{combined.map(item => {
+			<div className="flex flex-col gap-4">
+				{items.map(item => {
 					if (item.kind === "event") {
 						const ev = item.e as EventRow;
 						return (
@@ -177,27 +225,43 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 					return (
 						<div key={a.id} className="paper-card paper-grain ink-edge p-4 flex flex-col gap-3">
 							<div className="flex items-center gap-3">
-								<div className="h-10 w-10 rounded-md overflow-hidden bg-tan border border-deepBrown/20">
-									{p?.avatar_url ? <img src={p.avatar_url} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-xl">🏋️</div>}
+								<div className="h-10 w-10 rounded-full overflow-hidden bg-tan border border-deepBrown/20 flex items-center justify-center">
+									{p?.avatar_url ? <img src={p.avatar_url} alt={p?.name || "athlete"} className="h-full w-full object-cover" /> : <span className="text-xl">🏋️‍♂️</span>}
 								</div>
 								<div className="flex-1">
-									<div className="poster-headline text-base leading-5">{p?.name?.toUpperCase() || "ATHLETE"}</div>
+									<div className="poster-headline text-base leading-5">{(p?.name || "Unknown athlete").toUpperCase()}</div>
 									<div className="text-[11px] text-deepBrown/70">{new Date(a.date).toLocaleString()}</div>
 								</div>
 								<StatusBadge status={a.status as any} />
 							</div>
-							{a.photo_url ? (
-								<div className="rounded-md overflow-hidden border border-deepBrown/20 cursor-zoom-in" onClick={() => setLightboxUrl(a.photo_url || null)}>
-									<img src={a.photo_url} alt="" className="w-full object-cover max-h-[280px]" />
-								</div>
-							) : null}
 							{a.caption ? <div className="text-sm">{a.caption}</div> : null}
-							<div className="text-[12px] text-deepBrown/80">
-								<strong className="mr-2">{titleCase(a.type)}</strong>
-								{a.duration_minutes ? `${a.duration_minutes} min` : ""}{a.duration_minutes && a.distance_km ? " · " : ""}{a.distance_km ? `${a.distance_km} km` : ""}
+							{a.photo_url ? (
+								<button
+									type="button"
+									aria-label="Open full-size photo"
+									className="relative w-full h-52 sm:h-56 md:h-64 rounded-xl overflow-hidden border border-deepBrown/20 bg-[#1a1512] group"
+									onClick={() => setLightboxUrl(a.photo_url || null)}
+								>
+									<img
+										src={signedUrlByAct[a.id] || a.photo_url}
+										alt=""
+										className="absolute inset-0 w-full h-full object-cover"
+										loading="lazy"
+										onError={() => resolveSignedUrl(a.id, a.photo_url || "")}
+									/>
+									<div className="absolute bottom-2 right-2 text-[12px] px-2 py-1 rounded-md bg-black/50 text-cream opacity-80 group-hover:opacity-100 transition">
+										🔍 Tap to expand
+									</div>
+								</button>
+							) : null}
+							<div className="text-[12px] text-deepBrown/80 border-t border-deepBrown/10 pt-2 flex items-center justify-between">
+								<div>
+									<strong className="mr-2">{titleCase(a.type)}</strong>
+									{a.duration_minutes ? `${a.duration_minutes} min` : ""}{a.duration_minutes && a.distance_km ? " · " : ""}{a.distance_km ? `${a.distance_km} km` : ""}
+								</div>
 							</div>
 							<div className="flex items-center justify-between text-[12px]">
-								<div>{v.legit} legit · {v.sus} sus {pending && a.vote_deadline ? `· ${timeLeft(a)} left` : ""}</div>
+								<div>{pending ? "Pending vote · " : a.status === "approved" ? "Approved · " : "Rejected · "}{v.legit} legit · {v.sus} sus {pending && a.vote_deadline ? `· ${timeLeft(a)} left` : ""}</div>
 								{pending && canVote(a) ? (
 									<div className="flex gap-2">
 										<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "legit" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "legit")}>
@@ -219,7 +283,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 						</div>
 					);
 				})}
-				{combined.length === 0 && <div className="text-deepBrown/70 text-sm">No posts yet.</div>}
+				{items.length === 0 && <div className="text-deepBrown/70 text-sm">No posts yet.</div>}
 			</div>
 			<Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
 		</div>
@@ -235,11 +299,9 @@ function StatusBadge({ status }: { status: "pending" | "approved" | "rejected" }
 function titleCase(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
 function renderEventLine(ev: EventRow, players: PlayerLite[]) {
-	const actor = ev.actor_player_id ? players.find(p => p.id === ev.actor_player_id)?.name : "System";
-	const target = ev.target_player_id ? players.find(p => p.id === ev.target_player_id)?.name : "";
-	if (ev.type === "ACTIVITY_LOGGED") {
-		return `${actor} logged an activity`;
-	}
+	const actor = ev.actor_player_id ? (players.find(p => p.id === ev.actor_player_id)?.name || "Unknown athlete") : "System";
+	const target = ev.target_player_id ? (players.find(p => p.id === ev.target_player_id)?.name || "Unknown athlete") : "";
+	if (ev.type === "ACTIVITY_LOGGED") return `${actor} posted a workout`;
 	if (ev.type === "VOTE_RESULT") {
 		const result = ev.payload?.result || "decision";
 		return `Vote result: ${result.replace(/_/g, " ")} (${ev.payload?.legit ?? 0} legit · ${ev.payload?.sus ?? 0} sus)`;

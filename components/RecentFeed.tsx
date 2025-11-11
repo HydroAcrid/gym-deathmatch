@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "./AuthProvider";
 
 export type FeedEvent = { message: string; timestamp: string };
 
@@ -13,6 +14,7 @@ export function RecentFeed({
 	events?: FeedEvent[];
 }) {
 	const [items, setItems] = useState<FeedEvent[]>(events ?? []);
+	const { user } = useAuth();
 
 	// Seed from props when they change
 	useEffect(() => {
@@ -27,19 +29,43 @@ export function RecentFeed({
 		let ignore = false;
 		async function refresh() {
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId!)} /live`.replace(" /", "/"), { cache: "no-store" });
+				const lid = lobbyId as string;
+				// Pull /live for recent activities + heart events
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lid)} /live`.replace(" /", "/"), { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				if (ignore || !data?.lobby?.players) return;
 				const evs: FeedEvent[] = buildFromLive(data);
+				// Also read latest manual posts (including pending) so new posts appear immediately
+				try {
+					// Use server API (membership-validated) to avoid client RLS issues
+					const res2 = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history?limit=5`, {
+						headers: user?.id ? { "x-user-id": user.id } as any : undefined,
+						cache: "no-store"
+					});
+					if (res2.ok) {
+						const j = await res2.json();
+						const acts = (j?.activities ?? []) as any[];
+						const players = (data?.lobby?.players ?? []) as any[];
+						const nameById = new Map<string, string>(players.map((p: any) => [p.id, p.name || "Player"]));
+						for (const a of acts) {
+							const when = a.created_at || a.date;
+							const txt = `${nameById.get(a.player_id) || "Player"}: ${a.caption || "manual workout"} ✍️${a.status === "pending" ? " · pending vote" : ""}`;
+							evs.push({ message: txt, timestamp: when });
+						}
+					}
+				} catch { /* ignore */ }
 				setItems(prev => mergeNewest(prev, evs));
 			} catch {
 				// ignore
 			}
 		}
 		refresh();
+		// Refresh on global "gymdm:refresh-live" events too (after posting)
+		function onRefresh() { refresh(); }
+		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
 		const id = setInterval(refresh, 12 * 60 * 1000); // 12 minutes
-		return () => { ignore = true; clearInterval(id); };
+		return () => { ignore = true; clearInterval(id); if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
 	}, [lobbyId]);
 
 	return (

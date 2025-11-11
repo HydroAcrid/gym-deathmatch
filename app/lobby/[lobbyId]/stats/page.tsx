@@ -122,6 +122,17 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 									</div>
 								</div>
 							</div>
+							{/* Source breakdown (approved manual posts are included in totals) */}
+							{(p as any).activityCounts ? (
+								<div className="mt-3 text-xs text-deepBrown/80">
+									<div className="text-[11px] text-deepBrown/60 mb-1">ACTIVITY SOURCES</div>
+									<div className="flex flex-wrap gap-3">
+										<span>All: {(p as any).activityCounts.total}</span>
+										<span>📡 Strava: {(p as any).activityCounts.strava}</span>
+										<span>✍️ Manual: {(p as any).activityCounts.manual}</span>
+									</div>
+								</div>
+							) : null}
 							<div className="mt-2 text-xs text-deepBrown/80">{p.name} {s.variety}</div>
 						</div>
 					);

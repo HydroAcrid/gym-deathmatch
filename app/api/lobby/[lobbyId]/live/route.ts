@@ -13,12 +13,20 @@ import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
+	// Optional debug mode: /live?debug=1 will include extra details and server logs
+	const debugMode = (() => {
+		try {
+			const url = new URL(_req.url);
+			return url.searchParams.get("debug") === "1";
+		} catch { return false; }
+	})();
 	const { lobbyId } = await params;
 	let lobby: Lobby | null = null;
 	let rawStatus: "pending" | "scheduled" | "active" | "completed" | undefined;
 	let rawSeasonNumber = 1;
 	let potConfig = { initialPot: 0, weeklyAnte: 10, scalingEnabled: false, perPlayerBoost: 0 };
 	let userIdByPlayer: Record<string, string | null> = {};
+	const debugRecords: any[] = [];
 	try {
 		const supabase = getServerSupabase();
 		if (supabase) {
@@ -48,12 +56,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					quip: p.quip ?? "",
 					isStravaConnected: false
 				}));
+				// Season start fallback: if missing, assume 14 days ago so fresh manual posts are counted
+				const seasonStartFallback = (() => {
+					const d = new Date();
+					d.setDate(d.getDate() - 14);
+					return d.toISOString();
+				})();
 				lobby = {
 					id: lobbyId,
 					name: lrow.name,
 					players,
 					seasonNumber: rawSeasonNumber,
-					seasonStart: lrow.season_start ?? new Date().toISOString(),
+					seasonStart: lrow.season_start ?? seasonStartFallback,
 					seasonEnd: lrow.season_end ?? new Date().toISOString(),
 					cashPool: lrow.cash_pool ?? 0,
 					initialPot: potConfig.initialPot,
@@ -95,6 +109,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const weeklyTarget = lobby.weeklyTarget ?? 3;
 	const initialLives = lobby.initialLives ?? 3;
 
+	// Prefetch approved manual activities for the whole lobby and index by player_id
+	let manualByPlayer: Record<string, ManualActivityRow[]> = {};
+	try {
+		const supabase = getServerSupabase();
+		if (supabase) {
+			const { data } = await supabase
+				.from("manual_activities")
+				.select("*")
+				.eq("lobby_id", lobby.id)
+				.eq("status", "approved")
+				.order("date", { ascending: false })
+				.limit(500);
+			for (const m of (data ?? []) as any[]) {
+				const pid = m.player_id as string;
+				if (!manualByPlayer[pid]) manualByPlayer[pid] = [];
+				manualByPlayer[pid].push(m as any);
+			}
+		}
+	} catch { /* ignore */ }
+
 	const updatedPlayers = await Promise.all(
 		lobby.players.map(async (p) => {
 			// Prefer user-scoped tokens
@@ -113,22 +147,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				if (tokens) {
 					activities = await fetchRecentActivities(tokens.accessToken) as any[];
 				}
-				// Fetch manual activities from Supabase
-				let manual: ManualActivityRow[] = [];
-				try {
-					const supabase = getServerSupabase();
-					if (supabase) {
-						const { data } = await supabase
-							.from("manual_activities")
-							.select("*")
-							.eq("lobby_id", lobby.id)
-							.eq("player_id", p.id)
-							.eq("status", "approved")
-							.order("date", { ascending: false })
-							.limit(50);
-						manual = (data ?? []) as any;
-					}
-				} catch { /* ignore */ }
+				// Manual activities (prefetched for lobby)
+				let manual: ManualActivityRow[] = manualByPlayer[p.id] ?? [];
 
 				// Map manual to strava-like objects for metrics and to summaries for feed
 				const manualAsStravaLike = (manual || []).map(m => ({
@@ -145,6 +165,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					const tb = new Date(b.start_date || b.start_date_local || 0).getTime();
 					return tb - ta;
 				});
+				if (debugMode) {
+					debugRecords.push({
+						playerId: p.id,
+						playerName: p.name,
+						manualCount: manual.length,
+						stravaCount: (activities as any[]).length,
+						combinedCount: (combined as any[]).length
+					});
+				}
 				// If unauthorized, refresh once
 				if (!combined || (combined as any).error) {
 					// noop: fetchRecentActivities returns [] on error; below logic handles via thrown error path
@@ -157,9 +186,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					? new Date()
 					: seasonStartDate;
 
-				const total = calculateTotalWorkouts(combined as any[], startForCalc.toISOString(), seasonEnd);
-				const currentStreak = calculateStreakFromActivities(combined as any[], startForCalc.toISOString(), seasonEnd);
-				const longestStreak = calculateLongestStreak(combined as any[], startForCalc.toISOString(), seasonEnd);
+				// Be robust: count all combined entries as total workouts (season bounds rarely matter for "now" views)
+				const total = (combined as any[]).length;
+				// For streaks, be forgiving and consider all combined activities (season-bound streaks are often confusing around start/end)
+				const currentStreak = calculateStreakFromActivities(combined as any[]);
+				const longestStreak = calculateLongestStreak(combined as any[]);
 				const avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc.toISOString(), seasonEnd);
 				const weekly = computeWeeklyHearts(combined as any[], startForCalc, { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
 				// Back-compat feed events (met/count) derived from weekly events
@@ -215,22 +246,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						setTokensForPlayer(p.id, refreshed); // in-memory
 						await upsertStravaTokens(p.id, refreshed); // legacy player-scoped
 						const activities = await fetchRecentActivities(refreshed.accessToken);
-						// manual again
-						let manual: ManualActivityRow[] = [];
-						try {
-							const supabase = getServerSupabase();
-							if (supabase) {
-								const { data } = await supabase
-									.from("manual_activities")
-									.select("*")
-									.eq("lobby_id", lobby.id)
-									.eq("player_id", p.id)
-							.eq("status", "approved")
-									.order("date", { ascending: false })
-									.limit(50);
-								manual = (data ?? []) as any;
-							}
-						} catch { /* ignore */ }
+						// manual again (use prefetched index)
+						let manual: ManualActivityRow[] = manualByPlayer[p.id] ?? [];
 						const manualAsStravaLike = (manual || []).map(m => ({
 							start_date: m.date,
 							start_date_local: m.date,
@@ -249,9 +266,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						const startForCalc2 = ((combined as any[]).length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
 							? new Date()
 							: seasonStartDate2;
-						const total = calculateTotalWorkouts(combined as any[], startForCalc2.toISOString(), seasonEnd);
-						const currentStreak = calculateStreakFromActivities(combined as any[], startForCalc2.toISOString(), seasonEnd);
-						const longestStreak = calculateLongestStreak(combined as any[], startForCalc2.toISOString(), seasonEnd);
+						const total = (combined as any[]).length;
+						const currentStreak = calculateStreakFromActivities(combined as any[]);
+						const longestStreak = calculateLongestStreak(combined as any[]);
 						const avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc2.toISOString(), seasonEnd);
 						const weekly = computeWeeklyHearts(combined as any[], startForCalc2, { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
 						const events = weekly.events.map((e) => ({
@@ -383,6 +400,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		seasonStatus: rawStatus,
 		koEvent
 	};
+	if (debugMode) {
+		// Attach debug info and also log on the server
+		(live as any).debug = {
+			seasonStart: lobby.seasonStart,
+			players: debugRecords
+		};
+		try {
+			console.log("[/live debug]", JSON.stringify((live as any).debug, null, 2));
+		} catch { /* ignore */ }
+	}
 	return NextResponse.json(live, { status: 200 });
 }
 

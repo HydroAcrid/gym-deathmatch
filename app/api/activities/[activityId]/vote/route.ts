@@ -60,9 +60,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		if (!voter || voter.lobby_id !== act.lobby_id) return NextResponse.json({ error: "Not in lobby" }, { status: 400 });
 		// Prevent self-vote
 		if (voterPlayerId === act.player_id) return NextResponse.json({ error: "No self-vote" }, { status: 400 });
-		// Prevent if decided or deadline passed
-		if (["approved", "rejected"].includes(act.status)) return NextResponse.json({ error: "Voting closed" }, { status: 400 });
-		if (act.vote_deadline && new Date(act.vote_deadline).getTime() < Date.now()) return NextResponse.json({ error: "Voting closed" }, { status: 400 });
+		// If currently approved, first vote starts a challenge window by flipping to pending
+		if (act.status === "approved") {
+			const now = new Date();
+			const deadline = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+			await supabase.from("manual_activities").update({ status: "pending", vote_deadline: deadline }).eq("id", activityId);
+			await supabase.from("history_events").insert({
+				lobby_id: act.lobby_id, actor_player_id: voterPlayerId, target_player_id: act.player_id, type: "VOTE_STARTED",
+				payload: { activityId }
+			});
+		} else {
+			// Prevent if decided or deadline passed
+			if (act.status === "rejected") return NextResponse.json({ error: "Voting closed" }, { status: 400 });
+			if (act.vote_deadline && new Date(act.vote_deadline).getTime() < Date.now()) return NextResponse.json({ error: "Voting closed" }, { status: 400 });
+		}
 		// Upsert vote
 		const { error } = await supabase.from("activity_votes").upsert({
 			activity_id: activityId, voter_player_id: voterPlayerId, choice

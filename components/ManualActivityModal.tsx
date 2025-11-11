@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import { useToast } from "./ToastProvider";
 
 export function ManualActivityModal({
 	open,
@@ -26,6 +27,7 @@ export function ManualActivityModal({
 	const [busy, setBusy] = useState<boolean>(false);
 	const supabase = (require("@/lib/supabaseBrowser") as any).getBrowserSupabase?.() || null;
 	const userId = (typeof window !== "undefined" && localStorage.getItem("gymdm_playerUserId")) || null;
+	const toast = useToast?.();
 
 	async function submit() {
 		if (!file || !caption.trim()) {
@@ -81,6 +83,8 @@ export function ManualActivityModal({
 					caption
 				})
 			});
+			// Toast confirmation
+			try { toast?.push?.("Post submitted ✍️"); } catch { /* ignore */ }
 			onClose();
 			onSaved?.();
 		} finally {
