@@ -7,6 +7,30 @@ export interface StravaTokens {
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities?per_page=10";
 
+// Simple in-memory cache for recent activities to reduce API pressure
+// Keyed by access token; TTL 5 minutes
+const activitiesCache = new Map<string, { data: unknown[]; expiresAt: number }>();
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
+const cooldown = new Map<string, number>(); // key -> epoch ms until we can call again
+
+function getKey(token: string) {
+	return token || "__anon__";
+}
+
+export function getCachedActivities(accessToken: string): unknown[] | null {
+	const key = getKey(accessToken);
+	const entry = activitiesCache.get(key);
+	if (entry && entry.expiresAt > Date.now()) {
+		return entry.data;
+	}
+	return null;
+}
+
+function setCachedActivities(accessToken: string, data: unknown[], ttlMs = DEFAULT_TTL_MS) {
+	const key = getKey(accessToken);
+	activitiesCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
 export async function exchangeCodeForToken(code: string): Promise<StravaTokens> {
 	try {
 		const clientId = process.env.STRAVA_CLIENT_ID;
@@ -48,6 +72,18 @@ export async function exchangeCodeForToken(code: string): Promise<StravaTokens> 
 
 export async function fetchRecentActivities(accessToken: string): Promise<unknown[]> {
 	try {
+		// serve from cache if fresh
+		const cached = getCachedActivities(accessToken);
+		if (cached) return cached;
+		// respect cooldown if recently rate-limited
+		const key = getKey(accessToken);
+		const until = cooldown.get(key) ?? 0;
+		if (until > Date.now()) {
+			const stale = getCachedActivities(accessToken);
+			if (stale) return stale;
+			return [];
+		}
+
 		const res = await fetch(STRAVA_ACTIVITIES_URL, {
 			headers: {
 				Authorization: `Bearer ${accessToken}`
@@ -58,11 +94,24 @@ export async function fetchRecentActivities(accessToken: string): Promise<unknow
 			console.error("Strava activities fetch failed:", res.status, text);
 			const err: any = new Error("Failed to fetch Strava activities");
 			err.status = res.status;
+			// On 429, prefer serving stale cache if present
+			if (res.status === 429) {
+				// enter short cooldown
+				const retryAfter = Number(res.headers.get("retry-after")) || 60;
+				cooldown.set(key, Date.now() + Math.min(5 * 60, Math.max(15, retryAfter)) * 1000);
+				const stale = getCachedActivities(accessToken);
+				if (stale) return stale;
+			}
 			throw err;
 		}
-		return await res.json();
+		const json = await res.json();
+		setCachedActivities(accessToken, json);
+		return json;
 	} catch (err) {
 		console.error("fetchRecentActivities error", err);
+		// Deliver stale cache if available to avoid breaking UI
+		const stale = getCachedActivities(accessToken);
+		if (stale) return stale;
 		return [];
 	}
 }

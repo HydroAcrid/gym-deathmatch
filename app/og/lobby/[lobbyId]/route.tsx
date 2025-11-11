@@ -1,16 +1,18 @@
 import { ImageResponse } from "next/og";
+import type { NextRequest } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 
 export const runtime = "edge";
 
-export async function GET(req: Request, { params }: { params: { lobbyId: string } }) {
-	const lobbyId = decodeURIComponent(params.lobbyId);
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
+	const { lobbyId } = await params;
+	const decodedLobbyId = decodeURIComponent(lobbyId);
 	let name = "Gym Deathmatch";
 	let subtitle = "Join the Deathmatch";
 	try {
 		const supabase = getServerSupabase();
 		if (supabase) {
-			const { data: lrow } = await supabase.from("lobby").select("*").eq("id", lobbyId).single();
+			const { data: lrow } = await supabase.from("lobby").select("*").eq("id", decodedLobbyId).single();
 			if (lrow?.name) {
 				name = lrow.name;
 				let owner = "Your friend";
