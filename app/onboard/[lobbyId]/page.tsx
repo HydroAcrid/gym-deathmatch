@@ -86,12 +86,13 @@ export default function OnboardPage({ params }: { params: Promise<{ lobbyId: str
 		if (!user?.id) return;
 		setSubmitting(true);
 		try {
-			const id = slugify(displayName || emailName || user.id) || user.id;
+			// Use the Supabase user id as the player id to guarantee uniqueness and proper membership mapping
+			const id = user.id;
 			await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					id,
+					id, // player primary key
 					name: displayName || emailName || "Me",
 					avatarUrl: avatarUrl || null,
 					location: location || null,
