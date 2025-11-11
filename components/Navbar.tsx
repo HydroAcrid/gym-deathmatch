@@ -32,9 +32,17 @@ export function Navbar() {
 	const lobbyMatch = pathname?.match(/^\/lobby\/([^\/]+)/);
 	if (lobbyMatch) {
 		const lobbyId = lobbyMatch[1];
-		tabs = baseTabs.map(t => t.label === "History" ? { ...t, href: `/lobby/${lobbyId}/history` } : t);
+		tabs = baseTabs.map(t => {
+			if (t.label === "History") return { ...t, href: `/lobby/${lobbyId}/history` };
+			if (t.label === "Stats") return { ...t, href: `/lobby/${lobbyId}/stats` };
+			return t;
+		});
 	} else if (lastLobbyId) {
-		tabs = baseTabs.map(t => t.label === "History" ? { ...t, href: `/lobby/${lastLobbyId}/history` } : t);
+		tabs = baseTabs.map(t => {
+			if (t.label === "History") return { ...t, href: `/lobby/${lastLobbyId}/history` };
+			if (t.label === "Stats") return { ...t, href: `/lobby/${lastLobbyId}/stats` };
+			return t;
+		});
 	}
 	return (
 		<div className="sticky top-0 z-50" style={{ backgroundColor: "#2B211D" }}>
