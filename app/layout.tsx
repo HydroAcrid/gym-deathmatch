@@ -4,6 +4,7 @@ import { Navbar } from "@/components/Navbar";
 import { PageMotion } from "@/components/PageMotion";
 import { ToastProvider } from "@/components/ToastProvider";
 import { AuthProvider } from "@/components/AuthProvider";
+import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
 	title: "Gym Deathmatch",
@@ -27,6 +28,7 @@ export default function RootLayout({
 						</main>
 					</ToastProvider>
 				</AuthProvider>
+				<Analytics />
 			</body>
 		</html>
 	);
