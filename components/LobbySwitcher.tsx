@@ -14,6 +14,12 @@ export function LobbySwitcher({ lobby }: { lobby: Lobby }) {
 		setOverridePre(v === "1");
 	}, []);
 
+	// Always remember last visited lobby, regardless of which sub-view is shown
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		localStorage.setItem("gymdm_lastLobbyId", lobby.id);
+	}, [lobby.id]);
+
 	function toggle() {
 		const next = !overridePre;
 		setOverridePre(next);

@@ -72,7 +72,7 @@ export function RecentFeed({
 						))}
 					</AnimatePresence>
 				</div>
-				<a href="/history" className="mt-3 inline-flex items-center gap-1 text-xs underline hover:shadow-[0_0_0_2px_rgba(225,84,42,0.25)] transition">
+				<a href={lobbyId ? `/lobby/${encodeURIComponent(lobbyId)}/history` : "/history"} className="mt-3 inline-flex items-center gap-1 text-xs underline hover:shadow-[0_0_0_2px_rgba(225,84,42,0.25)] transition">
 					View full history →
 				</a>
 			</div>

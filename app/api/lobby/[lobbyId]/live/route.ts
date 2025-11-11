@@ -97,10 +97,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				if (!activities || (activities as any).error) {
 					// noop: fetchRecentActivities returns [] on error; below logic handles via thrown error path
 				}
-				const total = calculateTotalWorkouts(activities, seasonStart, seasonEnd);
-				const currentStreak = calculateStreakFromActivities(activities, seasonStart, seasonEnd);
-				const longestStreak = calculateLongestStreak(activities, seasonStart, seasonEnd);
-				const avg = calculateAverageWorkoutsPerWeek(activities, seasonStart, seasonEnd);
+				const total = calculateTotalWorkouts(activities as any[], seasonStart, seasonEnd);
+				const currentStreak = calculateStreakFromActivities(activities as any[], seasonStart, seasonEnd);
+				const longestStreak = calculateLongestStreak(activities as any[], seasonStart, seasonEnd);
+				const avg = calculateAverageWorkoutsPerWeek(activities as any[], seasonStart, seasonEnd);
 				const weekly = computeWeeklyHearts(activities as any[], new Date(seasonStart), { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
 				// Back-compat feed events (met/count) derived from weekly events
 				const events = weekly.events.map((e) => ({
@@ -137,10 +137,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						setTokensForPlayer(p.id, refreshed); // in-memory
 						await upsertStravaTokens(p.id, refreshed); // legacy player-scoped
 						const activities = await fetchRecentActivities(refreshed.accessToken);
-						const total = calculateTotalWorkouts(activities, seasonStart, seasonEnd);
-						const currentStreak = calculateStreakFromActivities(activities, seasonStart, seasonEnd);
-						const longestStreak = calculateLongestStreak(activities, seasonStart, seasonEnd);
-						const avg = calculateAverageWorkoutsPerWeek(activities, seasonStart, seasonEnd);
+						const total = calculateTotalWorkouts(activities as any[], seasonStart, seasonEnd);
+						const currentStreak = calculateStreakFromActivities(activities as any[], seasonStart, seasonEnd);
+						const longestStreak = calculateLongestStreak(activities as any[], seasonStart, seasonEnd);
+						const avg = calculateAverageWorkoutsPerWeek(activities as any[], seasonStart, seasonEnd);
 						const weekly = computeWeeklyHearts(activities as any[], new Date(seasonStart), { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
 						const events = weekly.events.map((e) => ({
 							weekStart: e.weekStart,

@@ -9,8 +9,9 @@ import { CreateLobby } from "./CreateLobby";
 import { AuthButtons } from "./AuthButtons";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { useAuth } from "./AuthProvider";
+import { useEffect, useState } from "react";
 
-const tabs = [
+const baseTabs = [
 	{ href: "/home", label: "Home" },
 	{ href: "/lobbies", label: "Lobbies" },
 	{ href: "/stats", label: "Stats" },
@@ -21,6 +22,20 @@ const tabs = [
 export function Navbar() {
 	const pathname = usePathname();
 	const { user } = useAuth();
+	const [lastLobbyId, setLastLobbyId] = useState<string | null>(null);
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		setLastLobbyId(localStorage.getItem("gymdm_lastLobbyId"));
+	}, [pathname]);
+	// If on a lobby route, make History contextual to that lobby; otherwise fall back to last lobby
+	let tabs = baseTabs;
+	const lobbyMatch = pathname?.match(/^\/lobby\/([^\/]+)/);
+	if (lobbyMatch) {
+		const lobbyId = lobbyMatch[1];
+		tabs = baseTabs.map(t => t.label === "History" ? { ...t, href: `/lobby/${lobbyId}/history` } : t);
+	} else if (lastLobbyId) {
+		tabs = baseTabs.map(t => t.label === "History" ? { ...t, href: `/lobby/${lastLobbyId}/history` } : t);
+	}
 	return (
 		<div className="sticky top-0 z-50" style={{ backgroundColor: "#2B211D" }}>
 			<div className="mx-auto max-w-6xl">
@@ -33,7 +48,15 @@ export function Navbar() {
 				</div>
 				<nav className="flex items-center gap-4 py-2 px-3">
 					{tabs.map((t) => {
-						const active = pathname === t.href || (t.href.startsWith("/lobby") && pathname.startsWith("/lobby"));
+						let active = pathname === t.href; // exact match
+						// Treat lobby root pages as "Home" active
+						if (!active && t.label === "Home" && /^\/lobby\/[^/]+$/.test(pathname ?? "")) {
+							active = true;
+						}
+						// Treat per-lobby history exact route as History active
+						if (!active && t.label === "History" && /^\/lobby\/[^/]+\/history$/.test(pathname ?? "")) {
+							active = true;
+						}
 						return (
 							<Link key={t.href} href={t.href} className="relative">
 								<motion.span className="poster-headline text-sm tracking-wide relative block"
