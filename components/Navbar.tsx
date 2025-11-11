@@ -8,6 +8,7 @@ import { JoinLobby } from "./JoinLobby";
 import { CreateLobby } from "./CreateLobby";
 import { AuthButtons } from "./AuthButtons";
 import { ProfileAvatar } from "./ProfileAvatar";
+import { useAuth } from "./AuthProvider";
 
 const tabs = [
 	{ href: "/lobby/kevin-nelly", label: "Home" },
@@ -19,6 +20,7 @@ const tabs = [
 
 export function Navbar() {
 	const pathname = usePathname();
+	const { user } = useAuth();
 	return (
 		<div className="sticky top-0 z-50" style={{ backgroundColor: "#2B211D" }}>
 			<div className="mx-auto max-w-6xl">
@@ -26,7 +28,7 @@ export function Navbar() {
 					<div className="poster-headline text-2xl text-deepBrown">GYM DEATHMATCH</div>
 					<div className="flex items-center gap-2">
 						<AuthButtons />
-						<ProfileAvatar />
+						{user && <ProfileAvatar />}
 					</div>
 				</div>
 				<nav className="flex items-center gap-4 py-2 px-3">
@@ -52,7 +54,7 @@ export function Navbar() {
 					})}
 					<div className="ml-auto flex items-center gap-2">
 						<CreateLobby />
-						<Link href="/lobbies" className="btn-secondary px-3 py-2 rounded-md text-xs">My Lobbies</Link>
+						{user && <Link href="/lobbies" className="btn-secondary px-3 py-2 rounded-md text-xs">My Lobbies</Link>}
 						<IntroGuide />
 					</div>
 				</nav>
