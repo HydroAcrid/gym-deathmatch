@@ -95,6 +95,14 @@ export function OwnerSettingsModal({
 				const data = await res.json();
 				const p = (data?.lobby?.players ?? []).map((x: any) => ({ id: x.id, name: x.name }));
 				setPlayers(p);
+				// Prefer scheduledStart for preview; otherwise use seasonStart
+				const iso: string | undefined = (data?.lobby?.scheduledStart || data?.lobby?.seasonStart);
+				if (iso) {
+					const d = new Date(iso);
+					const pad = (n: number) => String(n).padStart(2, "0");
+					const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+					setSeasonStart(local);
+				}
 			} catch { /* ignore */ }
 		})();
 	}, [open, lobbyId]);

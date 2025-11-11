@@ -8,7 +8,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 		const body = await req.json();
 		const payload: any = {};
 		if (body.status) payload.status = body.status;
-		if (body.scheduledStart !== undefined) payload.scheduledStart = body.scheduledStart;
+		if (body.scheduledStart !== undefined) {
+			payload.scheduledStart = body.scheduledStart;
+			// Keep Season start in sync with the scheduled time for consistent UI display
+			if (!body.startNow) payload.seasonStart = body.scheduledStart;
+		}
 		if (body.startNow === true) {
 			payload.status = "active";
 			payload.seasonStart = new Date().toISOString();

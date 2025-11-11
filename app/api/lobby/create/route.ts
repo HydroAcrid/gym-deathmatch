@@ -6,8 +6,25 @@ export async function POST(req: NextRequest) {
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
 		const body = await req.json();
+		// Generate a collision-safe lobby id (slug) on the server
+		function slugify(s: string) {
+			return (s || "")
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, "-")
+				.replace(/^-+|-+$/g, "")
+				.replace(/--+/g, "-");
+		}
+		let desired = (body.lobbyId as string) || slugify(body.name || "");
+		if (!desired) desired = `lobby-${Math.random().toString(36).slice(2, 8)}`;
+		let candidate = desired;
+		for (let i = 0; i < 5; i++) {
+			const { data: exists } = await supabase.from("lobby").select("id").eq("id", candidate).maybeSingle();
+			if (!exists) break;
+			candidate = `${desired}-${Math.random().toString(36).slice(2, 6)}`;
+		}
+		const lobbyId = candidate;
 		const lobby = {
-			id: body.lobbyId,
+			id: lobbyId,
 			name: body.name,
 			season_number: body.seasonNumber ?? 1,
 			season_start: body.seasonStart,
@@ -35,7 +52,7 @@ export async function POST(req: NextRequest) {
 			} catch { /* ignore */ }
 			await supabase.from("player").upsert({
 				id: body.ownerId,
-				lobby_id: body.lobbyId,
+				lobby_id: lobbyId,
 				name: ownerName ?? "Owner",
 				avatar_url: ownerAvatarUrl ?? null,
 				location: body.ownerLocation ?? null,
@@ -43,7 +60,7 @@ export async function POST(req: NextRequest) {
 				user_id: body.userId || null
 			});
 		}
-		return NextResponse.json({ ok: true, id: body.lobbyId });
+		return NextResponse.json({ ok: true, id: lobbyId });
 	} catch (e) {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}

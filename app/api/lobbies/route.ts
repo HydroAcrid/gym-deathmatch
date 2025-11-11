@@ -10,23 +10,22 @@ export async function GET(req: NextRequest) {
 		// If no userId provided, do not return global lobbies.
 		if (!userId) return NextResponse.json({ lobbies: [] });
 
-		// Filter to lobbies where the user has a player row OR owns the lobby
-		let query = supabase.from("lobby").select("*").order("name", { ascending: true }).limit(100);
-		const { data: mine } = await supabase
-			.from("player")
-			.select("lobby_id")
-			.eq("user_id", userId)
-			.limit(200);
-		const lobbyIds = Array.from(new Set([...(mine?.map(r => r.lobby_id) ?? [] as any),] as any));
-		if (lobbyIds.length) {
-			query = query.in("id", lobbyIds as any);
-		} else {
-			// No player rows; still include lobbies owned by the user if any
-			query = query.eq("owner_user_id", userId);
-		}
-		const { data, error } = await query;
-		if (error) throw error;
-		return NextResponse.json({ lobbies: data ?? [] });
+		// Return UNION of: lobbies where the user has a player row, and lobbies owned by the user.
+		// We do two queries and merge to avoid OR limitations and ensure we never silently drop owned lobbies.
+		const [{ data: memberRows }, { data: ownerRows }] = await Promise.all([
+			supabase.from("player").select("lobby_id").eq("user_id", userId).limit(200),
+			supabase.from("lobby").select("*").eq("owner_user_id", userId).limit(200)
+		]);
+		const memberLobbyIds = Array.from(new Set((memberRows ?? []).map((r: any) => r.lobby_id)));
+		const { data: memberLobbies } = memberLobbyIds.length
+			? await supabase.from("lobby").select("*").in("id", memberLobbyIds as any).limit(500)
+			: { data: [] as any[] };
+		// Merge and sort by name
+		const map = new Map<string, any>();
+		for (const r of (memberLobbies ?? [])) map.set(r.id, r);
+		for (const r of (ownerRows ?? [])) map.set(r.id, r);
+		const list = Array.from(map.values()).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+		return NextResponse.json({ lobbies: list });
 	} catch (e) {
 		console.error("lobbies list error", e);
 		return NextResponse.json({ lobbies: [] });
