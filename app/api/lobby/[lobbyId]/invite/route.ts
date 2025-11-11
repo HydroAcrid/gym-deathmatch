@@ -10,6 +10,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	}
 	try {
 		const body = await req.json();
+		// Prevent duplicate player for the same user in this lobby
+		if (body.userId) {
+			const { data: existing } = await supabase
+				.from("player")
+				.select("id")
+				.eq("lobby_id", lobbyId)
+				.eq("user_id", body.userId)
+				.maybeSingle();
+			if (existing?.id) {
+				return NextResponse.json({ ok: true, alreadyJoined: true });
+			}
+		}
 		let name = body.name as string;
 		let avatarUrl = (body.avatarUrl ?? null) as string | null;
 		// If userId provided, default name/avatar from profile when not supplied

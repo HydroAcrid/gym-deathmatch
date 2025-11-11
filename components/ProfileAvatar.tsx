@@ -11,6 +11,7 @@ export function ProfileAvatar() {
 	const [busy, setBusy] = useState(false);
 	const [url, setUrl] = useState("");
 	const [fileName, setFileName] = useState("");
+	const [displayName, setDisplayName] = useState("");
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [current, setCurrent] = useState<string>("");
 
@@ -23,6 +24,7 @@ export function ProfileAvatar() {
 				if (!res.ok) return;
 				const j = await res.json();
 				const avatar = j?.avatarUrl as string | undefined;
+				if (j?.name) setDisplayName(j.name);
 				if (avatar) setCurrent(avatar);
 			} catch {
 				// ignore
@@ -81,18 +83,24 @@ export function ProfileAvatar() {
 			await fetch("/api/profile", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: user.id, displayName: null, avatarUrl: url.trim() })
+				body: JSON.stringify({ userId: user.id, displayName, avatarUrl: url.trim() })
 			});
 			await fetch("/api/user/avatar", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ userId: user.id, avatarUrl: url.trim(), playerId: localStorage.getItem("gymdm_playerId") || null })
 			});
+			// Sync existing player names to profile (replace 'Owner'/'Me')
+			await fetch("/api/user/sync", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: user.id })
+			});
 			// Persist to auth metadata for easy retrieval across the app
 			try {
 				const supabase = getBrowserSupabase();
 				if (supabase) {
-					await supabase.auth.updateUser({ data: { avatar_url: url.trim() } });
+					await supabase.auth.updateUser({ data: { avatar_url: url.trim(), display_name: displayName } });
 				}
 			} catch { /* ignore */ }
 			setOpen(false);
@@ -121,6 +129,14 @@ export function ProfileAvatar() {
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 							<div className="poster-headline text-xl mb-3">Update Profile Picture</div>
 							<div className="space-y-3">
+								<label className="block text-xs">
+									<span className="block mb-1">Display name</span>
+									<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+										placeholder="Your name"
+										value={displayName}
+										onChange={(e) => setDisplayName(e.target.value)}
+									/>
+								</label>
 								<label className="block text-xs">
 									<span className="block mb-1">Paste image URL</span>
 									<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"

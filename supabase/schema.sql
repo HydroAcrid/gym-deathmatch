@@ -10,6 +10,7 @@ create table if not exists lobby (
   weekly_target int not null default 3,
   initial_lives int not null default 3,
   owner_id text references player(id),
+  owner_user_id text,
   status text not null default 'pending' check (status in ('pending','scheduled','active','completed')),
   scheduled_start timestamptz null
 );

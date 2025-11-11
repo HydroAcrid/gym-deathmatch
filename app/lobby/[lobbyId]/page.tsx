@@ -44,6 +44,7 @@ export default async function LobbyPage({
 					weeklyTarget: lrow.weekly_target ?? 3,
 					initialLives: lrow.initial_lives ?? 3,
 					ownerId: lrow.owner_id ?? undefined,
+					ownerUserId: lrow.owner_user_id ?? undefined,
 					status: lrow.status ?? "active",
 					scheduledStart: lrow.scheduled_start ?? null
 				} as Lobby;

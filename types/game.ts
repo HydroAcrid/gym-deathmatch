@@ -26,6 +26,7 @@ export interface Lobby {
 	weeklyTarget?: number;
 	initialLives?: number;
 	ownerId?: PlayerId;
+	ownerUserId?: string; // Supabase auth user id of lobby owner
 	status?: "pending" | "scheduled" | "active" | "completed";
 	scheduledStart?: string | null; // ISO when status === 'scheduled'
 }

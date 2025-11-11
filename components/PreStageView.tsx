@@ -15,16 +15,20 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const { user } = useAuth();
 	const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 	const [editOpen, setEditOpen] = useState(false);
+	const [profileName, setProfileName] = useState<string>("");
+	const [profileAvatar, setProfileAvatar] = useState<string>("");
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			setMe(localStorage.getItem("gymdm_playerId"));
 		}
 	}, []);
 	const isOwner = useMemo(() => {
-		// Owner if: auth user matches owner player's user_id, or local playerId matches lobby.ownerId (legacy)
+		// Prefer owner_user_id when present
+		if (user?.id && lobby.ownerUserId) return user.id === lobby.ownerUserId;
+		// Fallback: auth user matches owner player's user_id, or legacy playerId check
 		if (user?.id && ownerUserId) return user.id === ownerUserId;
 		return !!(lobby.ownerId && me && lobby.ownerId === me);
-	}, [lobby.ownerId, me, user?.id, ownerUserId]);
+	}, [lobby.ownerId, lobby.ownerUserId, me, user?.id, ownerUserId]);
 
 	// Fetch owner's user_id for robust checks
 	useEffect(() => {
@@ -66,6 +70,46 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		});
 		router.refresh();
 	};
+
+	// Load profile basics for quick-join
+	useEffect(() => {
+		(async () => {
+			try {
+				if (!user?.id) return;
+				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				if (!res.ok) return;
+				const j = await res.json();
+				if (j?.name) setProfileName(j.name);
+				if (j?.avatarUrl) setProfileAvatar(j.avatarUrl);
+			} catch { /* ignore */ }
+		})();
+	}, [user?.id]);
+
+	const iHaveAPlayer = useMemo(() => {
+		if (!profileName) return lobby.players.length > 0; // conservative
+		return lobby.players.some(p => (p.name || "").toLowerCase() === profileName.toLowerCase());
+	}, [lobby.players, profileName]);
+
+	async function addMeToLobby() {
+		if (!user?.id) return;
+		// derive a stable-ish player id slug
+		const emailName = (user.email || "").split("@")[0];
+		const base = (profileName || emailName || user.id).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+		const id = base || user.id;
+		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/invite`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				id,
+				name: profileName || emailName || "Me",
+				avatarUrl: profileAvatar || null,
+				quip: null,
+				userId: user.id
+			})
+		});
+		localStorage.setItem("gymdm_playerId", id);
+		router.refresh();
+	}
 
 	return (
 		<div className="mx-auto max-w-6xl">
@@ -127,6 +171,9 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 							/>
 							<button onClick={schedule} className="btn-secondary px-3 py-2 rounded-md">Schedule start</button>
 						</div>
+						{user && !iHaveAPlayer && (
+							<button onClick={addMeToLobby} className="btn-secondary px-3 py-2 rounded-md">Add me to this lobby</button>
+						)}
 					</div>
 				</div>
 			)}
