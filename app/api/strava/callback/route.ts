@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForToken } from "@/lib/strava";
 import { setTokensForPlayer } from "@/lib/stravaStore";
-import { ensureLobbyAndPlayers, upsertStravaTokens } from "@/lib/persistence";
+import { ensureLobbyAndPlayers, upsertStravaTokens, upsertUserStravaTokens } from "@/lib/persistence";
+import { getServerSupabase } from "@/lib/supabaseClient";
 
 export async function GET(req: NextRequest) {
 	const url = new URL(req.url);
@@ -30,6 +31,16 @@ export async function GET(req: NextRequest) {
 		// ensure lobby and both default players exist before token upsert
 		await ensureLobbyAndPlayers(lobbyId);
 		await upsertStravaTokens(playerId, tokens);
+		// If the player has a user_id, persist at user scope so Strava follows the user
+		try {
+			const supabase = getServerSupabase();
+			if (supabase) {
+				const { data: prow } = await supabase.from("player").select("user_id").eq("id", playerId).maybeSingle();
+				if (prow?.user_id) {
+					await upsertUserStravaTokens(prow.user_id as string, tokens);
+				}
+			}
+		} catch { /* ignore */ }
 		console.log("Strava connected for player", playerId);
 	} catch (e) {
 		console.error("Callback error", e);

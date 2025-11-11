@@ -5,15 +5,16 @@ import { fetchRecentActivities, refreshAccessToken, toActivitySummary } from "@/
 import { calculateAverageWorkoutsPerWeek, calculateLongestStreak, calculateStreakFromActivities, calculateTotalWorkouts } from "@/lib/streaks";
 import type { LiveLobbyResponse } from "@/types/api";
 import { setTokensForPlayer } from "@/lib/stravaStore";
-import { upsertStravaTokens } from "@/lib/persistence";
 import { computeLivesAndEvents } from "@/lib/rules";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import type { Lobby, Player } from "@/types/game";
+import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	let lobby = getLobbyById(lobbyId);
 	// Hydrate lobby config from Supabase if available (and also support lobbies that don't exist in mock)
+	let userIdByPlayer: Record<string, string | null> = {};
 	try {
 		const supabase = getServerSupabase();
 		if (supabase) {
@@ -76,6 +77,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						ownerId: lrow.owner_id ?? undefined
 					} as Lobby;
 				}
+				// Build user map and overlay DB fields on mock lobby players as well
+				const { data: prows2 } = await supabase.from("player").select("id,user_id,avatar_url,location,quip").eq("lobby_id", lobbyId);
+				if (prows2 && prows2.length) {
+					for (const pr of prows2) userIdByPlayer[pr.id as string] = (pr.user_id as string) ?? null;
+					if (lobby) {
+						const byId = new Map<string, any>();
+						for (const pr of prows2) byId.set(pr.id as string, pr);
+						lobby.players = lobby.players.map((p) => {
+							const dbp = byId.get(p.id);
+							if (!dbp) return p;
+							return {
+								...p,
+								avatarUrl: dbp.avatar_url ?? p.avatarUrl,
+								location: dbp.location ?? p.location,
+								quip: dbp.quip ?? p.quip
+							};
+						});
+					}
+				}
 			}
 		}
 	} catch { /* ignore */ }
@@ -91,7 +111,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 
 	const updatedPlayers = await Promise.all(
 		lobby.players.map(async (p) => {
-			const tokens = getTokensForPlayer(p.id);
+			// Prefer user-scoped tokens
+			const userId = userIdByPlayer[p.id] || null;
+			let tokens = null as any;
+			if (userId) {
+				tokens = await getUserStravaTokens(userId);
+			}
+			// Fallback to in-memory player tokens
+			if (!tokens) {
+				tokens = getTokensForPlayer(p.id);
+			}
 			if (!tokens) {
 				return { ...p, isStravaConnected: false };
 			}
@@ -123,8 +152,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				if (e?.status === 401 || e?.status === 403) {
 					try {
 						const refreshed = await refreshAccessToken(tokens.refreshToken);
-						setTokensForPlayer(p.id, refreshed);
-						await upsertStravaTokens(p.id, refreshed);
+						if (userId) {
+							// Keep user-scoped token chain up to date
+							await (await import("@/lib/persistence")).upsertUserStravaTokens(userId, refreshed);
+						}
+						setTokensForPlayer(p.id, refreshed); // in-memory
+						await upsertStravaTokens(p.id, refreshed); // legacy player-scoped
 						const activities = await fetchRecentActivities(refreshed.accessToken);
 						const total = calculateTotalWorkouts(activities, seasonStart, seasonEnd);
 						const currentStreak = calculateStreakFromActivities(activities, seasonStart, seasonEnd);

@@ -8,12 +8,11 @@ export async function GET(req: Request) {
 		const { searchParams } = new URL(req.url);
 		const userId = searchParams.get("userId");
 		if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-		const { data } = await supabase.from("player")
-			.select("name,avatar_url")
-			.eq("user_id", userId)
-			.order("id", { ascending: true })
-			.limit(1)
-			.maybeSingle();
+		// Prefer user_profile
+		const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", userId).maybeSingle();
+		if (prof) return NextResponse.json({ name: prof.display_name ?? null, avatarUrl: prof.avatar_url ?? null });
+		// Fallback to player
+		const { data } = await supabase.from("player").select("name,avatar_url").eq("user_id", userId).maybeSingle();
 		return NextResponse.json({ name: data?.name ?? null, avatarUrl: data?.avatar_url ?? null });
 	} catch {
 		return NextResponse.json({ name: null, avatarUrl: null });

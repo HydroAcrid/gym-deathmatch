@@ -24,12 +24,20 @@ export async function POST(req: Request) {
 			return NextResponse.json({ error: "Failed to create lobby" }, { status: 500 });
 		}
 		// If an owner player should be created, do it
-		if (body.ownerId && body.ownerName) {
+		if (body.ownerId) {
+			let ownerName = body.ownerName || null;
+			let ownerAvatarUrl = body.ownerAvatarUrl || null;
+			// Enrich from user_profile if available
+			try {
+				const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", body.userId).maybeSingle();
+				if (!ownerName) ownerName = prof?.display_name ?? null;
+				if (!ownerAvatarUrl) ownerAvatarUrl = prof?.avatar_url ?? null;
+			} catch { /* ignore */ }
 			const player = {
 				id: body.ownerId,
 				lobby_id: body.lobbyId,
-				name: body.ownerName,
-				avatar_url: body.ownerAvatarUrl ?? null,
+				name: ownerName ?? "Owner",
+				avatar_url: ownerAvatarUrl ?? null,
 				location: body.ownerLocation ?? null,
 				quip: body.ownerQuip ?? null,
 				user_id: body.userId || null

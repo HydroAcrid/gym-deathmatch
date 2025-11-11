@@ -10,11 +10,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	}
 	try {
 		const body = await req.json();
+		let name = body.name as string;
+		let avatarUrl = (body.avatarUrl ?? null) as string | null;
+		// If userId provided, default name/avatar from profile when not supplied
+		if ((!name || name.trim().length === 0 || !avatarUrl) && body.userId) {
+			try {
+				const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", body.userId).maybeSingle();
+				if ((!name || name.trim().length === 0) && prof?.display_name) name = prof.display_name;
+				if (!avatarUrl && prof?.avatar_url) avatarUrl = prof.avatar_url;
+			} catch { /* ignore */ }
+		}
 		const p: PlayerRow = {
 			id: body.id,
 			lobby_id: lobbyId,
-			name: body.name,
-			avatar_url: body.avatarUrl ?? null,
+			name,
+			avatar_url: avatarUrl,
 			location: body.location ?? null,
 			quip: body.quip ?? null
 		};

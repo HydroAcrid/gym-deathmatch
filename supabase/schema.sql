@@ -37,6 +37,29 @@ alter table lobby enable row level security;
 alter table player enable row level security;
 alter table strava_token enable row level security;
 
+-- User profile (per auth user)
+create table if not exists user_profile (
+  user_id text primary key,
+  display_name text,
+  avatar_url text,
+  created_at timestamptz default now()
+);
+alter table user_profile enable row level security;
+-- Example policies (auth.uid() available in Supabase SQL runtime)
+-- create policy "profile read own" on user_profile for select using (auth.uid() = user_id);
+-- create policy "profile upsert own" on user_profile for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- User-scoped Strava tokens
+create table if not exists user_strava_token (
+  user_id text primary key,
+  access_token text not null,
+  refresh_token text not null,
+  expires_at timestamptz not null,
+  updated_at timestamptz default now()
+);
+alter table user_strava_token enable row level security;
+-- Access is via service role only in our API routes (no public policies)
+
 -- Example policy for later (optional): allow read to anon for lobby and player if you want public read.
 -- create policy "public read lobby" on lobby for select using (true);
 -- create policy "public read player" on player for select using (true);

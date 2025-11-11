@@ -14,26 +14,15 @@ export function ProfileAvatar() {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [current, setCurrent] = useState<string>("");
 
-	// Load current avatar (by user_id, then fallback to local player id)
+	// Load current avatar from user_profile (fallback to player)
 	useEffect(() => {
 		(async () => {
 			try {
-				const supabase = getBrowserSupabase();
-				if (!supabase) return;
-				let avatar: string | null = null;
 				if (!user) return;
-				// Prefer auth user metadata
-				const metaAvatar = (user as any)?.user_metadata?.avatar_url as string | undefined;
-				if (metaAvatar) avatar = metaAvatar;
-				const { data, error } = await supabase.from("player").select("avatar_url").eq("user_id", user.id).maybeSingle();
-				if (!error && data?.avatar_url) avatar = data.avatar_url as string;
-				if (!avatar) {
-					const pid = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
-					if (pid) {
-						const { data: d2 } = await supabase.from("player").select("avatar_url").eq("id", pid).maybeSingle();
-						if (d2?.avatar_url) avatar = d2.avatar_url as string;
-					}
-				}
+				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				if (!res.ok) return;
+				const j = await res.json();
+				const avatar = j?.avatarUrl as string | undefined;
 				if (avatar) setCurrent(avatar);
 			} catch {
 				// ignore
@@ -88,6 +77,12 @@ export function ProfileAvatar() {
 		}
 		setBusy(true);
 		try {
+			// Save to user_profile
+			await fetch("/api/profile", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: user.id, displayName: null, avatarUrl: url.trim() })
+			});
 			await fetch("/api/user/avatar", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },

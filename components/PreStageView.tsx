@@ -40,12 +40,21 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		})();
 	}, [lobby.ownerId]);
 
-	const [scheduleAt, setScheduleAt] = useState<string>(lobby.scheduledStart ?? "");
+	function isoToLocalInput(iso?: string | null) {
+		if (!iso) return "";
+		const d = new Date(iso);
+		const pad = (n: number) => String(n).padStart(2, "0");
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	}
+	const [scheduleAt, setScheduleAt] = useState<string>(isoToLocalInput(lobby.scheduledStart ?? ""));
 	const schedule = async () => {
 		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ status: "scheduled", scheduledStart: scheduleAt || null })
+			body: JSON.stringify({
+				status: "scheduled",
+				scheduledStart: scheduleAt ? new Date(scheduleAt).toISOString() : null
+			})
 		});
 		router.refresh();
 	};
