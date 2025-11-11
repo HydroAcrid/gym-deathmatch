@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForToken } from "@/lib/strava";
 import { setTokensForPlayer } from "@/lib/stravaStore";
-import { ensureLobbyAndPlayers, upsertStravaTokens, upsertUserStravaTokens } from "@/lib/persistence";
+import { upsertStravaTokens, upsertUserStravaTokens } from "@/lib/persistence";
 import { getServerSupabase } from "@/lib/supabaseClient";
 
 export async function GET(req: NextRequest) {
@@ -28,8 +28,7 @@ export async function GET(req: NextRequest) {
 	try {
 		const tokens = await exchangeCodeForToken(code);
 		setTokensForPlayer(playerId, tokens);
-		// ensure lobby and both default players exist before token upsert
-		await ensureLobbyAndPlayers(lobbyId);
+		// persist tokens
 		await upsertStravaTokens(playerId, tokens);
 		// If the player has a user_id, persist at user scope so Strava follows the user
 		try {
