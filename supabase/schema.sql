@@ -128,3 +128,81 @@ for delete using (
 -- refresh PostgREST cache
 select pg_notify('pgrst', 'reload schema');
 
+-- Upgrades for manual_activities to support photo/caption/voting lifecycle
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='manual_activities' and column_name='photo_url') then
+    alter table manual_activities add column photo_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='manual_activities' and column_name='caption') then
+    alter table manual_activities add column caption text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='manual_activities' and column_name='status') then
+    alter table manual_activities add column status text not null default 'pending';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='manual_activities' and column_name='vote_deadline') then
+    alter table manual_activities add column vote_deadline timestamptz null;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='manual_activities' and column_name='decided_at') then
+    alter table manual_activities add column decided_at timestamptz null;
+  end if;
+end $$;
+
+-- Votes on manual activities
+create table if not exists activity_votes (
+  id uuid primary key default gen_random_uuid(),
+  activity_id uuid not null references manual_activities(id) on delete cascade,
+  voter_player_id text not null references player(id) on delete cascade,
+  choice text not null check (choice in ('legit','sus')),
+  created_at timestamptz not null default now(),
+  unique(activity_id, voter_player_id)
+);
+alter table activity_votes enable row level security;
+drop policy if exists activity_votes_member on activity_votes;
+create policy activity_votes_member on activity_votes
+for all using (
+  exists (
+    select 1 from manual_activities a
+    where a.id = activity_votes.activity_id
+      and exists (select 1 from player p where p.id = activity_votes.voter_player_id and p.lobby_id = a.lobby_id)
+  )
+) with check (
+  exists (
+    select 1 from manual_activities a
+    where a.id = activity_votes.activity_id
+      and exists (select 1 from player p where p.id = activity_votes.voter_player_id and p.lobby_id = a.lobby_id)
+  )
+);
+
+-- History events for transparency
+create table if not exists history_events (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  actor_player_id text null references player(id) on delete set null,
+  target_player_id text null references player(id) on delete set null,
+  type text not null,
+  payload jsonb,
+  created_at timestamptz not null default now()
+);
+alter table history_events enable row level security;
+drop policy if exists history_events_lobby_read on history_events;
+create policy history_events_lobby_read on history_events
+for select using (
+  exists (select 1 from player p where p.lobby_id = history_events.lobby_id and p.user_id = auth.uid())
+);
+
+-- Heart adjustments (owner overrides)
+create table if not exists heart_adjustments (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  target_player_id text not null references player(id) on delete cascade,
+  delta int not null,
+  created_at timestamptz not null default now()
+);
+alter table heart_adjustments enable row level security;
+drop policy if exists heart_adj_lobby_read on heart_adjustments;
+create policy heart_adj_lobby_read on heart_adjustments
+for select using (
+  exists (select 1 from player p where p.lobby_id = heart_adjustments.lobby_id and p.user_id = auth.uid())
+);
+

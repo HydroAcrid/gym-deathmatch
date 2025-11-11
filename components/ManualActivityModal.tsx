@@ -20,11 +20,36 @@ export function ManualActivityModal({
 	const [duration, setDuration] = useState<string>("");
 	const [distance, setDistance] = useState<string>("");
 	const [notes, setNotes] = useState<string>("");
+	const [caption, setCaption] = useState<string>("");
+	const [file, setFile] = useState<File | null>(null);
 	const [busy, setBusy] = useState<boolean>(false);
+	const supabase = (require("@/lib/supabaseBrowser") as any).getBrowserSupabase?.() || null;
+	const userId = (typeof window !== "undefined" && localStorage.getItem("gymdm_playerUserId")) || null;
 
 	async function submit() {
+		if (!file || !caption.trim()) {
+			alert("Please add a photo and caption.");
+			return;
+		}
 		setBusy(true);
 		try {
+			// upload photo to "manual-activity-photos" bucket
+			let publicUrl = "";
+			if (supabase && file) {
+				const path = `${playerId}/${Date.now()}_${file.name}`;
+				const bucket = supabase.storage.from("manual-activity-photos");
+				const { error: upErr } = await bucket.upload(path, file, { upsert: true, cacheControl: "3600" });
+				if (upErr) {
+					alert("Photo upload failed. Create a public bucket named 'manual-activity-photos'.");
+					return;
+				}
+				const { data: pub } = bucket.getPublicUrl(path);
+				publicUrl = pub?.publicUrl || "";
+			}
+			if (!publicUrl) {
+				alert("Photo upload did not return a public URL.");
+				return;
+			}
 			await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/activities/manual`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -34,7 +59,9 @@ export function ManualActivityModal({
 					type,
 					durationMinutes: duration ? Number(duration) : null,
 					distanceKm: distance ? Number(distance) : null,
-					notes
+					notes,
+					photoUrl: publicUrl,
+					caption
 				})
 			});
 			onClose();
@@ -86,6 +113,26 @@ export function ManualActivityModal({
 									<option value="walk">Walk</option>
 									<option value="other">Other</option>
 								</select>
+							</label>
+							<label className="text-xs">
+								<span className="block mb-1">Photo (required)</span>
+								<input
+									type="file"
+									accept="image/*"
+									onChange={(e) => setFile(e.target.files?.[0] || null)}
+									className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+								/>
+							</label>
+							<label className="text-xs">
+								<span className="block mb-1">Caption (required)</span>
+								<input
+									type="text"
+									value={caption}
+									onChange={(e) => setCaption(e.target.value)}
+									maxLength={200}
+									placeholder="What did you do?"
+									className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+								/>
 							</label>
 							<div className="grid grid-cols-2 gap-3">
 								<label className="text-xs">

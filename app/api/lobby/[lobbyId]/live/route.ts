@@ -107,6 +107,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							.select("*")
 							.eq("lobby_id", lobby.id)
 							.eq("player_id", p.id)
+							.eq("status", "approved")
 							.order("date", { ascending: false })
 							.limit(50);
 						manual = (data ?? []) as any;
@@ -157,7 +158,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				});
 				const lastStart = (combined as any[])[0]?.start_date || (combined as any[])[0]?.start_date_local || null;
 				const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
-				return {
+				let result = {
 					...p,
 					isStravaConnected: !!tokens,
 					totalWorkouts: total,
@@ -176,6 +177,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					},
 					taunt
 				};
+				// Apply heart adjustments
+				try {
+					const supabase = getServerSupabase();
+					if (supabase) {
+						const { data: adjs } = await supabase.from("heart_adjustments").select("target_player_id, delta").eq("lobby_id", lobby.id).eq("target_player_id", p.id);
+						const bonus = (adjs ?? []).reduce((s: number, r: any) => s + (r.delta as number), 0);
+						(result as any).livesRemaining = Math.max(0, Math.min(3, (result as any).livesRemaining + bonus));
+					}
+				} catch { /* ignore */ }
+				return result;
 			} catch (e: any) {
 				// Attempt token refresh on 401/403
 				if (e?.status === 401 || e?.status === 403) {
@@ -198,6 +209,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 									.select("*")
 									.eq("lobby_id", lobby.id)
 									.eq("player_id", p.id)
+							.eq("status", "approved")
 									.order("date", { ascending: false })
 									.limit(50);
 								manual = (data ?? []) as any;
@@ -236,7 +248,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						});
 						const lastStart = (combined as any[])[0]?.start_date || (combined as any[])[0]?.start_date_local || null;
 						const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
-						return {
+						let result2 = {
 							...p,
 							isStravaConnected: true,
 							totalWorkouts: total,
@@ -255,6 +267,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							},
 							taunt
 						};
+						try {
+							const supabase = getServerSupabase();
+							if (supabase) {
+								const { data: adjs } = await supabase.from("heart_adjustments").select("target_player_id, delta").eq("lobby_id", lobby.id).eq("target_player_id", p.id);
+								const bonus = (adjs ?? []).reduce((s: number, r: any) => s + (r.delta as number), 0);
+								(result2 as any).livesRemaining = Math.max(0, Math.min(3, (result2 as any).livesRemaining + bonus));
+							}
+						} catch { /* ignore */ }
+						return result2;
 					} catch (refreshErr) {
 						console.error("refresh failed for player", p.id, refreshErr);
 						errors.push({ playerId: p.id, reason: "refresh_failed" });
