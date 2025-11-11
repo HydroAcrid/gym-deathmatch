@@ -27,7 +27,7 @@ export function RecentFeed({
 		let ignore = false;
 		async function refresh() {
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId!)} /live`.replace(" /", "/"), { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				if (ignore || !data?.lobby?.players) return;
@@ -123,6 +123,9 @@ function buildFromLive(data: any): FeedEvent[] {
 	const evs: FeedEvent[] = [];
 	for (const p of (data?.lobby?.players ?? [])) {
 		const name = p.name || "Player";
+		if (p.taunt) {
+			evs.push({ message: `${name}: ${p.taunt}`, timestamp: data?.fetchedAt || new Date().toISOString() });
+		}
 		for (const a of (p.recentActivities ?? [])) {
 			const msg = `${name} did ${a.durationMinutes}m ${readableType(a.type)} — ${a.name}`;
 			evs.push({ message: msg, timestamp: a.startDate });

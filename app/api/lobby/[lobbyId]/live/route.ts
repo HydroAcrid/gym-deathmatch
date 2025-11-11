@@ -4,10 +4,11 @@ import { fetchRecentActivities, refreshAccessToken, toActivitySummary } from "@/
 import { calculateAverageWorkoutsPerWeek, calculateLongestStreak, calculateStreakFromActivities, calculateTotalWorkouts } from "@/lib/streaks";
 import type { LiveLobbyResponse } from "@/types/api";
 import { setTokensForPlayer } from "@/lib/stravaStore";
-import { computeLivesAndEvents } from "@/lib/rules";
+import { computeWeeklyHearts } from "@/lib/rules";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import type { Lobby, Player } from "@/types/game";
 import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
+import { getDailyTaunts } from "@/lib/funFacts";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -100,8 +101,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				const currentStreak = calculateStreakFromActivities(activities, seasonStart, seasonEnd);
 				const longestStreak = calculateLongestStreak(activities, seasonStart, seasonEnd);
 				const avg = calculateAverageWorkoutsPerWeek(activities, seasonStart, seasonEnd);
-				const { livesRemaining, events } = computeLivesAndEvents(activities as any[], { seasonStart, seasonEnd, weeklyTarget, initialLives });
+				const weekly = computeWeeklyHearts(activities as any[], new Date(seasonStart), { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
+				// Back-compat feed events (met/count) derived from weekly events
+				const events = weekly.events.map((e) => ({
+					weekStart: e.weekStart,
+					met: e.workouts >= weeklyTarget,
+					count: e.workouts
+				}));
 				const recentActivities = (activities as any[]).slice(0, 5).map(toActivitySummary);
+				const lastStart = (activities as any[])[0]?.start_date || (activities as any[])[0]?.start_date_local || null;
+				const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
 				return {
 					...p,
 					isStravaConnected: true,
@@ -109,9 +118,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					currentStreak,
 					longestStreak,
 					averageWorkoutsPerWeek: Number.isFinite(avg) ? Number(avg.toFixed(2)) : 0,
-					livesRemaining,
-					events,
-					recentActivities
+					livesRemaining: weekly.heartsRemaining,
+					events, // keep for feed consumption
+					heartsTimeline: weekly.events,
+					weeklyTarget,
+					recentActivities,
+					taunt
 				};
 			} catch (e: any) {
 				// Attempt token refresh on 401/403
@@ -129,8 +141,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						const currentStreak = calculateStreakFromActivities(activities, seasonStart, seasonEnd);
 						const longestStreak = calculateLongestStreak(activities, seasonStart, seasonEnd);
 						const avg = calculateAverageWorkoutsPerWeek(activities, seasonStart, seasonEnd);
-						const { livesRemaining, events } = computeLivesAndEvents(activities as any[], { seasonStart, seasonEnd, weeklyTarget, initialLives });
+						const weekly = computeWeeklyHearts(activities as any[], new Date(seasonStart), { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
+						const events = weekly.events.map((e) => ({
+							weekStart: e.weekStart,
+							met: e.workouts >= weeklyTarget,
+							count: e.workouts
+						}));
 						const recentActivities = (activities as any[]).slice(0, 5).map(toActivitySummary);
+						const lastStart = (activities as any[])[0]?.start_date || (activities as any[])[0]?.start_date_local || null;
+						const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
 						return {
 							...p,
 							isStravaConnected: true,
@@ -138,9 +157,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							currentStreak,
 							longestStreak,
 							averageWorkoutsPerWeek: Number.isFinite(avg) ? Number(avg.toFixed(2)) : 0,
-							livesRemaining,
+							livesRemaining: weekly.heartsRemaining,
 							events,
-							recentActivities
+							heartsTimeline: weekly.events,
+							weeklyTarget,
+							recentActivities,
+							taunt
 						};
 					} catch (refreshErr) {
 						console.error("refresh failed for player", p.id, refreshErr);

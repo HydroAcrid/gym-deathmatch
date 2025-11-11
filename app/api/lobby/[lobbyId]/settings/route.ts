@@ -13,8 +13,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 		if (typeof body.seasonStart === "string") patch.season_start = body.seasonStart;
 		if (typeof body.seasonEnd === "string") patch.season_end = body.seasonEnd;
 		if (Object.keys(patch).length === 0) return NextResponse.json({ error: "No changes" }, { status: 400 });
-		patch.id = lobbyId;
-		const { error } = await supabase.from("lobby").upsert(patch, { onConflict: "id" });
+		// Update only provided fields; avoid upsert so NOT NULL columns (e.g. name) aren't required
+		const { error } = await supabase.from("lobby").update(patch).eq("id", lobbyId);
 		if (error) throw error;
 		return NextResponse.json({ ok: true });
 	} catch (e) {
@@ -22,5 +22,4 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }
-
 

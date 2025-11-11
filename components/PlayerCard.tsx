@@ -10,7 +10,7 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 	const avatar = player.avatarUrl || "";
 	return (
 		<motion.div
-			className="paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 md:min-h-[420px]"
+			className={`paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 md:min-h-[420px] ${player.livesRemaining === 0 ? "opacity-80" : ""}`}
 			initial={{ opacity: 0, scale: 0.96, y: 12 }}
 			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
 			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
@@ -32,6 +32,11 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 					{player.location && <div className="text-xs text-deepBrown/70">{player.location}</div>}
 				</div>
 				<div className="ml-auto">
+					{player.livesRemaining === 0 && (
+						<span className="mr-2 text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
+							KO’D 💀
+						</span>
+					)}
 					{player.isStravaConnected ? (
 						<span className="text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
 							CONNECTED
@@ -68,7 +73,12 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 				</div>
 			</div>
 
-			<HeartDisplay lives={player.livesRemaining} />
+			<div className="pl-2">
+				<HeartDisplay lives={player.livesRemaining} />
+				{typeof player.weeklyTarget === "number" && (
+					<div className="text-[11px] text-deepBrown/70 mt-1">Weekly goal: {player.weeklyTarget} workouts</div>
+				)}
+			</div>
 			<QuipBubble text={player.quip} />
 		</motion.div>
 	);

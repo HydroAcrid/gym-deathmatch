@@ -13,6 +13,9 @@ export interface Player {
 	averageWorkoutsPerWeek: number;
 	quip: string;
 	isStravaConnected?: boolean;
+	weeklyTarget?: number;
+	heartsTimeline?: { weekStart: string; workouts: number; heartsLost: number; heartsGained: number }[];
+	taunt?: string | null;
 }
 
 export interface Lobby {
