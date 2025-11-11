@@ -40,6 +40,16 @@ export default function OnboardPage({ params }: { params: Promise<{ lobbyId: str
 	useEffect(() => {
 		(async () => {
 			if (!user?.id) return;
+			// If already a member of this lobby, jump straight to the lobby
+			try {
+				const r = await fetch(`/api/lobbies?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				const j = await r.json();
+				const isMember = (j?.lobbies ?? []).some((l: any) => l.id === lobbyId);
+				if (isMember) {
+					window.location.replace(`/lobby/${encodeURIComponent(lobbyId)}`);
+					return;
+				}
+			} catch { /* ignore */ }
 			try {
 				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
 				if (!res.ok) return;
@@ -90,7 +100,9 @@ export default function OnboardPage({ params }: { params: Promise<{ lobbyId: str
 				})
 			});
 			localStorage.setItem("gymdm_playerId", id);
-			alert("Joined! Next, connect Strava.");
+			localStorage.setItem("gymdm_lastLobbyId", lobbyId);
+			// Go to lobby; the connect banner is shown there when not connected
+			window.location.replace(`/lobby/${encodeURIComponent(lobbyId)}?joined=1`);
 		} finally {
 			setSubmitting(false);
 		}

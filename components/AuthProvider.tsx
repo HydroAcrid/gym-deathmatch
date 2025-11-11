@@ -42,7 +42,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 		const e = email || window.prompt("Enter your email for a magic sign-in link") || "";
 		if (!e) return;
-		await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: (process.env.NEXT_PUBLIC_BASE_URL || window.location.origin) + "/home" } });
+		const base = (process.env.NEXT_PUBLIC_BASE_URL || window.location.origin);
+		// If user is on an onboarding or join route, return them to the same page after magic link
+		let nextPath = "/home";
+		try {
+			const path = window.location.pathname || "";
+			if (path.startsWith("/onboard/") || path.startsWith("/join/")) {
+				nextPath = path;
+			}
+		} catch { /* ignore */ }
+		await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: base + nextPath } });
 		alert("Check your email for the sign-in link.");
 	}
 
