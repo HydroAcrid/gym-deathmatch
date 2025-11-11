@@ -52,7 +52,7 @@ export function Navbar() {
 					})}
 					<div className="ml-auto flex items-center gap-2">
 						<CreateLobby />
-						<JoinLobby lobbyId="kevin-nelly" />
+						<Link href="/lobbies" className="btn-secondary px-3 py-2 rounded-md text-xs">My Lobbies</Link>
 						<IntroGuide />
 					</div>
 				</nav>

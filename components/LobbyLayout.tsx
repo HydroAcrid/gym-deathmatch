@@ -108,7 +108,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 							className="p-1 text-xs"
 							onClick={async () => {
 								if (typeof window === "undefined") return;
-								const shareUrl = `${window.location.origin}/join/${lobby.id}`;
+								const shareUrl = `${window.location.origin}/onboard/${lobby.id}`;
 								const ownerName = players.find(p => p.id === lobby.ownerId)?.name || "Your friend";
 								const text = `${ownerName} is inviting you to the Deathmatch — ${lobby.name}. Join now:`;
 								try {

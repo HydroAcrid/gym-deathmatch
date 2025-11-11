@@ -19,6 +19,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const [profileAvatar, setProfileAvatar] = useState<string>("");
 	const [profileLocation, setProfileLocation] = useState<string>("");
 	const [profileQuip, setProfileQuip] = useState<string>("");
+	const [players, setPlayers] = useState(lobby.players);
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			setMe(localStorage.getItem("gymdm_playerId"));
@@ -98,9 +99,9 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	}, [user?.id]);
 
 	const iHaveAPlayer = useMemo(() => {
-		if (!profileName) return lobby.players.length > 0; // conservative
-		return lobby.players.some(p => (p.name || "").toLowerCase() === profileName.toLowerCase());
-	}, [lobby.players, profileName]);
+		if (!profileName) return players.length > 0; // conservative
+		return players.some(p => (p.name || "").toLowerCase() === profileName.toLowerCase());
+	}, [players, profileName]);
 
 	async function addMeToLobby() {
 		if (!user?.id) return;
@@ -124,6 +125,22 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		router.refresh();
 	}
 
+	// Load live statuses (Strava connected, etc.)
+	useEffect(() => {
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
+				if (!res.ok) return;
+				const data = await res.json();
+				if (!cancelled && data?.lobby?.players) {
+					setPlayers(data.lobby.players);
+				}
+			} catch { /* ignore */ }
+		})();
+		return () => { cancelled = true; };
+	}, [lobby.id]);
+
 	return (
 		<div className="mx-auto max-w-6xl">
 			<motion.div className="paper-card paper-grain ink-edge px-4 py-3 border-b-4 mb-3 flex items-center justify-between" style={{ borderColor: "#E1542A" }}
@@ -137,7 +154,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 							aria-label="Share lobby"
 							className="p-1 text-xs"
 							onClick={async () => {
-								const shareUrl = `${window.location.origin}/join/${lobby.id}`;
+								const shareUrl = `${window.location.origin}/onboard/${lobby.id}`;
 								const ownerName = lobby.players.find(p => p.id === lobby.ownerId)?.name || "Your friend";
 								const text = `${ownerName} is inviting you to the Deathmatch — ${lobby.name}. Join now:`;
 								try {
@@ -182,8 +199,8 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 						lobbyId={lobby.id}
 						targetIso={lobby.scheduledStart}
 						seasonLabel={`SEASON ${lobby.seasonNumber} – WINTER GRIND`}
-						hostName={lobby.players.find(p => p.id === lobby.ownerId)?.name}
-						numAthletes={lobby.players.length}
+						hostName={players.find(p => p.id === lobby.ownerId)?.name}
+						numAthletes={players.length}
 					/>
 				) : (
 					<div className="paper-card paper-grain ink-edge p-6 text-center stage-backdrop">
@@ -232,7 +249,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 					}}
 					className="grid grid-cols-1 md:grid-cols-2 gap-3"
 				>
-					{lobby.players.map((p) => (
+					{players.map((p) => (
 						<motion.div
 							key={p.id}
 							variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
@@ -256,6 +273,11 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 							<div className="text-xs text-deepBrown/80 whitespace-nowrap">{p.currentStreak}-day streak</div>
 							{p.isStravaConnected ? (
 								<span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-[#2b6b2b] text-cream flicker-fast">READY</span>
+							) : me === p.id ? (
+								<a className="ml-2 px-2 py-0.5 rounded text-[10px] underline"
+									href={`/api/strava/authorize?playerId=${encodeURIComponent(p.id)}&lobbyId=${encodeURIComponent(lobby.id)}`}>
+									Connect Strava
+								</a>
 							) : (
 								<span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-[#6b2b2b] text-cream">OFFLINE</span>
 							)}
