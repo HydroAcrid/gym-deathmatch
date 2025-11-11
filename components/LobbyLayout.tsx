@@ -96,6 +96,12 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [joined, connectedPlayerId]);
+	// Remember last visited lobby for user home
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			localStorage.setItem("gymdm_lastLobbyId", lobby.id);
+		}
+	}, [lobby.id]);
 
 	return (
 		<div className="mx-auto max-w-6xl">

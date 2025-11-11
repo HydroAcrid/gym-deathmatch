@@ -72,7 +72,7 @@ export async function generateMetadata({ params }: { params: Promise<{ lobbyId: 
 	} catch { /* ignore */ }
 	const title = "Gym Deathmatch";
 	const image = `${base}/og/lobby/${encodeURIComponent(lobbyId)}`;
-	const url = `${base}/join/${encodeURIComponent(lobbyId)}`;
+	const url = `${base}/onboard/${encodeURIComponent(lobbyId)}`;
 	return {
 		title,
 		description: desc,

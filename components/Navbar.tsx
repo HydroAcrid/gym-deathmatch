@@ -11,7 +11,7 @@ import { ProfileAvatar } from "./ProfileAvatar";
 import { useAuth } from "./AuthProvider";
 
 const tabs = [
-	{ href: "/lobby/kevin-nelly", label: "Home" },
+	{ href: "/home", label: "Home" },
 	{ href: "/lobbies", label: "Lobbies" },
 	{ href: "/stats", label: "Stats" },
 	{ href: "/history", label: "History" },
