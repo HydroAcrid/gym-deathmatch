@@ -251,3 +251,33 @@ body {
   border-bottom-right-radius: inherit;
 }
 
+/* Stage / Pre-Show visuals */
+.stage-backdrop {
+  position: relative;
+  background: linear-gradient(180deg, rgba(30,24,21,0.7), rgba(22,18,16,0.9));
+}
+.stage-spotlight {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 25%, rgba(255,255,255,0.08), rgba(0,0,0,0) 40%);
+  filter: blur(2px);
+}
+.stage-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("/textures/paper-noise.png");
+}
+.stage-warn {
+  box-shadow: 0 0 0 2px rgba(225,84,42,0.2), 0 0 24px rgba(225,84,42,0.12) inset;
+}
+.flicker-slow {
+  animation: flicker 2.4s infinite;
+}
+.flicker-fast {
+  animation: flicker 1.2s infinite;
+}
+
