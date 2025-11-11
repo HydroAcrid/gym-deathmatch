@@ -197,6 +197,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			<KoOverlay
 				open={seasonStatus === "completed" && !!koEvent && showKo}
 				onClose={() => setShowKo(false)}
+				lobbyId={lobby.id}
 				loserName={players.find(p => p.id === koEvent?.loserPlayerId)?.name || "Player"}
 				loserAvatar={players.find(p => p.id === koEvent?.loserPlayerId)?.avatarUrl}
 				pot={currentPot}

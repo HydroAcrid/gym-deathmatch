@@ -225,3 +225,20 @@ for select using (
   exists (select 1 from player p where p.lobby_id = heart_adjustments.lobby_id and p.user_id = auth.uid())
 );
 
+-- Weekly pot contributions (for precise accounting)
+create table if not exists weekly_pot_contributions (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  week_start timestamptz not null,
+  amount int not null,
+  player_count int not null,
+  created_at timestamptz not null default now(),
+  unique(lobby_id, week_start)
+);
+alter table weekly_pot_contributions enable row level security;
+drop policy if exists weekly_pot_select_member on weekly_pot_contributions;
+create policy weekly_pot_select_member on weekly_pot_contributions
+for select using (
+  exists (select 1 from player p where p.lobby_id = weekly_pot_contributions.lobby_id and p.user_id = auth.uid())
+);
+

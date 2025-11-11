@@ -315,7 +315,45 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		scalingEnabled: !!lobby.scalingEnabled,
 		perPlayerBoost: lobby.perPlayerBoost ?? 0
 	}, playerCount);
-	const currentPot = (lobby.initialPot ?? 0) + weeks * effectiveAnte * playerCount;
+	// Upsert weekly contribution rows for completed weeks (simple model: logs latest week only if missing)
+	try {
+		const supabase = getServerSupabase();
+		if (supabase && weeks > 0) {
+			// Insert for each completed week (avoid race with unique index)
+			const weekStarts: string[] = [];
+			const start = new Date(lobby.seasonStart);
+			for (let i = 0; i < weeks; i++) {
+				const d = new Date(start.getTime() + i * 7 * 24 * 60 * 60 * 1000);
+				weekStarts.push(d.toISOString());
+			}
+			// Find which are missing
+			const { data: existing } = await supabase.from("weekly_pot_contributions").select("week_start").eq("lobby_id", lobby.id);
+			const existingSet = new Set((existing ?? []).map((r: any) => new Date(r.week_start).toISOString().slice(0,10)));
+			const survivors = updatedPlayers.filter(p => p.livesRemaining > 0).length;
+			for (const ws of weekStarts) {
+				const key = ws.slice(0,10);
+				if (!existingSet.has(key)) {
+					const amt = effectiveAnte * Math.max(survivors, 0);
+					await supabase.from("weekly_pot_contributions").insert({
+						lobby_id: lobby.id,
+						week_start: ws,
+						amount: amt,
+						player_count: survivors
+					});
+				}
+			}
+		}
+	} catch { /* ignore */ }
+	// Sum contributions
+	let contributionsSum = 0;
+	try {
+		const supabase = getServerSupabase();
+		if (supabase) {
+			const { data: sumRows } = await supabase.from("weekly_pot_contributions").select("amount").eq("lobby_id", lobby.id);
+			contributionsSum = (sumRows ?? []).reduce((s: number, r: any) => s + (r.amount as number), 0);
+		}
+	} catch { /* ignore */ }
+	const currentPot = (lobby.initialPot ?? 0) + contributionsSum;
 
 	// KO detection - first KO ends season
 	let koEvent: LiveLobbyResponse["koEvent"] | undefined;

@@ -37,11 +37,27 @@ export function ManualActivityModal({
 			// upload photo to "manual-activity-photos" bucket
 			let publicUrl = "";
 			if (supabase && file) {
-				const path = `${playerId}/${Date.now()}_${file.name}`;
+				// Storage RLS expects folder == auth.uid(). Use that when available, otherwise fall back.
+				let folder = playerId;
+				try {
+					const { data } = await supabase.auth.getUser();
+					const uid = (data && (data as any).user && (data as any).user.id) || null;
+					if (uid) folder = uid;
+				} catch {
+					// ignore - will fall back to playerId
+				}
+				// Sanitize filename to avoid illegal path characters
+				const safeName = file.name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
+				const path = `${folder}/${Date.now()}_${safeName}`;
 				const bucket = supabase.storage.from("manual-activity-photos");
 				const { error: upErr } = await bucket.upload(path, file, { upsert: true, cacheControl: "3600" });
 				if (upErr) {
-					alert("Photo upload failed. Create a public bucket named 'manual-activity-photos'.");
+					const msg = (upErr as any)?.message || String(upErr);
+					if (msg.toLowerCase().includes("row-level security")) {
+						alert("Upload blocked by Storage RLS. Ensure the object key starts with your auth user id folder.");
+					} else {
+						alert("Photo upload failed: " + msg);
+					}
 					return;
 				}
 				const { data: pub } = bucket.getPublicUrl(path);

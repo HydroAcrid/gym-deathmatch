@@ -4,12 +4,14 @@ import { motion, AnimatePresence } from "framer-motion";
 export function KoOverlay({
 	open,
 	onClose,
+	lobbyId,
 	loserName,
 	loserAvatar,
 	pot
 }: {
 	open: boolean;
 	onClose: () => void;
+	lobbyId: string;
 	loserName: string;
 	loserAvatar?: string;
 	pot: number;
@@ -34,7 +36,7 @@ export function KoOverlay({
 						<div className="text-cream/90 mb-2 text-sm">KO’d with 0 hearts remaining.</div>
 						<div className="poster-headline text-2xl sm:text-3xl">Pot reached: ${pot}</div>
 						<div className="mt-4 flex items-center justify-center gap-2">
-							<a href="/lobby" className="btn-vintage px-4 py-2 rounded-md text-xs">View Season Summary</a>
+							<a href={`/lobby/${encodeURIComponent(lobbyId)}/summary`} className="btn-vintage px-4 py-2 rounded-md text-xs">View Season Summary</a>
 							<button className="px-3 py-2 rounded-md border border-cream/40 text-xs" onClick={onClose}>Close</button>
 						</div>
 					</motion.div>
