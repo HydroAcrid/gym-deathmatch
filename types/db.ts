@@ -2,9 +2,15 @@ export interface LobbyRow {
 	id: string;
 	name: string;
 	season_number: number;
-	season_start: string; // timestamptz
-	season_end: string; // timestamptz
+	season_start: string | null; // timestamptz
+	season_end: string | null; // timestamptz
 	cash_pool: number;
+	weekly_target?: number | null;
+	initial_lives?: number | null;
+	owner_id?: string | null;
+	status?: "pending" | "scheduled" | "active" | "completed" | null;
+	scheduled_start?: string | null; // timestamptz
+	deleted_at?: string | null;
 }
 
 export interface PlayerRow {

@@ -4,12 +4,14 @@ create table if not exists lobby (
   id text primary key,
   name text not null,
   season_number int not null,
-  season_start timestamptz not null,
+  season_start timestamptz null,
   season_end timestamptz not null,
   cash_pool int not null default 0,
   weekly_target int not null default 3,
   initial_lives int not null default 3,
-  owner_id text references player(id)
+  owner_id text references player(id),
+  status text not null default 'pending' check (status in ('pending','scheduled','active','completed')),
+  scheduled_start timestamptz null
 );
 
 create table if not exists player (

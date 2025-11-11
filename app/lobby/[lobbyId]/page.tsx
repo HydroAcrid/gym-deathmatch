@@ -1,5 +1,5 @@
 import { getLobbyById } from "@/lib/lobbies";
-import { LobbyLayout } from "@/components/LobbyLayout";
+import { LobbySwitcher } from "@/components/LobbySwitcher";
 import { notFound } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import type { Lobby, Player } from "@/types/game";
@@ -42,7 +42,9 @@ export default async function LobbyPage({
 					cashPool: lrow.cash_pool ?? 0,
 					weeklyTarget: lrow.weekly_target ?? 3,
 					initialLives: lrow.initial_lives ?? 3,
-					ownerId: lrow.owner_id ?? undefined
+					ownerId: lrow.owner_id ?? undefined,
+					status: lrow.status ?? "active",
+					scheduledStart: lrow.scheduled_start ?? null
 				} as Lobby;
 			} else {
 				return notFound();
@@ -51,7 +53,7 @@ export default async function LobbyPage({
 			return notFound();
 		}
 	}
-	return <LobbyLayout lobby={lobby} />;
+	return <LobbySwitcher lobby={lobby} />;
 }
 
 

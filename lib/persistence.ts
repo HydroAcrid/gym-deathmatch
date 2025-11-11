@@ -84,7 +84,10 @@ export async function ensureLobbyAndPlayers(lobbyId: string): Promise<boolean> {
 			season_end: mockLobby.seasonEnd,
 			cash_pool: mockLobby.cashPool,
 			weekly_target: mockLobby.weeklyTarget ?? 3,
-			initial_lives: mockLobby.initialLives ?? 3
+			initial_lives: mockLobby.initialLives ?? 3,
+			status: (mockLobby as any).status ?? 'active',
+			scheduled_start: (mockLobby as any).scheduledStart ?? null,
+			owner_id: (mockLobby as any).ownerId ?? null
 		},
 		{ onConflict: "id" }
 	);
@@ -103,6 +106,21 @@ export async function ensureLobbyAndPlayers(lobbyId: string): Promise<boolean> {
 	const { error: playerErr } = await supabase.from("player").upsert(rows, { onConflict: "id" });
 	if (playerErr) {
 		console.error("ensureLobbyAndPlayers player upsert error", playerErr);
+		return false;
+	}
+	return true;
+}
+
+export async function updateLobbyStage(lobbyId: string, updates: Partial<{ status: "pending"|"scheduled"|"active"|"completed"; scheduledStart: string | null; seasonStart: string | null }>): Promise<boolean> {
+	const supabase = getServerSupabase();
+	if (!supabase) return false;
+	const payload: any = {};
+	if (updates.status !== undefined) payload.status = updates.status;
+	if (updates.scheduledStart !== undefined) payload.scheduled_start = updates.scheduledStart;
+	if (updates.seasonStart !== undefined) payload.season_start = updates.seasonStart;
+	const { error } = await supabase.from("lobby").update(payload).eq("id", lobbyId);
+	if (error) {
+		console.error("updateLobbyStage error", error);
 		return false;
 	}
 	return true;

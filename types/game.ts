@@ -26,6 +26,8 @@ export interface Lobby {
 	weeklyTarget?: number;
 	initialLives?: number;
 	ownerId?: PlayerId;
+	status?: "pending" | "scheduled" | "active" | "completed";
+	scheduledStart?: string | null; // ISO when status === 'scheduled'
 }
 
 export interface ActivitySummary {
