@@ -5,7 +5,7 @@ import { Lobby, Player } from "@/types/game";
 import { motion } from "framer-motion";
 import { Scoreboard } from "./Scoreboard";
 import { PlayerCard } from "./PlayerCard";
-import { InvitePlayerCard } from "./InvitePlayerCard";
+// import { InvitePlayerCard } from "./InvitePlayerCard";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useToast } from "./ToastProvider";
@@ -161,9 +161,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
 					</motion.div>
 				))}
-				<motion.div variants={item}>
-					<InvitePlayerCard lobbyId={lobby.id} onAdd={(np) => { setPlayers(prev => [...prev, np]); }} onReplace={(plist)=> setPlayers(plist)} />
-				</motion.div>
+				{/* Invite flow is now handled via share/onboarding; manual add card removed */}
 			</div>
 			{/* Reconnect banner if errors */}
 			{/* In a next pass, we could show per-player lines; for now a simple CTA */}
