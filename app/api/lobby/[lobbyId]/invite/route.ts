@@ -24,12 +24,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		}
 		let name = body.name as string;
 		let avatarUrl = (body.avatarUrl ?? null) as string | null;
+		let location = (body.location ?? null) as string | null;
+		let quip = (body.quip ?? null) as string | null;
 		// If userId provided, default name/avatar from profile when not supplied
-		if ((!name || name.trim().length === 0 || !avatarUrl) && body.userId) {
+		if (body.userId) {
 			try {
 				const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", body.userId).maybeSingle();
 				if ((!name || name.trim().length === 0) && prof?.display_name) name = prof.display_name;
 				if (!avatarUrl && prof?.avatar_url) avatarUrl = prof.avatar_url;
+				if (!location && prof?.location) location = prof.location;
+				if (!quip && prof?.quip) quip = prof.quip;
 			} catch { /* ignore */ }
 		}
 		const p: PlayerRow = {
@@ -37,8 +41,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			lobby_id: lobbyId,
 			name,
 			avatar_url: avatarUrl,
-			location: body.location ?? null,
-			quip: body.quip ?? null
+			location,
+			quip
 		};
 		// attach user id if provided
 		if (body.userId) (p as any).user_id = body.userId;

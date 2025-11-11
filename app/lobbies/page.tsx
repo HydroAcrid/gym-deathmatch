@@ -60,6 +60,8 @@ export default function LobbiesPage() {
 									<button
 										className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
 										onClick={async () => {
+											const ok = confirm(`Leave "${l.name}"?`);
+											if (!ok) return;
 											await fetch(`/api/lobby/${encodeURIComponent(l.id)}/leave`, {
 												method: "POST",
 												headers: { "Content-Type": "application/json" },

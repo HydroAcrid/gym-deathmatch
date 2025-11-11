@@ -43,6 +43,8 @@ create table if not exists user_profile (
   user_id text primary key,
   display_name text,
   avatar_url text,
+  location text,
+  quip text,
   created_at timestamptz default now()
 );
 alter table user_profile enable row level security;

@@ -17,6 +17,8 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [profileName, setProfileName] = useState<string>("");
 	const [profileAvatar, setProfileAvatar] = useState<string>("");
+	const [profileLocation, setProfileLocation] = useState<string>("");
+	const [profileQuip, setProfileQuip] = useState<string>("");
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			setMe(localStorage.getItem("gymdm_playerId"));
@@ -89,6 +91,8 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				const j = await res.json();
 				if (j?.name) setProfileName(j.name);
 				if (j?.avatarUrl) setProfileAvatar(j.avatarUrl);
+				if (j?.location) setProfileLocation(j.location);
+				if (j?.quip) setProfileQuip(j.quip);
 			} catch { /* ignore */ }
 		})();
 	}, [user?.id]);
@@ -111,7 +115,8 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				id,
 				name: profileName || emailName || "Me",
 				avatarUrl: profileAvatar || null,
-				quip: null,
+				location: profileLocation || null,
+				quip: profileQuip || null,
 				userId: user.id
 			})
 		});
@@ -235,10 +240,18 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 						>
 							{/* Underlighting glow */}
 							<div className="absolute inset-x-4 -bottom-2 h-3 rounded-full blur-md" style={{ background: "radial-gradient(ellipse at center, rgba(225,84,42,0.35), rgba(0,0,0,0))" }} />
-							<div className="h-12 w-12 flex items-center justify-center rounded-full bg-tan text-xl border border-deepBrown/30">🏋️</div>
+							<div className="relative h-12 w-12 rounded-full overflow-hidden bg-tan border border-deepBrown/30">
+								{p.avatarUrl ? (
+									/* Use native img to avoid next/image layout constraints in cards */
+									<img src={p.avatarUrl} alt={`${p.name} avatar`} className="h-full w-full object-cover" />
+								) : (
+									<div className="h-full w-full flex items-center justify-center text-xl">🏋️</div>
+								)}
+							</div>
 							<div className="flex-1">
 								<div className="poster-headline text-base leading-4">{p.name.toUpperCase()}</div>
 								<div className="text-[11px] text-deepBrown/70">{p.location || "—"}</div>
+								{p.quip && <div className="text-[11px] text-deepBrown/80 mt-0.5 italic truncate">“{p.quip}”</div>}
 							</div>
 							<div className="text-xs text-deepBrown/80 whitespace-nowrap">{p.currentStreak}-day streak</div>
 							{p.isStravaConnected ? (

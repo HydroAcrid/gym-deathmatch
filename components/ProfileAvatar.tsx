@@ -14,6 +14,8 @@ export function ProfileAvatar() {
 	const [displayName, setDisplayName] = useState("");
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [current, setCurrent] = useState<string>("");
+	const [locationVal, setLocationVal] = useState("");
+	const [quipVal, setQuipVal] = useState("");
 
 	// Load current avatar from user_profile (fallback to player)
 	useEffect(() => {
@@ -26,6 +28,8 @@ export function ProfileAvatar() {
 				const avatar = j?.avatarUrl as string | undefined;
 				if (j?.name) setDisplayName(j.name);
 				if (avatar) setCurrent(avatar);
+				if (j?.location) setLocationVal(j.location);
+				if (j?.quip) setQuipVal(j.quip);
 			} catch {
 				// ignore
 			}
@@ -73,23 +77,28 @@ export function ProfileAvatar() {
 	}
 
 	async function save() {
-		if (!url.trim()) {
-			alert("Provide an avatar URL or upload a file.");
-			return;
-		}
 		setBusy(true);
 		try {
 			// Save to user_profile
 			await fetch("/api/profile", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: user.id, displayName, avatarUrl: url.trim() })
+				body: JSON.stringify({
+					userId: user.id,
+					displayName,
+					avatarUrl: (url.trim() || current || ""),
+					location: locationVal,
+					quip: quipVal
+				})
 			});
-			await fetch("/api/user/avatar", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: user.id, avatarUrl: url.trim(), playerId: localStorage.getItem("gymdm_playerId") || null })
-			});
+			// Update player avatars only if a new URL was provided
+			if (url.trim()) {
+				await fetch("/api/user/avatar", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ userId: user.id, avatarUrl: url.trim(), playerId: localStorage.getItem("gymdm_playerId") || null })
+				});
+			}
 			// Sync existing player names to profile (replace 'Owner'/'Me')
 			await fetch("/api/user/sync", {
 				method: "POST",
@@ -100,7 +109,9 @@ export function ProfileAvatar() {
 			try {
 				const supabase = getBrowserSupabase();
 				if (supabase) {
-					await supabase.auth.updateUser({ data: { avatar_url: url.trim(), display_name: displayName } });
+					await supabase.auth.updateUser({
+						data: { avatar_url: (url.trim() || current || ""), display_name: displayName, location: locationVal, quip: quipVal }
+					});
 				}
 			} catch { /* ignore */ }
 			setOpen(false);
@@ -137,6 +148,24 @@ export function ProfileAvatar() {
 										onChange={(e) => setDisplayName(e.target.value)}
 									/>
 								</label>
+								<div className="grid grid-cols-2 gap-3">
+									<label className="block text-xs">
+										<span className="block mb-1">Location</span>
+										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+											placeholder="City, State"
+											value={locationVal}
+											onChange={(e) => setLocationVal(e.target.value)}
+										/>
+									</label>
+									<label className="block text-xs">
+										<span className="block mb-1">Quip</span>
+										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+											placeholder="Short tagline"
+											value={quipVal}
+											onChange={(e) => setQuipVal(e.target.value)}
+										/>
+									</label>
+								</div>
 								<label className="block text-xs">
 									<span className="block mb-1">Paste image URL</span>
 									<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
