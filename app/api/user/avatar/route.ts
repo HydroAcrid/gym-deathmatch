@@ -23,7 +23,11 @@ export async function POST(req: Request) {
 		// If user_id column missing or nothing updated, fallback to playerId if provided
 		if ((err && (String(err?.message || "").includes("user_id") || String(err?.code || "") === "42703")) || updated === 0) {
 			if (playerId) {
-				const { error: e2 } = await supabase.from("player").update({ avatar_url: avatarUrl }).eq("id", playerId);
+				// Update by player id and attach this player to the current user for future lookups
+				const { error: e2 } = await supabase
+					.from("player")
+					.update({ avatar_url: avatarUrl, user_id: userId })
+					.eq("id", playerId);
 				if (e2) {
 					console.error("avatar update error fallback", e2);
 					return NextResponse.json({ error: "Failed to update avatar" }, { status: 500 });

@@ -12,11 +12,28 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 	const [submitting, setSubmitting] = useState(false);
 	const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
 	const { user } = useAuth();
+	const [profileName, setProfileName] = useState<string | null>(null);
+	const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
 
 	useEffect(() => {
 		const me = localStorage.getItem("gymdm_playerId");
 		if (me) setNewPlayerId(me);
 	}, []);
+	useEffect(() => {
+		(async () => {
+			if (!user?.id) return;
+			try {
+				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				if (!res.ok) return;
+				const j = await res.json();
+				setProfileName(j?.name ?? null);
+				setProfileAvatar(j?.avatarUrl ?? null);
+				// Auto-fill if fields empty
+				if (!name && j?.name) setName(j.name);
+				if (!avatarUrl && j?.avatarUrl) setAvatarUrl(j.avatarUrl);
+			} catch { /* ignore */ }
+		})();
+	}, [user?.id]);
 
 	async function submit() {
 		if (!name.trim()) return;
@@ -51,6 +68,17 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 							<div className="poster-headline text-xl mb-3">Join this Lobby</div>
 							{!newPlayerId ? (
 								<div className="grid gap-2">
+									{user && profileName && (
+										<button
+											className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs text-left"
+											onClick={() => {
+												setName(profileName);
+												if (profileAvatar) setAvatarUrl(profileAvatar);
+											}}
+										>
+											Use my profile: <span className="font-semibold">{profileName}</span>
+										</button>
+									)}
 									<input className="px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown placeholder:text-deepBrown/50"
 										placeholder="Your Name" value={name} onChange={e => setName(e.target.value)} />
 									<input className="px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown placeholder:text-deepBrown/50"

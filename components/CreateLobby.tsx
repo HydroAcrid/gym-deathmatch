@@ -15,6 +15,23 @@ export function CreateLobby() {
 	const [ownerName, setOwnerName] = useState("");
 	const toast = useToast();
 	const { user } = useAuth();
+	const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+
+	// Prefill owner name/avatar from profile
+	useEffect(() => {
+		(async () => {
+			try {
+				if (!user?.id) return;
+				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				if (res.ok) {
+					const j = await res.json();
+					if (!ownerName && j?.name) setOwnerName(j.name);
+					if (j?.avatarUrl) setProfileAvatar(j.avatarUrl);
+				}
+			} catch { /* ignore */ }
+		})();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [user?.id]);
 
 	function slugify(name: string) {
 		return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -49,7 +66,8 @@ export function CreateLobby() {
 				ownerId,
 				ownerName: ownerName || undefined,
 				userId: user?.id || null,
-				status: "pending"
+				status: "pending",
+				ownerAvatarUrl: profileAvatar
 			})
 		});
 		if (res.ok) {

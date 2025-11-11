@@ -12,28 +12,37 @@ export function OwnerSettingsModal({
 	onSaved,
 	autoOpen,
 	hideTrigger,
-	onClose
+	onClose,
+	open: openProp
 }: {
 	lobbyId: string;
 	defaultWeekly: number;
 	defaultLives: number;
-	defaultSeasonEnd: string;
+	defaultSeasonEnd?: string;
 	onSaved: () => void;
 	autoOpen?: boolean;
 	hideTrigger?: boolean;
 	onClose?: () => void;
+	open?: boolean;
 }) {
 	const [open, setOpen] = useState<boolean>(!!autoOpen);
 	const [weekly, setWeekly] = useState<number>(defaultWeekly);
 	const [lives, setLives] = useState<number>(defaultLives);
 	const [seasonStart, setSeasonStart] = useState<string>("");
-	const [seasonEnd, setSeasonEnd] = useState<string>(defaultSeasonEnd.slice(0, 16).replace("Z", ""));
+	const initialEnd = (defaultSeasonEnd || new Date().toISOString()).slice(0, 16).replace("Z", "");
+	const [seasonEnd, setSeasonEnd] = useState<string>(initialEnd);
 	const [saving, setSaving] = useState(false);
 	const toast = useToast();
 	const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
 	const [removeId, setRemoveId] = useState<string>("");
 	const [newOwnerId, setNewOwnerId] = useState<string>("");
 	const [confirmName, setConfirmName] = useState<string>("");
+
+	// Allow external control
+	useEffect(() => {
+		if (openProp === undefined) return;
+		setOpen(openProp);
+	}, [openProp]);
 
 	async function save() {
 		setSaving(true);

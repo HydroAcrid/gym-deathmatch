@@ -7,21 +7,38 @@ import { useRouter } from "next/navigation";
 import { Countdown } from "./Countdown";
 import { CountdownHero } from "./CountdownHero";
 import { useAuth } from "./AuthProvider";
+import { OwnerSettingsModal } from "./OwnerSettingsModal";
 
 export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const router = useRouter();
 	const [me, setMe] = useState<string | null>(null);
 	const { user } = useAuth();
+	const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
+	const [editOpen, setEditOpen] = useState(false);
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			setMe(localStorage.getItem("gymdm_playerId"));
 		}
 	}, []);
 	const isOwner = useMemo(() => {
-		// Mocked owner detection; replace with Supabase Auth user mapping later
-		if (user?.id && lobby.ownerId) return lobby.ownerId === user.id;
+		// Owner if: auth user matches owner player's user_id, or local playerId matches lobby.ownerId (legacy)
+		if (user?.id && ownerUserId) return user.id === ownerUserId;
 		return !!(lobby.ownerId && me && lobby.ownerId === me);
-	}, [lobby.ownerId, me, user?.id]);
+	}, [lobby.ownerId, me, user?.id, ownerUserId]);
+
+	// Fetch owner's user_id for robust checks
+	useEffect(() => {
+		(async () => {
+			try {
+				const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+				if (!supabase || !lobby.ownerId) return;
+				const { data } = await supabase.from("player").select("user_id").eq("id", lobby.ownerId).maybeSingle();
+				if (data?.user_id) setOwnerUserId(data.user_id as string);
+			} catch {
+				// ignore
+			}
+		})();
+	}, [lobby.ownerId]);
 
 	const [scheduleAt, setScheduleAt] = useState<string>(lobby.scheduledStart ?? "");
 	const schedule = async () => {
@@ -43,12 +60,30 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 
 	return (
 		<div className="mx-auto max-w-6xl">
-			<motion.div className="paper-card paper-grain ink-edge px-4 py-3 border-b-4 mb-3" style={{ borderColor: "#E1542A" }}
+			<motion.div className="paper-card paper-grain ink-edge px-4 py-3 border-b-4 mb-3 flex items-center justify-between" style={{ borderColor: "#E1542A" }}
 				initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
 				<div className="flex items-center gap-3">
 					<div className="poster-headline text-xl">DEATHMATCH STAGE · SEASON {lobby.seasonNumber} – WINTER GRIND</div>
 				</div>
+				{isOwner && (
+					<button className="px-3 py-1.5 rounded-md border border-deepBrown/30 text-xs hover:bg-cream/10"
+						onClick={() => setEditOpen(true)}>
+						Edit
+					</button>
+				)}
 			</motion.div>
+			{isOwner && (
+				<OwnerSettingsModal
+					open={editOpen}
+					onClose={() => setEditOpen(false)}
+					lobbyId={lobby.id}
+					defaultWeekly={lobby.weeklyTarget ?? 3}
+					defaultLives={lobby.initialLives ?? 3}
+					defaultSeasonEnd={lobby.seasonEnd}
+					onSaved={() => router.refresh()}
+					hideTrigger
+				/>
+			)}
 
 			{/* Hero Countdown */}
 			<div className="mb-6">

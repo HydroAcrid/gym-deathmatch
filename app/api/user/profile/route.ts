@@ -1,0 +1,23 @@
+import { NextResponse } from "next/server";
+import { getServerSupabase } from "@/lib/supabaseClient";
+
+export async function GET(req: Request) {
+	const supabase = getServerSupabase();
+	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+	try {
+		const { searchParams } = new URL(req.url);
+		const userId = searchParams.get("userId");
+		if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+		const { data } = await supabase.from("player")
+			.select("name,avatar_url")
+			.eq("user_id", userId)
+			.order("id", { ascending: true })
+			.limit(1)
+			.maybeSingle();
+		return NextResponse.json({ name: data?.name ?? null, avatarUrl: data?.avatar_url ?? null });
+	} catch {
+		return NextResponse.json({ name: null, avatarUrl: null });
+	}
+}
+
+

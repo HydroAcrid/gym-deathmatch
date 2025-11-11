@@ -22,6 +22,9 @@ export function ProfileAvatar() {
 				if (!supabase) return;
 				let avatar: string | null = null;
 				if (!user) return;
+				// Prefer auth user metadata
+				const metaAvatar = (user as any)?.user_metadata?.avatar_url as string | undefined;
+				if (metaAvatar) avatar = metaAvatar;
 				const { data, error } = await supabase.from("player").select("avatar_url").eq("user_id", user.id).maybeSingle();
 				if (!error && data?.avatar_url) avatar = data.avatar_url as string;
 				if (!avatar) {
@@ -90,6 +93,13 @@ export function ProfileAvatar() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ userId: user.id, avatarUrl: url.trim(), playerId: localStorage.getItem("gymdm_playerId") || null })
 			});
+			// Persist to auth metadata for easy retrieval across the app
+			try {
+				const supabase = getBrowserSupabase();
+				if (supabase) {
+					await supabase.auth.updateUser({ data: { avatar_url: url.trim() } });
+				}
+			} catch { /* ignore */ }
 			setOpen(false);
 		} finally {
 			setBusy(false);
