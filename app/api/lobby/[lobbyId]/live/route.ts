@@ -10,16 +10,28 @@ import type { Lobby, Player } from "@/types/game";
 import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 import { getDailyTaunts } from "@/lib/funFacts";
 import type { ManualActivityRow } from "@/types/db";
+import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	let lobby: Lobby | null = null;
+	let rawStatus: "pending" | "scheduled" | "active" | "completed" | undefined;
+	let rawSeasonNumber = 1;
+	let potConfig = { initialPot: 0, weeklyAnte: 10, scalingEnabled: false, perPlayerBoost: 0 };
 	let userIdByPlayer: Record<string, string | null> = {};
 	try {
 		const supabase = getServerSupabase();
 		if (supabase) {
 			const { data: lrow } = await supabase.from("lobby").select("*").eq("id", lobbyId).single();
 			if (lrow) {
+				rawStatus = lrow.status ?? "active";
+				rawSeasonNumber = lrow.season_number ?? 1;
+				potConfig = {
+					initialPot: (lrow.initial_pot as number) ?? 0,
+					weeklyAnte: (lrow.weekly_ante as number) ?? 10,
+					scalingEnabled: !!lrow.scaling_enabled,
+					perPlayerBoost: (lrow.per_player_boost as number) ?? 0
+				};
 				// Create lobby from DB rows
 				const { data: prows } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
 				const players: Player[] = (prows ?? []).map((p: any) => ({
@@ -40,10 +52,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					id: lobbyId,
 					name: lrow.name,
 					players,
-					seasonNumber: lrow.season_number ?? 1,
+					seasonNumber: rawSeasonNumber,
 					seasonStart: lrow.season_start ?? new Date().toISOString(),
 					seasonEnd: lrow.season_end ?? new Date().toISOString(),
 					cashPool: lrow.cash_pool ?? 0,
+					initialPot: potConfig.initialPot,
+					weeklyAnte: potConfig.weeklyAnte,
+					scalingEnabled: potConfig.scalingEnabled,
+					perPlayerBoost: potConfig.perPlayerBoost,
 					weeklyTarget: lrow.weekly_target ?? 3,
 					initialLives: lrow.initial_lives ?? 3,
 					ownerId: lrow.owner_id ?? undefined
@@ -229,6 +245,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							return tb - ta;
 						});
 						const seasonStartDate2 = new Date(seasonStart);
+						const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
 						const startForCalc2 = ((combined as any[]).length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
 							? new Date()
 							: seasonStartDate2;
@@ -289,10 +306,44 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		})
 	);
 
+	// Compute pot with simplified model: weeks elapsed * effective ante * playerCount + initial pot
+	const playerCount = updatedPlayers.length;
+	const weeks = weeksSince(lobby.seasonStart);
+	const effectiveAnte = computeEffectiveWeeklyAnte({
+		initialPot: lobby.initialPot ?? 0,
+		weeklyAnte: lobby.weeklyAnte ?? 10,
+		scalingEnabled: !!lobby.scalingEnabled,
+		perPlayerBoost: lobby.perPlayerBoost ?? 0
+	}, playerCount);
+	const currentPot = (lobby.initialPot ?? 0) + weeks * effectiveAnte * playerCount;
+
+	// KO detection - first KO ends season
+	let koEvent: LiveLobbyResponse["koEvent"] | undefined;
+	const loser = updatedPlayers.find(p => p.livesRemaining === 0);
+	try {
+		if (loser && rawStatus === "active") {
+			const supabase = getServerSupabase();
+			if (supabase) {
+				await supabase.from("lobby").update({ status: "completed", season_end: new Date().toISOString() }).eq("id", lobby.id);
+				await supabase.from("history_events").insert({
+					lobby_id: lobby.id,
+					actor_player_id: null,
+					target_player_id: loser.id,
+					type: "SEASON_KO",
+					payload: { loserPlayerId: loser.id, currentPot, seasonNumber: lobby.seasonNumber }
+				});
+				rawStatus = "completed";
+				koEvent = { loserPlayerId: loser.id, potAtKO: currentPot };
+			}
+		}
+	} catch { /* ignore */ }
+
 	const live: LiveLobbyResponse = {
-		lobby: { ...lobby, players: updatedPlayers },
+		lobby: { ...lobby, players: updatedPlayers, cashPool: currentPot },
 		fetchedAt: new Date().toISOString(),
-		errors: errors.length ? errors : undefined
+		errors: errors.length ? errors : undefined,
+		seasonStatus: rawStatus,
+		koEvent
 	};
 	return NextResponse.json(live, { status: 200 });
 }

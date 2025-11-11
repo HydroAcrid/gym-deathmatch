@@ -27,6 +27,10 @@ export interface Lobby {
 	seasonStart: string; // ISO date
 	seasonEnd: string;   // ISO date
 	cashPool: number;
+	initialPot?: number;
+	weeklyAnte?: number;
+	scalingEnabled?: boolean;
+	perPlayerBoost?: number;
 	weeklyTarget?: number;
 	initialLives?: number;
 	ownerId?: PlayerId;

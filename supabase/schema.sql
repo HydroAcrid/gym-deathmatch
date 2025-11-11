@@ -67,6 +67,25 @@ alter table user_strava_token enable row level security;
 -- create policy "public read lobby" on lobby for select using (true);
 -- create policy "public read player" on player for select using (true);
 
+-- Pot configuration fields (idempotent add)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='initial_pot') then
+    alter table lobby add column initial_pot int not null default 0;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='weekly_ante') then
+    alter table lobby add column weekly_ante int not null default 10;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='scaling_enabled') then
+    alter table lobby add column scaling_enabled boolean not null default false;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='per_player_boost') then
+    alter table lobby add column per_player_boost int not null default 0;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='season_number') then
+    alter table lobby add column season_number int not null default 1;
+  end if;
+end $$;
 
 -- Manual activities: allow logging workouts without Strava
 create table if not exists manual_activities (

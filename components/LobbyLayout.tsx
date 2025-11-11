@@ -11,9 +11,14 @@ import { useEffect } from "react";
 import { useToast } from "./ToastProvider";
 import { RecentFeed } from "./RecentFeed";
 import { oneLinerFromActivity } from "@/lib/messages";
+import { KoOverlay } from "./KoOverlay";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
+	const [currentPot, setCurrentPot] = useState<number>(lobby.cashPool);
+	const [seasonStatus, setSeasonStatus] = useState<"pending" | "scheduled" | "active" | "completed" | undefined>(lobby.status);
+	const [koEvent, setKoEvent] = useState<any>(null);
+	const [showKo, setShowKo] = useState<boolean>(false);
 	const [me, setMe] = useState<string | null>(null);
 	const search = useSearchParams();
 	const stravaConnected = search.get("stravaConnected");
@@ -56,6 +61,12 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			if (data?.lobby?.players) {
 				setPlayers(data.lobby.players);
 				setFeedEvents(buildFeedFromPlayers(data.lobby.players));
+				if (typeof data.lobby.cashPool === "number") setCurrentPot(data.lobby.cashPool);
+			}
+			setSeasonStatus(data.seasonStatus);
+			if (data.koEvent) {
+				setKoEvent(data.koEvent);
+				setShowKo(true);
 			}
 			// show reconnect hint if there are errors
 			if (data?.errors?.length) {
@@ -157,7 +168,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 
 			{/* Scoreboard */}
 			<div className="mb-6">
-				<Scoreboard amount={lobby.cashPool} endIso={lobby.seasonEnd} />
+				<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_320px] gap-3 sm:gap-4 items-start">
@@ -183,6 +194,13 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				{/* Invite flow is now handled via share/onboarding; manual add card removed */}
 			</div>
 			{/* Strava reconnect banner removed – Strava is optional now */}
+			<KoOverlay
+				open={seasonStatus === "completed" && !!koEvent && showKo}
+				onClose={() => setShowKo(false)}
+				loserName={players.find(p => p.id === koEvent?.loserPlayerId)?.name || "Player"}
+				loserAvatar={players.find(p => p.id === koEvent?.loserPlayerId)?.avatarUrl}
+				pot={currentPot}
+			/>
 		</div>
 	);
 }

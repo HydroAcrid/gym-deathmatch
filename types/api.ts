@@ -4,6 +4,8 @@ export interface LiveLobbyResponse {
 	lobby: Lobby;
 	fetchedAt: string; // ISO timestamp
 	errors?: Array<{ playerId: PlayerId; reason: string }>;
+	seasonStatus?: "pending" | "scheduled" | "active" | "completed";
+	koEvent?: { loserPlayerId: PlayerId; potAtKO: number };
 }
 
 

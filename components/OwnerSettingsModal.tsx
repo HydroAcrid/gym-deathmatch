@@ -9,6 +9,10 @@ export function OwnerSettingsModal({
 	defaultWeekly,
 	defaultLives,
 	defaultSeasonEnd,
+	defaultInitialPot,
+	defaultWeeklyAnte,
+	defaultScalingEnabled,
+	defaultPerPlayerBoost,
 	onSaved,
 	autoOpen,
 	hideTrigger,
@@ -19,6 +23,10 @@ export function OwnerSettingsModal({
 	defaultWeekly: number;
 	defaultLives: number;
 	defaultSeasonEnd?: string;
+	defaultInitialPot?: number;
+	defaultWeeklyAnte?: number;
+	defaultScalingEnabled?: boolean;
+	defaultPerPlayerBoost?: number;
 	onSaved: () => void;
 	autoOpen?: boolean;
 	hideTrigger?: boolean;
@@ -28,6 +36,10 @@ export function OwnerSettingsModal({
 	const [open, setOpen] = useState<boolean>(!!autoOpen);
 	const [weekly, setWeekly] = useState<number>(defaultWeekly);
 	const [lives, setLives] = useState<number>(defaultLives);
+	const [initialPot, setInitialPot] = useState<string>(String(defaultInitialPot ?? 0));
+	const [weeklyAnte, setWeeklyAnte] = useState<string>(String(defaultWeeklyAnte ?? 10));
+	const [scalingEnabled, setScalingEnabled] = useState<boolean>(!!defaultScalingEnabled);
+	const [perPlayerBoost, setPerPlayerBoost] = useState<string>(String(defaultPerPlayerBoost ?? 0));
 	const [seasonStart, setSeasonStart] = useState<string>("");
 	const initialEnd = (defaultSeasonEnd || new Date().toISOString()).slice(0, 16).replace("Z", "");
 	const [seasonEnd, setSeasonEnd] = useState<string>(initialEnd);
@@ -54,7 +66,11 @@ export function OwnerSettingsModal({
 					weeklyTarget: Number(weekly),
 					initialLives: Number(lives),
 					seasonStart: seasonStart ? new Date(seasonStart).toISOString() : undefined,
-					seasonEnd: new Date(seasonEnd).toISOString()
+					seasonEnd: new Date(seasonEnd).toISOString(),
+					initialPot: Number(initialPot || 0),
+					weeklyAnte: Number(weeklyAnte || 0),
+					scalingEnabled: Boolean(scalingEnabled),
+					perPlayerBoost: Number(perPlayerBoost || 0)
 				})
 			});
 			if (res.ok) {
@@ -190,6 +206,26 @@ export function OwnerSettingsModal({
 									<span className="block mb-1">Initial lives</span>
 									<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
 										value={lives} onChange={e => setLives(Number(e.target.value))} />
+								</label>
+								<label className="text-xs">
+									<span className="block mb-1">Initial pot ($)</span>
+									<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+										value={initialPot} onChange={e => setInitialPot(e.target.value)} />
+								</label>
+								<label className="text-xs">
+									<span className="block mb-1">Weekly ante ($)</span>
+									<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+										value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
+								</label>
+								<label className="text-xs flex items-center gap-2 md:col-span-2">
+									<input type="checkbox" checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
+									<span>Scale ante with lobby size</span>
+								</label>
+								<label className={`text-xs ${scalingEnabled ? "" : "opacity-50"}`}>
+									<span className="block mb-1">Per-player boost ($)</span>
+									<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+										disabled={!scalingEnabled}
+										value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
 								</label>
 								<label className="text-xs md:col-span-2">
 									<span className="block mb-1">Season start (local)</span>
