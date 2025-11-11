@@ -153,9 +153,15 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
 					</motion.div>
 				))}
-				<div>
-					<RecentFeed lobbyId={lobby.id} events={feedEvents} />
-				</div>
+				{(() => {
+					// Make the feed span as many rows as there are player rows
+					const rowSpan = Math.max(1, Math.ceil(players.length / 2));
+					return (
+						<div style={{ gridRow: `span ${rowSpan}` }}>
+							<RecentFeed lobbyId={lobby.id} events={feedEvents} />
+						</div>
+					);
+				})()}
 				{players.slice(2).map((p) => (
 					<motion.div key={p.id} variants={item}>
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
