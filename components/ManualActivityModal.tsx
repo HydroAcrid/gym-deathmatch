@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 
 export function ManualActivityModal({
 	open,
@@ -71,22 +72,24 @@ export function ManualActivityModal({
 		}
 	}
 
-	return (
+	// Render in a portal so transforms on parents don't trap the overlay
+	if (typeof window === "undefined" || !open) return null;
+	return createPortal(
 		<AnimatePresence>
-			{open && (
+			<motion.div
+				className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				exit={{ opacity: 0 }}
+			>
 				<motion.div
-					className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					exit={{ opacity: 0 }}
+					className="paper-card paper-grain ink-edge bg-tan text-deepBrown w-full h-[92vh] sm:h-auto sm:max-w-lg sm:w-[92%] p-4 sm:p-6 overflow-y-auto"
+					initial={{ y: 20, opacity: 0 }}
+					animate={{ y: 0, opacity: 1 }}
+					exit={{ y: 20, opacity: 0 }}
+					transition={{ duration: 0.2 }}
+					onClick={(e) => e.stopPropagation()}
 				>
-					<motion.div
-						className="paper-card paper-grain ink-edge bg-tan text-deepBrown w-full h-[92vh] sm:h-auto sm:max-w-lg sm:w-[92%] p-4 sm:p-6 overflow-y-auto"
-						initial={{ y: 20, opacity: 0 }}
-						animate={{ y: 0, opacity: 1 }}
-						exit={{ y: 20, opacity: 0 }}
-						transition={{ duration: 0.2 }}
-					>
 						<div className="poster-headline text-xl sm:text-2xl mb-3">Log workout manually</div>
 						<div className="grid gap-3">
 							<label className="text-xs">
@@ -176,10 +179,10 @@ export function ManualActivityModal({
 								Save workout
 							</button>
 						</div>
-					</motion.div>
 				</motion.div>
-			)}
-		</AnimatePresence>
+			</motion.div>
+		</AnimatePresence>,
+		document.body
 	);
 }
 

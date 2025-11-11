@@ -55,14 +55,14 @@ export function IntroGuide() {
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0 }}
 					>
-						<motion.div
-							className="paper-card paper-grain ink-edge w-full sm:max-w-lg sm:w-[92%] p-5 sm:p-6 text-deepBrown bg-tan max-h-[90vh] overflow-y-auto"
+					<motion.div
+						className="paper-card paper-grain ink-edge w-full sm:max-w-lg sm:w-[92%] p-5 sm:p-6 text-deepBrown bg-tan"
 							initial={{ scale: 0.96, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.96, opacity: 0 }}
 						>
 							<div className="poster-headline text-xl sm:text-2xl mb-2">{STEPS[idx].title}</div>
-							<p className="text-sm mb-4">{STEPS[idx].body}</p>
+						<p className="text-sm mb-4 whitespace-normal break-words">{STEPS[idx].body}</p>
 							<div className="flex items-center justify-between gap-2">
 								<div className="text-xs">
 									Step {idx + 1} / {STEPS.length}
