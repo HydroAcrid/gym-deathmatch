@@ -4,29 +4,54 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
 @import "tailwindcss";
 
+/* Theme tokens (light default) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* light */
+  --bg-main: #fdf5ec;
+  --bg-elevated: #fff9f3;
+  --bg-muted: #f2e3d4;
+  --border-strong: #d2b491;
+  --text-main: #2a1b0c;
+  --text-muted: #7b5a3b;
+  --accent-primary: #e55621;
+  --accent-danger: #c0352c;
+  --accent-success: #2d7c4f;
+  --overlay-backdrop: rgba(0,0,0,0.65);
+}
+
+.dark {
+  /* dark */
+  --bg-main: #140b07;
+  --bg-elevated: #1c100b;
+  --bg-muted: #24130b;
+  --border-strong: #f26b2a;
+  --text-main: #fdf3e4;
+  --text-muted: #d0b49a;
+  --accent-primary: #f26b2a;
+  --accent-danger: #ff4b3a;
+  --accent-success: #4ddf88;
+  --overlay-backdrop: rgba(0,0,0,0.7);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-main);
+  --color-foreground: var(--text-main);
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-main);
+  color: var(--text-main);
   font-family: var(--font-sans);
 }
+
+/* semantic helpers so we don’t have to touch every component */
+.bg-main { background: var(--bg-main); }
+.bg-elevated { background: var(--bg-elevated); }
+.bg-muted { background: var(--bg-muted); }
+.text-main { color: var(--text-main); }
+.text-muted { color: var(--text-muted); }
+.border-strong { border-color: var(--border-strong); }
 
 /* Arcade gradient background */
 .bg-arcade {
@@ -133,9 +158,9 @@ body {
   letter-spacing: 0.08em;
 }
 .paper-card {
-  background: #2B211D;
+  background: var(--bg-elevated);
   border-radius: 0.35rem;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25), 0 0 0 1px var(--border-strong);
 }
 .paper-grain { position: relative; }
 .paper-grain::before {
@@ -153,8 +178,8 @@ body {
 }
 .ink-edge {
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    inset 0 -2px 0 rgba(0,0,0,0.4);
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -2px 0 rgba(0,0,0,0.25);
 }
 .btn-vintage {
   display: inline-flex;
@@ -163,14 +188,14 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 700;
-  background: #E1542A;
-  color: #F5E7D3;
+  background: var(--accent-primary);
+  color: #fff;
   border-radius: 0.35rem;
   padding: 0.5rem 1rem;
   box-shadow: 0 1px 0 rgba(0,0,0,0.5);
   transition: transform 0.12s ease, background-color 0.12s ease;
 }
-.btn-vintage:hover { background: #c6441f; transform: translateY(1px); }
+.btn-vintage:hover { filter: brightness(0.98); transform: translateY(1px); }
 .btn-vintage-teal { background: #7FA39A; color: #1E1714; }
 .btn-vintage-teal:hover { background: #436055; }
 .btn-vintage:active { transform: translateY(2px); filter: brightness(0.95); transition-duration: 20ms; }
@@ -188,16 +213,16 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 700;
-  background: transparent;
-  color: #F5E7D3; /* deepBrown (light) on dark bg */
-  border: 1px solid #F5E7D3;
+  background: var(--bg-main);
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
   border-radius: 0.35rem;
   padding: 0.5rem 1rem;
   transition: transform 0.12s ease, background-color 0.12s ease, color 0.12s ease, filter 0.12s ease;
 }
 .btn-secondary:hover {
-  background: #F5E7D3;
-  color: #1E1714; /* dark text on light bg */
+  background: var(--bg-elevated);
+  color: var(--text-main);
   filter: brightness(1.01);
 }
 .btn-secondary:active {
@@ -254,7 +279,7 @@ body {
 /* Stage / Pre-Show visuals */
 .stage-backdrop {
   position: relative;
-  background: linear-gradient(180deg, rgba(30,24,21,0.7), rgba(22,18,16,0.9));
+  background: linear-gradient(180deg, rgba(30,24,21,0.08), rgba(22,18,16,0.18));
 }
 .stage-spotlight {
   position: absolute;

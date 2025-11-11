@@ -10,6 +10,7 @@ import { AuthButtons } from "./AuthButtons";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { useAuth } from "./AuthProvider";
 import { useEffect, useState } from "react";
+import { useTheme } from "./useTheme";
 
 const baseTabs = [
 	{ href: "/home", label: "Home" },
@@ -23,6 +24,7 @@ export function Navbar() {
 	const pathname = usePathname();
 	const { user } = useAuth();
 	const [lastLobbyId, setLastLobbyId] = useState<string | null>(null);
+	const { theme, toggleTheme } = useTheme();
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		setLastLobbyId(localStorage.getItem("gymdm_lastLobbyId"));
@@ -45,13 +47,22 @@ export function Navbar() {
 		});
 	}
 	return (
-		<div className="sticky top-0 z-50" style={{ backgroundColor: "#2B211D" }}>
+		<div className="sticky top-0 z-50 bg-main">
 			<div className="mx-auto max-w-6xl">
-				<div className="flex items-center justify-between py-2 sm:py-3 px-2 sm:px-3 border-b-4" style={{ borderColor: "#E1542A" }}>
-					<div className="poster-headline text-xl sm:text-2xl text-deepBrown">GYM DEATHMATCH</div>
+				<div className="flex items-center justify-between py-2 sm:py-3 px-2 sm:px-3 border-b-4" style={{ borderColor: "var(--accent-primary)" }}>
+					<div className="poster-headline text-xl sm:text-2xl text-main">GYM DEATHMATCH</div>
 					<div className="flex items-center gap-2">
 						<AuthButtons />
 						{user && <ProfileAvatar />}
+						{/* Theme toggle */}
+						<button
+							aria-label="Toggle theme"
+							className="px-2 py-1 rounded-md border border-strong text-xs"
+							onClick={toggleTheme}
+							title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+						>
+							{theme === "dark" ? "☀️" : "🌙"}
+						</button>
 					</div>
 				</div>
 				<nav className="flex items-center gap-3 sm:gap-4 py-1.5 sm:py-2 px-2 sm:px-3 overflow-x-auto whitespace-nowrap">
@@ -75,7 +86,7 @@ export function Navbar() {
 										<motion.span
 											layoutId={`nav-underline`}
 											className="absolute left-0 -bottom-1 h-1 rounded-sm"
-											style={{ backgroundColor: "#E1542A", width: "100%" }}
+											style={{ backgroundColor: "var(--accent-primary)", width: "100%" }}
 											transition={{ type: "spring", stiffness: 500, damping: 35 }}
 										/>
 									)}

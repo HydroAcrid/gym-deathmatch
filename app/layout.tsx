@@ -17,8 +17,9 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en">
-			<body className="antialiased bg-poster min-h-screen text-deepBrown overflow-x-hidden touch-manipulation">
+		<html lang="en" suppressHydrationWarning>
+			<body className="antialiased min-h-screen overflow-x-hidden touch-manipulation bg-main text-main">
+				{/* subtle paper/noise overlays still work for both themes */}
 				<div className="paper-overlay" />
 				<AuthProvider>
 					<ToastProvider>
