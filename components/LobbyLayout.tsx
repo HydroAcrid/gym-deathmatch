@@ -89,6 +89,13 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		return () => clearInterval(id);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobby.id]);
+	// Allow children to request refresh (e.g., after manual log)
+	useEffect(() => {
+		function handler() { reloadLive(); }
+		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", handler as any);
+		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", handler as any); };
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 	// Welcome toast after join
 	useEffect(() => {
 		if (joined === "1" && connectedPlayerId) {
@@ -153,7 +160,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				<Scoreboard amount={lobby.cashPool} endIso={lobby.seasonEnd} />
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_320px] gap-4 items-start">
+			<div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_320px] gap-3 sm:gap-4 items-start">
 				{players.slice(0, 2).map((p) => (
 					<motion.div key={p.id} variants={item}>
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
@@ -163,7 +170,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 					// Make the feed span as many rows as there are player rows
 					const rowSpan = Math.max(1, Math.ceil(players.length / 2));
 					return (
-						<div style={{ gridRow: `span ${rowSpan}` }}>
+						<div className="order-last md:order-none" style={{ gridRow: `span ${rowSpan}` }}>
 							<RecentFeed lobbyId={lobby.id} events={feedEvents} />
 						</div>
 					);
@@ -175,21 +182,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				))}
 				{/* Invite flow is now handled via share/onboarding; manual add card removed */}
 			</div>
-			{/* Reconnect banner if errors */}
-			{/* In a next pass, we could show per-player lines; for now a simple CTA */}
-			{/* The live endpoint returns errors: [{ playerId, reason }] */}
-			{/* We re-fetch above; here we derive from missing isStravaConnected */}
-			{players.some(p => p.isStravaConnected === false) && (
-				<div className="mt-4 text-xs bg-cream border border-deepBrown/40 text-deepBrown px-3 py-2 rounded-md ink-edge">
-					Some connections need attention. Reconnect:
-					{" "}
-					{players.filter(p => p.isStravaConnected === false).map((p, i) => (
-						<a key={p.id} className="underline ml-1" href={`/api/strava/authorize?playerId=${encodeURIComponent(p.id)}&lobbyId=${encodeURIComponent(lobby.id)}`}>
-							{p.name}{i < players.filter(pp => pp.isStravaConnected === false).length - 1 ? "," : ""}
-						</a>
-					))}
-				</div>
-			)}
+			{/* Strava reconnect banner removed – Strava is optional now */}
 		</div>
 	);
 }

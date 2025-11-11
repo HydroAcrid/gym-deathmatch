@@ -5,12 +5,18 @@ import { motion } from "framer-motion";
 import { Player } from "@/types/game";
 import { HeartDisplay } from "./HeartDisplay";
 import { QuipBubble } from "./QuipBubble";
+import { ManualActivityModal } from "./ManualActivityModal";
+import { useState } from "react";
+import { useAuth } from "./AuthProvider";
 
 export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lobbyId?: string; mePlayerId?: string }) {
 	const avatar = player.avatarUrl || "";
+	const [openManual, setOpenManual] = useState(false);
+	const { user } = useAuth();
+	const isMe = (mePlayerId && mePlayerId === player.id) || (!!user?.id && !!player.userId && user.id === player.userId);
 	return (
 		<motion.div
-			className={`paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 md:min-h-[420px] ${player.livesRemaining === 0 ? "opacity-80" : ""}`}
+			className={`paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 min-h-[520px] md:min-h-[440px] ${player.livesRemaining === 0 ? "opacity-80" : ""}`}
 			initial={{ opacity: 0, scale: 0.96, y: 12 }}
 			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
 			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
@@ -31,18 +37,36 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 					<div className="poster-headline text-2xl leading-5">{player.name.toUpperCase()}</div>
 					{player.location && <div className="text-xs text-deepBrown/70">{player.location}</div>}
 				</div>
-				<div className="ml-auto">
+				{/* Top-right status/actions with a reserved height so the card doesn't jump when buttons appear */}
+				<div className="ml-auto flex flex-col items-end gap-1 min-h-[48px]">
 					{player.livesRemaining === 0 && (
 						<span className="mr-2 text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
 							KO’D 💀
 						</span>
 					)}
 					{player.isStravaConnected ? (
-						<span className="text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
-							CONNECTED
-						</span>
+						<div className="flex items-center gap-2">
+							<span className="text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
+								CONNECTED
+							</span>
+							{isMe && lobbyId && (
+								<button
+									onClick={async () => {
+										await fetch(`/api/strava/disconnect`, {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({ playerId: player.id, userId: user?.id || null })
+										});
+										if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
+									}}
+									className="px-2 py-1 rounded-md border border-deepBrown/30 text-[10px]"
+								>
+									Disconnect
+								</button>
+							)}
+						</div>
 					) : (
-						mePlayerId === player.id ? (
+						isMe ? (
 							<a
 								href={`/api/strava/authorize?playerId=${encodeURIComponent(player.id)}&lobbyId=${encodeURIComponent(lobbyId ?? "kevin-nelly")}`}
 								className="btn-vintage px-3 py-2 rounded-md text-[10px] transition-all duration-300"
@@ -79,7 +103,33 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 					<div className="text-[11px] text-deepBrown/70 mt-1">Weekly goal: {player.weeklyTarget} workouts</div>
 				)}
 			</div>
+			{/* Reserve a consistent space for the manual log CTA so card heights align even when the button is hidden */}
+			<div className="pl-2 min-h-[48px] flex items-start">
+				{isMe && lobbyId ? (
+					<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs min-h-[44px]" onClick={() => setOpenManual(true)}>
+						Log workout manually
+					</button>
+				) : (
+					<div className="h-[44px] w-0" aria-hidden />
+				)}
+			</div>
 			<QuipBubble text={player.quip} />
+			{lobbyId && (
+				<ManualActivityModal
+					open={openManual}
+					onClose={() => setOpenManual(false)}
+					lobbyId={lobbyId}
+					playerId={player.id}
+					onSaved={() => {
+						try {
+							// soft refresh data by reloading /live through a custom event
+							if (typeof window !== "undefined") {
+								window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
+							}
+						} catch { /* ignore */ }
+					}}
+				/>
+			)}
 		</motion.div>
 	);
 }

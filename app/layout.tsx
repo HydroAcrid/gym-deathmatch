@@ -18,12 +18,12 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en">
-			<body className="antialiased bg-poster min-h-screen text-deepBrown">
+			<body className="antialiased bg-poster min-h-screen text-deepBrown overflow-x-hidden touch-manipulation">
 				<div className="paper-overlay" />
 				<AuthProvider>
 					<ToastProvider>
 						<Navbar />
-						<main className="relative z-20 px-4 sm:px-6 lg:px-8 py-6">
+						<main className="relative z-20 px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 							<PageMotion>{children}</PageMotion>
 						</main>
 					</ToastProvider>

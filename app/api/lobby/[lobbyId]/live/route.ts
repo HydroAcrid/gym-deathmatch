@@ -9,6 +9,7 @@ import { getServerSupabase } from "@/lib/supabaseClient";
 import type { Lobby, Player } from "@/types/game";
 import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 import { getDailyTaunts } from "@/lib/funFacts";
+import type { ManualActivityRow } from "@/types/db";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -26,6 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					name: p.name,
 					avatarUrl: p.avatar_url ?? "",
 					location: p.location ?? "",
+					userId: p.user_id ?? undefined,
 					currentStreak: 0,
 					longestStreak: 0,
 					livesRemaining: (lrow.initial_lives as number) ?? 3,
@@ -59,7 +61,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							...p,
 							avatarUrl: dbp.avatar_url ?? p.avatarUrl,
 							location: dbp.location ?? p.location,
-							quip: dbp.quip ?? p.quip
+							quip: dbp.quip ?? p.quip,
+							userId: dbp.user_id ?? p.userId
 						};
 					});
 				}
@@ -88,32 +91,75 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			if (!tokens) {
 				tokens = getTokensForPlayer(p.id);
 			}
-			if (!tokens) {
-				return { ...p, isStravaConnected: false };
-			}
 			try {
-				let activities = await fetchRecentActivities(tokens.accessToken);
+				// Fetch Strava activities if tokens exist
+				let activities: any[] = [];
+				if (tokens) {
+					activities = await fetchRecentActivities(tokens.accessToken) as any[];
+				}
+				// Fetch manual activities from Supabase
+				let manual: ManualActivityRow[] = [];
+				try {
+					const supabase = getServerSupabase();
+					if (supabase) {
+						const { data } = await supabase
+							.from("manual_activities")
+							.select("*")
+							.eq("lobby_id", lobby.id)
+							.eq("player_id", p.id)
+							.order("date", { ascending: false })
+							.limit(50);
+						manual = (data ?? []) as any;
+					}
+				} catch { /* ignore */ }
+
+				// Map manual to strava-like objects for metrics and to summaries for feed
+				const manualAsStravaLike = (manual || []).map(m => ({
+					start_date: m.date,
+					start_date_local: m.date,
+					moving_time: m.duration_minutes ? m.duration_minutes * 60 : 0,
+					distance: (m.distance_km ?? 0) * 1000,
+					type: m.type || "Workout",
+					__source: "manual"
+				}));
+
+				const combined = [...manualAsStravaLike, ...(activities as any[])].sort((a,b) => {
+					const ta = new Date(a.start_date || a.start_date_local || 0).getTime();
+					const tb = new Date(b.start_date || b.start_date_local || 0).getTime();
+					return tb - ta;
+				});
 				// If unauthorized, refresh once
-				if (!activities || (activities as any).error) {
+				if (!combined || (combined as any).error) {
 					// noop: fetchRecentActivities returns [] on error; below logic handles via thrown error path
 				}
-				const total = calculateTotalWorkouts(activities as any[], seasonStart, seasonEnd);
-				const currentStreak = calculateStreakFromActivities(activities as any[], seasonStart, seasonEnd);
-				const longestStreak = calculateLongestStreak(activities as any[], seasonStart, seasonEnd);
-				const avg = calculateAverageWorkoutsPerWeek(activities as any[], seasonStart, seasonEnd);
-				const weekly = computeWeeklyHearts(activities as any[], new Date(seasonStart), { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
+				// Prevent day-1 KO: if no activity yet and seasonStart is far in past, soft-clamp calculation start to "now"
+				const hasAny = (combined as any[]).length > 0;
+				const seasonStartDate = new Date(seasonStart);
+				const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+				const startForCalc = (!hasAny && (Date.now() - seasonStartDate.getTime() > twoDaysMs))
+					? new Date()
+					: seasonStartDate;
+
+				const total = calculateTotalWorkouts(combined as any[], startForCalc.toISOString(), seasonEnd);
+				const currentStreak = calculateStreakFromActivities(combined as any[], startForCalc.toISOString(), seasonEnd);
+				const longestStreak = calculateLongestStreak(combined as any[], startForCalc.toISOString(), seasonEnd);
+				const avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc.toISOString(), seasonEnd);
+				const weekly = computeWeeklyHearts(combined as any[], startForCalc, { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
 				// Back-compat feed events (met/count) derived from weekly events
 				const events = weekly.events.map((e) => ({
 					weekStart: e.weekStart,
 					met: e.workouts >= weeklyTarget,
 					count: e.workouts
-				}));
-				const recentActivities = (activities as any[]).slice(0, 5).map(toActivitySummary);
-				const lastStart = (activities as any[])[0]?.start_date || (activities as any[])[0]?.start_date_local || null;
+				})).slice(-4); // keep recent few weeks to avoid noisy long histories
+				const recentActivities = (combined as any[]).slice(0, 5).map(a => {
+					const s = toActivitySummary(a);
+					return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
+				});
+				const lastStart = (combined as any[])[0]?.start_date || (combined as any[])[0]?.start_date_local || null;
 				const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
 				return {
 					...p,
-					isStravaConnected: true,
+					isStravaConnected: !!tokens,
 					totalWorkouts: total,
 					currentStreak,
 					longestStreak,
@@ -123,6 +169,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					heartsTimeline: weekly.events,
 					weeklyTarget,
 					recentActivities,
+					activityCounts: {
+						total: combined.length,
+						strava: (activities as any[]).length,
+						manual: manual.length
+					},
 					taunt
 				};
 			} catch (e: any) {
@@ -137,18 +188,53 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						setTokensForPlayer(p.id, refreshed); // in-memory
 						await upsertStravaTokens(p.id, refreshed); // legacy player-scoped
 						const activities = await fetchRecentActivities(refreshed.accessToken);
-						const total = calculateTotalWorkouts(activities as any[], seasonStart, seasonEnd);
-						const currentStreak = calculateStreakFromActivities(activities as any[], seasonStart, seasonEnd);
-						const longestStreak = calculateLongestStreak(activities as any[], seasonStart, seasonEnd);
-						const avg = calculateAverageWorkoutsPerWeek(activities as any[], seasonStart, seasonEnd);
-						const weekly = computeWeeklyHearts(activities as any[], new Date(seasonStart), { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
+						// manual again
+						let manual: ManualActivityRow[] = [];
+						try {
+							const supabase = getServerSupabase();
+							if (supabase) {
+								const { data } = await supabase
+									.from("manual_activities")
+									.select("*")
+									.eq("lobby_id", lobby.id)
+									.eq("player_id", p.id)
+									.order("date", { ascending: false })
+									.limit(50);
+								manual = (data ?? []) as any;
+							}
+						} catch { /* ignore */ }
+						const manualAsStravaLike = (manual || []).map(m => ({
+							start_date: m.date,
+							start_date_local: m.date,
+							moving_time: m.duration_minutes ? m.duration_minutes * 60 : 0,
+							distance: (m.distance_km ?? 0) * 1000,
+							type: m.type || "Workout",
+							__source: "manual"
+						}));
+						const combined = [...manualAsStravaLike, ...(activities as any[])].sort((a,b) => {
+							const ta = new Date(a.start_date || a.start_date_local || 0).getTime();
+							const tb = new Date(b.start_date || b.start_date_local || 0).getTime();
+							return tb - ta;
+						});
+						const seasonStartDate2 = new Date(seasonStart);
+						const startForCalc2 = ((combined as any[]).length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
+							? new Date()
+							: seasonStartDate2;
+						const total = calculateTotalWorkouts(combined as any[], startForCalc2.toISOString(), seasonEnd);
+						const currentStreak = calculateStreakFromActivities(combined as any[], startForCalc2.toISOString(), seasonEnd);
+						const longestStreak = calculateLongestStreak(combined as any[], startForCalc2.toISOString(), seasonEnd);
+						const avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc2.toISOString(), seasonEnd);
+						const weekly = computeWeeklyHearts(combined as any[], startForCalc2, { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
 						const events = weekly.events.map((e) => ({
 							weekStart: e.weekStart,
 							met: e.workouts >= weeklyTarget,
 							count: e.workouts
-						}));
-						const recentActivities = (activities as any[]).slice(0, 5).map(toActivitySummary);
-						const lastStart = (activities as any[])[0]?.start_date || (activities as any[])[0]?.start_date_local || null;
+						})).slice(-4);
+						const recentActivities = (combined as any[]).slice(0, 5).map(a => {
+							const s = toActivitySummary(a);
+							return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
+						});
+						const lastStart = (combined as any[])[0]?.start_date || (combined as any[])[0]?.start_date_local || null;
 						const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
 						return {
 							...p,
@@ -162,6 +248,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							heartsTimeline: weekly.events,
 							weeklyTarget,
 							recentActivities,
+							activityCounts: {
+								total: combined.length,
+								strava: (activities as any[]).length,
+								manual: manual.length
+							},
 							taunt
 						};
 					} catch (refreshErr) {

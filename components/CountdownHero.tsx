@@ -82,7 +82,7 @@ export function CountdownHero({
 				</div>
 
 				{/* Big segmented countdown */}
-				<div className="flex items-end justify-center gap-3 md:gap-5">
+				<div className="flex flex-wrap items-end justify-center gap-2 sm:gap-3 md:gap-5">
 					<TimeBlock label="DAYS" value={remaining.d} />
 					<Colon />
 					<TimeBlock label="HOURS" value={remaining.h} />
@@ -111,7 +111,7 @@ export function CountdownHero({
 }
 
 function Colon() {
-	return <div className="poster-headline text-3xl md:text-5xl text-cream/80 mb-4">·</div>;
+	return <div className="poster-headline text-2xl sm:text-3xl md:text-5xl text-cream/80 mb-3 sm:mb-4">·</div>;
 }
 
 function TimeBlock({ label, value }: { label: string; value: number }) {
@@ -121,12 +121,12 @@ function TimeBlock({ label, value }: { label: string; value: number }) {
 			initial={{ opacity: 0, y: 6 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.25 }}
-			className="bg-[#1f1a17]/70 border border-[#3a2d28] rounded-md px-3 md:px-4 py-2 md:py-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
+			className="bg-[#1f1a17]/70 border border-[#3a2d28] rounded-md px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
 		>
-			<div className="poster-headline text-4xl md:text-7xl leading-none text-cream">
+			<div className="poster-headline text-3xl sm:text-4xl md:text-7xl leading-none text-cream">
 				{String(value).padStart(2, "0")}
 			</div>
-			<div className="text-[10px] md:text-[11px] tracking-widest text-deepBrown/70 mt-1 text-center">{label}</div>
+			<div className="text-[9px] sm:text-[10px] md:text-[11px] tracking-widest text-deepBrown/70 mt-1 text-center">{label}</div>
 		</motion.div>
 	);
 }

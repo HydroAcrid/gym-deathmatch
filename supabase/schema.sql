@@ -68,3 +68,63 @@ alter table user_strava_token enable row level security;
 -- create policy "public read player" on player for select using (true);
 
 
+-- Manual activities: allow logging workouts without Strava
+create table if not exists manual_activities (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  player_id text not null references player(id) on delete cascade,
+  date timestamptz not null default now(),
+  duration_minutes integer null,
+  distance_km double precision null,
+  type text not null default 'other',
+  notes text null,
+  created_at timestamptz not null default now()
+);
+alter table manual_activities enable row level security;
+
+-- Members (or lobby owner) can read activities for their lobby
+drop policy if exists manual_act_select_member on manual_activities;
+create policy manual_act_select_member on manual_activities
+for select using (
+  exists (
+    select 1 from player p
+    where p.id = manual_activities.player_id
+      and (p.user_id = auth.uid()
+        or exists (select 1 from lobby l where l.id = manual_activities.lobby_id and l.owner_user_id = auth.uid())
+      )
+  )
+);
+
+-- Only the signed-in user can insert rows for their own player in that lobby
+drop policy if exists manual_act_insert_self on manual_activities;
+create policy manual_act_insert_self on manual_activities
+for insert with check (
+  exists (
+    select 1 from player p
+    where p.id = manual_activities.player_id
+      and p.user_id = auth.uid()
+      and p.lobby_id = manual_activities.lobby_id
+  )
+);
+
+drop policy if exists manual_act_update_self on manual_activities;
+create policy manual_act_update_self on manual_activities
+for update using (
+  exists (select 1 from player p where p.id = manual_activities.player_id and p.user_id = auth.uid())
+);
+
+drop policy if exists manual_act_delete_self_or_owner on manual_activities;
+create policy manual_act_delete_self_or_owner on manual_activities
+for delete using (
+  exists (
+    select 1 from player p
+    where p.id = manual_activities.player_id
+      and (p.user_id = auth.uid()
+        or exists (select 1 from lobby l where l.id = manual_activities.lobby_id and l.owner_user_id = auth.uid())
+      )
+  )
+);
+
+-- refresh PostgREST cache
+select pg_notify('pgrst', 'reload schema');
+

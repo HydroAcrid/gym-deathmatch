@@ -100,11 +100,10 @@ export function computeWeeklyHearts(
 				hearts += 1;
 			}
 		} else {
-			// Lose (target - workouts), capped by available hearts and by maxHearts
-			const deficit = Math.max(0, weeklyTarget - workouts);
-			if (deficit > 0 && hearts > 0) {
-				heartsLost = Math.min(deficit, hearts, maxHearts);
-				hearts -= heartsLost;
+			// Lose at most 1 heart for a failed week (more forgiving start)
+			if (weeklyTarget > 0 && hearts > 0) {
+				heartsLost = 1;
+				hearts -= 1;
 			}
 		}
 

@@ -44,14 +44,14 @@ export function RecentFeed({
 
 	return (
 		<motion.div
-			className="paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 h-full"
+			className="paper-card paper-grain ink-edge p-4 sm:p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 h-full"
 			initial={{ opacity: 0, scale: 0.96, y: 12 }}
 			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
 			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
 		>
 			<div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: "#E1542A" }} />
 			<div className="pl-2">
-				<div className="poster-headline text-base mb-2">LIVE ARENA FEED</div>
+				<div className="poster-headline text-sm sm:text-base mb-2">LIVE ARENA FEED</div>
 				<div className="space-y-2 relative scroll-fade-bottom overflow-hidden flex-1">
 					<AnimatePresence initial={false}>
 						{(items.length ? items : defaultMockEvents()).map((e) => (
@@ -61,7 +61,7 @@ export function RecentFeed({
 								animate={{ opacity: 1, y: 0 }}
 								exit={{ opacity: 0, y: -6 }}
 								transition={{ duration: 0.5, ease: "easeOut" }}
-								className="group flex items-start gap-2 p-2 transition rounded-none hover:ring-2 hover:ring-inset hover:ring-[rgba(225,84,42,0.35)]"
+								className="group flex items-start gap-2 p-2 transition rounded-none hover:ring-2 hover:ring-inset hover:ring-[rgba(225,84,42,0.35)] min-h-[44px]"
 							>
 								<div className="mt-0.5 text-lg">💬</div>
 								<div className="flex-1">
@@ -127,7 +127,8 @@ function buildFromLive(data: any): FeedEvent[] {
 			evs.push({ message: `${name}: ${p.taunt}`, timestamp: data?.fetchedAt || new Date().toISOString() });
 		}
 		for (const a of (p.recentActivities ?? [])) {
-			const msg = `${name} did ${a.durationMinutes}m ${readableType(a.type)} — ${a.name}`;
+			const src = a.source === "manual" ? "✍️" : "📡";
+			const msg = `${name} did ${a.durationMinutes}m ${readableType(a.type)} ${src} — ${a.name}`;
 			evs.push({ message: msg, timestamp: a.startDate });
 		}
 		// Weekly target events

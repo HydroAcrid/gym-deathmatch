@@ -47,14 +47,14 @@ export function Navbar() {
 	return (
 		<div className="sticky top-0 z-50" style={{ backgroundColor: "#2B211D" }}>
 			<div className="mx-auto max-w-6xl">
-				<div className="flex items-baseline justify-between py-3 px-3 border-b-4" style={{ borderColor: "#E1542A" }}>
-					<div className="poster-headline text-2xl text-deepBrown">GYM DEATHMATCH</div>
+				<div className="flex items-center justify-between py-2 sm:py-3 px-2 sm:px-3 border-b-4" style={{ borderColor: "#E1542A" }}>
+					<div className="poster-headline text-xl sm:text-2xl text-deepBrown">GYM DEATHMATCH</div>
 					<div className="flex items-center gap-2">
 						<AuthButtons />
 						{user && <ProfileAvatar />}
 					</div>
 				</div>
-				<nav className="flex items-center gap-4 py-2 px-3">
+				<nav className="flex items-center gap-3 sm:gap-4 py-1.5 sm:py-2 px-2 sm:px-3 overflow-x-auto whitespace-nowrap">
 					{tabs.map((t) => {
 						let active = pathname === t.href; // exact match
 						// Treat lobby root pages as "Home" active
@@ -66,8 +66,8 @@ export function Navbar() {
 							active = true;
 						}
 						return (
-							<Link key={t.href} href={t.href} className="relative">
-								<motion.span className="poster-headline text-sm tracking-wide relative block"
+							<Link key={t.href} href={t.href} className="relative min-h-[44px] flex items-center">
+								<motion.span className="poster-headline text-[11px] sm:text-sm tracking-wide relative block px-0.5"
 									whileHover={{ y: -1, filter: "brightness(1.1)" }}
 								>
 									<span className="px-1">{t.label.toUpperCase()}</span>
@@ -85,7 +85,7 @@ export function Navbar() {
 					})}
 					<div className="ml-auto flex items-center gap-2">
 						<CreateLobby />
-						{user && <Link href="/lobbies" className="btn-secondary px-3 py-2 rounded-md text-xs">My Lobbies</Link>}
+						{user && <Link href="/lobbies" className="btn-secondary px-3 py-2 rounded-md text-xs min-h-[44px] flex items-center">My Lobbies</Link>}
 						<IntroGuide />
 					</div>
 				</nav>

@@ -6,6 +6,7 @@ export interface Player {
 	name: string;
 	avatarUrl: string;
 	location?: string;
+	userId?: string; // auth user id when available
 	currentStreak: number;
 	longestStreak: number;
 	livesRemaining: number; // 0–3
@@ -42,6 +43,7 @@ export interface ActivitySummary {
 	distanceKm: number;
 	isMorning: boolean;
 	isNight: boolean;
+	source?: "strava" | "manual";
 }
 
 

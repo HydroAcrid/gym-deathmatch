@@ -31,4 +31,16 @@ export interface StravaTokenRow {
 	updated_at: string | null;
 }
 
+export interface ManualActivityRow {
+	id: string;
+	lobby_id: string;
+	player_id: string;
+	date: string;
+	duration_minutes: number | null;
+	distance_km: number | null;
+	type: string;
+	notes?: string | null;
+	created_at: string;
+}
+
 
