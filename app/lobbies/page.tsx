@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { OwnerSettingsModal } from "@/components/OwnerSettingsModal";
+import { useAuth } from "@/components/AuthProvider";
 
 type LobbyRow = {
 	id: string; name: string; season_number: number; cash_pool: number;
@@ -13,19 +14,30 @@ export default function LobbiesPage() {
 	const [lobbies, setLobbies] = useState<LobbyRow[]>([]);
 	const [playerId, setPlayerId] = useState<string | null>(null);
 	const [editLobby, setEditLobby] = useState<LobbyRow | null>(null);
+	const { user } = useAuth();
+	const [filterMine, setFilterMine] = useState<boolean>(true);
 
 	useEffect(() => {
 		const me = localStorage.getItem("gymdm_playerId");
 		setPlayerId(me);
-		fetch("/api/lobbies").then(r => r.json()).then(d => setLobbies(d.lobbies ?? [])).catch(() => {});
 	}, []);
+	useEffect(() => {
+		const url = filterMine && user?.id ? `/api/lobbies?userId=${encodeURIComponent(user.id)}` : "/api/lobbies";
+		fetch(url).then(r => r.json()).then(d => setLobbies(d.lobbies ?? [])).catch(() => {});
+	}, [filterMine, user?.id]);
 
 	return (
 		<div className="mx-auto max-w-6xl">
 			<div className="paper-card paper-grain ink-edge p-5 mb-6 border-b-4" style={{ borderColor: "#E1542A" }}>
 				<div className="poster-headline text-lg mb-1">LOBBIES</div>
 				<div className="text-deepBrown/70 text-xs">
-					{playerId ? `Signed in as player: ${playerId}` : "Not joined yet — use Join Lobby to create your player"}
+					{user?.email ? `Signed in as ${user.email}` : playerId ? `Player: ${playerId}` : "Not joined yet — use Join Lobby to create your player"}
+				</div>
+				<div className="mt-2 text-xs">
+					<label className="inline-flex items-center gap-2 cursor-pointer">
+						<input type="checkbox" checked={filterMine} onChange={e => setFilterMine(e.target.checked)} />
+						<span>Show only my lobbies</span>
+					</label>
 				</div>
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">

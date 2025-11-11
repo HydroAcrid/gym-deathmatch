@@ -119,10 +119,34 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 					<div className="poster-headline text-xl">DEATHMATCH STAGE · SEASON {lobby.seasonNumber} – WINTER GRIND</div>
 				</div>
 				{isOwner && (
-					<button className="px-3 py-1.5 rounded-md border border-deepBrown/30 text-xs hover:bg-cream/10"
-						onClick={() => setEditOpen(true)}>
-						Edit
-					</button>
+					<div className="flex items-center gap-2">
+						<button
+							aria-label="Share lobby"
+							className="p-1 text-xs"
+							onClick={async () => {
+								const shareUrl = `${window.location.origin}/join/${lobby.id}`;
+								const ownerName = lobby.players.find(p => p.id === lobby.ownerId)?.name || "Your friend";
+								const text = `${ownerName} is inviting you to the Deathmatch — ${lobby.name}. Join now:`;
+								try {
+									if (navigator.share) {
+										await navigator.share({ title: "Gym Deathmatch", text, url: shareUrl });
+										return;
+									}
+								} catch { /* ignore */ }
+								await navigator.clipboard?.writeText(shareUrl);
+								alert("Invite link copied");
+							}}
+						>
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+								<path d="M10 13a5 5 0 0 0 7.07 0l3.54-3.54a5 5 0 0 0-7.07-7.07L11 4" />
+								<path d="M14 11a5 5 0 0 0-7.07 0L3.39 14.54a5 5 0 1 0 7.07 7.07L13 20" />
+							</svg>
+						</button>
+						<button className="px-3 py-1.5 rounded-md border border-deepBrown/30 text-xs hover:bg-cream/10"
+							onClick={() => setEditOpen(true)}>
+							Edit
+						</button>
+					</div>
 				)}
 			</motion.div>
 			{isOwner && (
