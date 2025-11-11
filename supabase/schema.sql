@@ -20,7 +20,8 @@ create table if not exists player (
   name text not null,
   avatar_url text,
   location text,
-  quip text
+  quip text,
+  user_id text
 );
 
 create table if not exists strava_token (

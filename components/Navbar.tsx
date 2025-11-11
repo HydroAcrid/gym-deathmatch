@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { IntroGuide } from "./IntroGuide";
 import { JoinLobby } from "./JoinLobby";
 import { CreateLobby } from "./CreateLobby";
+import { AuthButtons } from "./AuthButtons";
+import { ProfileAvatar } from "./ProfileAvatar";
 
 const tabs = [
 	{ href: "/lobby/kevin-nelly", label: "Home" },
@@ -22,7 +24,10 @@ export function Navbar() {
 			<div className="mx-auto max-w-6xl">
 				<div className="flex items-baseline justify-between py-3 px-3 border-b-4" style={{ borderColor: "#E1542A" }}>
 					<div className="poster-headline text-2xl text-deepBrown">GYM DEATHMATCH</div>
-					<span className="font-playfair text-s text-deepBrown/70">Put your money where your mouth is!</span>
+					<div className="flex items-center gap-2">
+						<AuthButtons />
+						<ProfileAvatar />
+					</div>
 				</div>
 				<nav className="flex items-center gap-4 py-2 px-3">
 					{tabs.map((t) => {

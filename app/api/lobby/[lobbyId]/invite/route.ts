@@ -18,6 +18,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			location: body.location ?? null,
 			quip: body.quip ?? null
 		};
+		// attach user id if provided
+		if (body.userId) (p as any).user_id = body.userId;
 		const { error } = await supabase.from<PlayerRow>("player").insert(p);
 		if (error) {
 			console.error("invite insert error", error);

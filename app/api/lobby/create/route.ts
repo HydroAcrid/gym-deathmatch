@@ -1,3 +1,50 @@
+import { NextResponse } from "next/server";
+import { getServerSupabase } from "@/lib/supabaseClient";
+
+export async function POST(req: Request) {
+	const supabase = getServerSupabase();
+	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+	try {
+		const body = await req.json();
+		const lobby = {
+			id: body.lobbyId,
+			name: body.name,
+			season_number:  body.seasonNumber ?? 1,
+			season_start: body.seasonStart,
+			season_end: body.seasonEnd,
+			cash_pool: 0,
+			weekly_target: body.weeklyTarget ?? 3,
+			initial_lives: body.initialLives ?? 3,
+			owner_id: body.ownerId || null,
+			status: body.status || "pending"
+		};
+		const { error: lerr } = await supabase.from("lobby").insert(lobby);
+		if (lerr) {
+			console.error("create lobby error", lerr);
+			return NextResponse.json({ error: "Failed to create lobby" }, { status: 500 });
+		}
+		// If an owner player should be created, do it
+		if (body.ownerId && body.ownerName) {
+			const player = {
+				id: body.ownerId,
+				lobby_id: body.lobbyId,
+				name: body.ownerName,
+				avatar_url: body.ownerAvatarUrl ?? null,
+				location: body.ownerLocation ?? null,
+				quip: body.ownerQuip ?? null,
+				user_id: body.userId || null
+			};
+			const { error: perr } = await supabase.from("player").insert(player);
+			if (perr) {
+				console.error("owner player insert error", perr);
+			}
+		}
+		return NextResponse.json({ ok: true });
+	} catch (e) {
+		return NextResponse.json({ error: "Bad request" }, { status: 400 });
+	}
+}
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 

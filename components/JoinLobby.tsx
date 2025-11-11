@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "./AuthProvider";
 
 export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 	const [open, setOpen] = useState(false);
@@ -10,6 +11,7 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 	const [quip, setQuip] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
+	const { user } = useAuth();
 
 	useEffect(() => {
 		const me = localStorage.getItem("gymdm_playerId");
@@ -24,7 +26,7 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 			await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ id, name: name.trim(), avatarUrl: avatarUrl.trim(), quip: quip.trim() || null })
+				body: JSON.stringify({ id, name: name.trim(), avatarUrl: avatarUrl.trim(), quip: quip.trim() || null, userId: user?.id || null })
 			});
 			localStorage.setItem("gymdm_playerId", id);
 			setNewPlayerId(id);

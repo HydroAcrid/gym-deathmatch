@@ -6,10 +6,12 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Countdown } from "./Countdown";
 import { CountdownHero } from "./CountdownHero";
+import { useAuth } from "./AuthProvider";
 
 export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const router = useRouter();
 	const [me, setMe] = useState<string | null>(null);
+	const { user } = useAuth();
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			setMe(localStorage.getItem("gymdm_playerId"));
@@ -17,8 +19,9 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	}, []);
 	const isOwner = useMemo(() => {
 		// Mocked owner detection; replace with Supabase Auth user mapping later
+		if (user?.id && lobby.ownerId) return lobby.ownerId === user.id;
 		return !!(lobby.ownerId && me && lobby.ownerId === me);
-	}, [lobby.ownerId, me]);
+	}, [lobby.ownerId, me, user?.id]);
 
 	const [scheduleAt, setScheduleAt] = useState<string>(lobby.scheduledStart ?? "");
 	const schedule = async () => {

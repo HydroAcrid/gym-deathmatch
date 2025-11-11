@@ -20,6 +20,7 @@ export interface PlayerRow {
 	avatar_url: string | null;
 	location: string | null;
 	quip: string | null;
+	user_id?: string | null;
 }
 
 export interface StravaTokenRow {

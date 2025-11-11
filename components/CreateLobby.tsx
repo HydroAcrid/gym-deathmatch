@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "./ToastProvider";
+import { useAuth } from "./AuthProvider";
 
 export function CreateLobby() {
 	const [open, setOpen] = useState(false);
@@ -13,6 +14,7 @@ export function CreateLobby() {
 	const [lives, setLives] = useState<number>(3);
 	const [ownerName, setOwnerName] = useState("");
 	const toast = useToast();
+	const { user } = useAuth();
 
 	function slugify(name: string) {
 		return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -45,7 +47,9 @@ export function CreateLobby() {
 				weeklyTarget: Number(weekly),
 				initialLives: Number(lives),
 				ownerId,
-				ownerName: ownerName || undefined
+				ownerName: ownerName || undefined,
+				userId: user?.id || null,
+				status: "pending"
 			})
 		});
 		if (res.ok) {

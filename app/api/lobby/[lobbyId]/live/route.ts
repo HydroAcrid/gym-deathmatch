@@ -31,6 +31,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						initialLives: lrow.initial_lives ?? lobby.initialLives,
 						ownerId: lrow.owner_id ?? lobby.ownerId
 					};
+					// Overlay player fields (e.g., avatar) from DB if present
+					const { data: prows } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
+					if (prows && prows.length) {
+						const byId = new Map<string, any>();
+						for (const pr of prows) byId.set(pr.id, pr);
+						lobby.players = lobby.players.map((p) => {
+							const dbp = byId.get(p.id);
+							if (!dbp) return p;
+							return {
+								...p,
+								avatarUrl: dbp.avatar_url ?? p.avatarUrl,
+								location: dbp.location ?? p.location,
+								quip: dbp.quip ?? p.quip
+							};
+						});
+					}
 				} else {
 					// Create lobby from DB rows
 					const { data: prows } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
