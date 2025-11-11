@@ -163,6 +163,24 @@ export function OwnerSettingsModal({
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 							<div className="poster-headline text-xl mb-3">Lobby Settings</div>
 							<div className="grid md:grid-cols-4 gap-3 items-end">
+								{/** Quick stage actions inside modal */}
+								<div className="md:col-span-4 flex items-center gap-2 mb-2">
+									<button
+										className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
+										onClick={async () => {
+											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+												method: "PATCH",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify({ status: "pending", scheduledStart: null })
+											});
+											onSaved();
+											setOpen(false);
+											onClose?.();
+										}}
+									>
+										Cancel scheduled start
+									</button>
+								</div>
 								<label className="text-xs">
 									<span className="block mb-1">Weekly target</span>
 									<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"

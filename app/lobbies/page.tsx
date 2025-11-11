@@ -46,13 +46,33 @@ export default function LobbiesPage() {
 						<div className="flex items-center justify-between">
 							<Link href={`/lobby/${l.id}`} className="poster-headline text-xl hover:underline">
 								{l.name}
+								{playerId && l.owner_id === playerId && (
+									<span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] border border-deepBrown/40">
+										Owner
+									</span>
+								)}
 							</Link>
-							{playerId && l.owner_id === playerId && (
-								<button className="btn-secondary px-3 py-2 rounded-md text-xs"
-									onClick={() => setEditLobby(l)}>
-									Edit
-								</button>
-							)}
+							<div className="flex items-center gap-2">
+								<Link href={`/lobby/${l.id}`} className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs">Open</Link>
+								{l.owner_id === playerId ? (
+									<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setEditLobby(l)}>Edit</button>
+								) : user?.id ? (
+									<button
+										className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
+										onClick={async () => {
+											await fetch(`/api/lobby/${encodeURIComponent(l.id)}/leave`, {
+												method: "POST",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify({ userId: user.id })
+											});
+											const url = `/api/lobbies?userId=${encodeURIComponent(user.id)}`;
+											fetch(url).then(r => r.json()).then(d => setLobbies(d.lobbies ?? [])).catch(() => {});
+										}}
+									>
+										Leave
+									</button>
+								) : null}
+							</div>
 						</div>
 						<div className="text-deepBrown/70 text-xs mt-1">Season {l.season_number} • Pot ${l.cash_pool}</div>
 						{l.season_start && l.season_end && (

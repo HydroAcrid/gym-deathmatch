@@ -70,6 +70,14 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		});
 		router.refresh();
 	};
+	const cancelSchedule = async () => {
+		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ status: "pending", scheduledStart: null })
+		});
+		router.refresh();
+	};
 
 	// Load profile basics for quick-join
 	useEffect(() => {
@@ -195,6 +203,11 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 							/>
 							<button onClick={schedule} className="btn-secondary px-3 py-2 rounded-md">Schedule start</button>
 						</div>
+						{lobby.status === "scheduled" && (
+							<button onClick={cancelSchedule} className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs">
+								Cancel scheduled start
+							</button>
+						)}
 						{user && !iHaveAPlayer && (
 							<button onClick={addMeToLobby} className="btn-secondary px-3 py-2 rounded-md">Add me to this lobby</button>
 						)}

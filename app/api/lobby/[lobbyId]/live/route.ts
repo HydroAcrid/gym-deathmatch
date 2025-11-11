@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLobbyById } from "@/lib/lobbies";
 import { getTokensForPlayer } from "@/lib/stravaStore";
 import { fetchRecentActivities, refreshAccessToken, toActivitySummary } from "@/lib/strava";
 import { calculateAverageWorkoutsPerWeek, calculateLongestStreak, calculateStreakFromActivities, calculateTotalWorkouts } from "@/lib/streaks";
@@ -12,89 +11,56 @@ import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	let lobby = getLobbyById(lobbyId);
-	// Hydrate lobby config from Supabase if available (and also support lobbies that don't exist in mock)
+	let lobby: Lobby | null = null;
 	let userIdByPlayer: Record<string, string | null> = {};
 	try {
 		const supabase = getServerSupabase();
 		if (supabase) {
 			const { data: lrow } = await supabase.from("lobby").select("*").eq("id", lobbyId).single();
 			if (lrow) {
-				if (lobby) {
-					// Merge config onto mock lobby
-					lobby = {
-						...lobby,
-						seasonNumber: lrow.season_number ?? lobby.seasonNumber,
-						seasonStart: lrow.season_start ?? lobby.seasonStart,
-						seasonEnd: lrow.season_end ?? lobby.seasonEnd,
-						cashPool: lrow.cash_pool ?? lobby.cashPool,
-						weeklyTarget: lrow.weekly_target ?? lobby.weeklyTarget,
-						initialLives: lrow.initial_lives ?? lobby.initialLives,
-						ownerId: lrow.owner_id ?? lobby.ownerId
-					};
-					// Overlay player fields (e.g., avatar) from DB if present
-					const { data: prows } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
-					if (prows && prows.length) {
-						const byId = new Map<string, any>();
-						for (const pr of prows) byId.set(pr.id, pr);
-						lobby.players = lobby.players.map((p) => {
-							const dbp = byId.get(p.id);
-							if (!dbp) return p;
-							return {
-								...p,
-								avatarUrl: dbp.avatar_url ?? p.avatarUrl,
-								location: dbp.location ?? p.location,
-								quip: dbp.quip ?? p.quip
-							};
-						});
-					}
-				} else {
-					// Create lobby from DB rows
-					const { data: prows } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
-					const players: Player[] = (prows ?? []).map((p: any) => ({
-						id: p.id,
-						name: p.name,
-						avatarUrl: p.avatar_url ?? "",
-						location: p.location ?? "",
-						currentStreak: 0,
-						longestStreak: 0,
-						livesRemaining: (lrow.initial_lives as number) ?? 3,
-						totalWorkouts: 0,
-						averageWorkoutsPerWeek: 0,
-						quip: p.quip ?? "",
-						isStravaConnected: false
-					}));
-					lobby = {
-						id: lobbyId,
-						name: lrow.name,
-						players,
-						seasonNumber: lrow.season_number ?? 1,
-						seasonStart: lrow.season_start ?? new Date().toISOString(),
-						seasonEnd: lrow.season_end ?? new Date().toISOString(),
-						cashPool: lrow.cash_pool ?? 0,
-						weeklyTarget: lrow.weekly_target ?? 3,
-						initialLives: lrow.initial_lives ?? 3,
-						ownerId: lrow.owner_id ?? undefined
-					} as Lobby;
-				}
+				// Create lobby from DB rows
+				const { data: prows } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
+				const players: Player[] = (prows ?? []).map((p: any) => ({
+					id: p.id,
+					name: p.name,
+					avatarUrl: p.avatar_url ?? "",
+					location: p.location ?? "",
+					currentStreak: 0,
+					longestStreak: 0,
+					livesRemaining: (lrow.initial_lives as number) ?? 3,
+					totalWorkouts: 0,
+					averageWorkoutsPerWeek: 0,
+					quip: p.quip ?? "",
+					isStravaConnected: false
+				}));
+				lobby = {
+					id: lobbyId,
+					name: lrow.name,
+					players,
+					seasonNumber: lrow.season_number ?? 1,
+					seasonStart: lrow.season_start ?? new Date().toISOString(),
+					seasonEnd: lrow.season_end ?? new Date().toISOString(),
+					cashPool: lrow.cash_pool ?? 0,
+					weeklyTarget: lrow.weekly_target ?? 3,
+					initialLives: lrow.initial_lives ?? 3,
+					ownerId: lrow.owner_id ?? undefined
+				} as Lobby;
 				// Build user map and overlay DB fields on mock lobby players as well
 				const { data: prows2 } = await supabase.from("player").select("id,user_id,avatar_url,location,quip").eq("lobby_id", lobbyId);
 				if (prows2 && prows2.length) {
 					for (const pr of prows2) userIdByPlayer[pr.id as string] = (pr.user_id as string) ?? null;
-					if (lobby) {
-						const byId = new Map<string, any>();
-						for (const pr of prows2) byId.set(pr.id as string, pr);
-						lobby.players = lobby.players.map((p) => {
-							const dbp = byId.get(p.id);
-							if (!dbp) return p;
-							return {
-								...p,
-								avatarUrl: dbp.avatar_url ?? p.avatarUrl,
-								location: dbp.location ?? p.location,
-								quip: dbp.quip ?? p.quip
-							};
-						});
-					}
+					const byId = new Map<string, any>();
+					for (const pr of prows2) byId.set(pr.id as string, pr);
+					lobby.players = lobby.players.map((p) => {
+						const dbp = byId.get(p.id);
+						if (!dbp) return p;
+						return {
+							...p,
+							avatarUrl: dbp.avatar_url ?? p.avatarUrl,
+							location: dbp.location ?? p.location,
+							quip: dbp.quip ?? p.quip
+						};
+					});
 				}
 			}
 		}
