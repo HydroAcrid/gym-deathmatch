@@ -181,16 +181,118 @@ export function OwnerSettingsModal({
 			)}
 			<AnimatePresence>
 				{open && (
-					<motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+					<motion.div className="fixed inset-0 z-50 flex items-center justify-center"
+						style={{ background: "var(--overlay-backdrop)" }}
 						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-						<motion.div className="paper-card paper-grain ink-edge max-w-lg w-[92%] p-6 bg-tan"
+						<motion.div
+							className="paper-card paper-grain ink-edge max-w-md w-[92%] p-5"
+							// Make inner panel scroll on small screens while keeping the overlay fixed
+							style={{ maxHeight: "85vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }}
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
-							<div className="poster-headline text-xl mb-3">Lobby Settings</div>
-							<div className="grid md:grid-cols-4 gap-3 items-end">
-								{/** Quick stage actions inside modal */}
-								<div className="md:col-span-4 flex items-center gap-2 mb-2">
+							<div className="poster-headline text-xl mb-3">Edit Lobby</div>
+							{/* Basic Info */}
+							<div className="mb-4">
+								<div className="poster-headline text-sm mb-2">BASIC INFO</div>
+								<div className="grid gap-3">
+									<label className="text-xs">
+										<span className="block mb-1">Weekly target</span>
+										<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											value={weekly} onChange={e => setWeekly(Number(e.target.value))} />
+									</label>
+									<label className="text-xs">
+										<span className="block mb-1">Initial lives</span>
+										<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											value={lives} onChange={e => setLives(Number(e.target.value))} />
+									</label>
+								</div>
+							</div>
+							{/* Pot & Ante */}
+							<div className="mb-4">
+								<div className="poster-headline text-sm mb-2">POT & ANTE</div>
+								<div className="grid gap-3">
+									<label className="text-xs">
+										<span className="block mb-1">Initial pot ($)</span>
+										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											value={initialPot} onChange={e => setInitialPot(e.target.value)} />
+									</label>
+									<label className="text-xs">
+										<span className="block mb-1">Weekly ante ($)</span>
+										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
+									</label>
+									<label className="text-xs flex items-center gap-2">
+										<input type="checkbox" checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
+										<span>Scale ante with lobby size</span>
+									</label>
+									<label className={`text-xs ${scalingEnabled ? "" : "opacity-50"}`}>
+										<span className="block mb-1">Per-player boost ($)</span>
+										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											disabled={!scalingEnabled}
+											value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
+									</label>
+								</div>
+							</div>
+							{/* Season Timing */}
+							<div className="mb-4">
+								<div className="poster-headline text-sm mb-2">SEASON TIMING</div>
+								<div className="grid gap-3">
+									<label className="text-xs">
+										<span className="block mb-1">Season start (local)</span>
+										<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
+									</label>
+									<label className="text-xs">
+										<span className="block mb-1">Season end (local)</span>
+										<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
+									</label>
+								</div>
+							</div>
+							{/* Actions */}
+							<div className="flex flex-col sm:flex-row gap-2">
+								<button className="px-3 py-2 rounded-md border border-strong text-xs flex-1" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
+								<button className="btn-vintage px-3 py-2 rounded-md text-xs flex-1" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
+							</div>
+							{/* Danger zone */}
+							<div className="mt-6">
+								<div className="poster-headline text-sm mb-2">DANGER ZONE</div>
+								<div className="grid gap-3">
+									<div className="border border-strong rounded-md p-3">
+										<div className="text-xs mb-2">Remove player</div>
+										<select className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											value={removeId} onChange={e => setRemoveId(e.target.value)}>
+											<option value="">Select player</option>
+											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+										</select>
+										<div className="mt-2 flex justify-end">
+											<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={removePlayer}>Remove</button>
+										</div>
+									</div>
+									<div className="border border-strong rounded-md p-3">
+										<div className="text-xs mb-2">Transfer ownership</div>
+										<select className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+											value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)}>
+											<option value="">Select new owner</option>
+											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+										</select>
+										<div className="mt-2 flex justify-end">
+											<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={transferOwner}>Transfer</button>
+										</div>
+									</div>
+									<div className="border border-strong rounded-md p-3">
+										<div className="text-xs mb-2">Delete lobby (type lobby name to confirm)</div>
+										<input className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main" placeholder="Type lobby name exactly"
+											value={confirmName} onChange={e => setConfirmName(e.target.value)} />
+										<div className="mt-2 flex justify-end">
+											<button className="btn-vintage px-3 py-2 rounded-md text-xs"
+												onClick={deleteLobby}
+												disabled={confirmName.trim().length === 0}>
+												Delete Lobby
+											</button>
+										</div>
+									</div>
 									<button
-										className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
+										className="px-3 py-2 rounded-md border border-strong text-xs"
 										onClick={async () => {
 											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 												method: "PATCH",
@@ -204,89 +306,6 @@ export function OwnerSettingsModal({
 									>
 										Cancel scheduled start
 									</button>
-								</div>
-								<label className="text-xs">
-									<span className="block mb-1">Weekly target</span>
-									<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										value={weekly} onChange={e => setWeekly(Number(e.target.value))} />
-								</label>
-								<label className="text-xs">
-									<span className="block mb-1">Initial lives</span>
-									<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										value={lives} onChange={e => setLives(Number(e.target.value))} />
-								</label>
-								<label className="text-xs">
-									<span className="block mb-1">Initial pot ($)</span>
-									<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										value={initialPot} onChange={e => setInitialPot(e.target.value)} />
-								</label>
-								<label className="text-xs">
-									<span className="block mb-1">Weekly ante ($)</span>
-									<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
-								</label>
-								<label className="text-xs flex items-center gap-2 md:col-span-2">
-									<input type="checkbox" checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
-									<span>Scale ante with lobby size</span>
-								</label>
-								<label className={`text-xs ${scalingEnabled ? "" : "opacity-50"}`}>
-									<span className="block mb-1">Per-player boost ($)</span>
-									<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										disabled={!scalingEnabled}
-										value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
-								</label>
-								<label className="text-xs md:col-span-2">
-									<span className="block mb-1">Season start (local)</span>
-									<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
-								</label>
-								<label className="text-xs md:col-span-2">
-									<span className="block mb-1">Season end (local)</span>
-									<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
-								</label>
-								<div className="md:col-span-4 flex justify-end gap-2">
-									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
-									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
-								</div>
-							</div>
-							<div className="mt-6">
-								<div className="poster-headline text-sm mb-2">Danger zone</div>
-								<div className="grid md:grid-cols-2 gap-3">
-									<div className="border border-deepBrown/30 rounded-md p-3">
-										<div className="text-xs mb-2">Remove player</div>
-										<select className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-											value={removeId} onChange={e => setRemoveId(e.target.value)}>
-											<option value="">Select player</option>
-											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-										</select>
-										<div className="mt-2 flex justify-end">
-											<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={removePlayer}>Remove</button>
-										</div>
-									</div>
-									<div className="border border-deepBrown/30 rounded-md p-3">
-										<div className="text-xs mb-2">Transfer ownership</div>
-										<select className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-											value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)}>
-											<option value="">Select new owner</option>
-											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-										</select>
-										<div className="mt-2 flex justify-end">
-											<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={transferOwner}>Transfer</button>
-										</div>
-									</div>
-								</div>
-								<div className="border border-deepBrown/30 rounded-md p-3 mt-3">
-									<div className="text-xs mb-2">Delete lobby (type lobby name to confirm)</div>
-									<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" placeholder="Type lobby name exactly"
-										value={confirmName} onChange={e => setConfirmName(e.target.value)} />
-									<div className="mt-2 flex justify-end">
-										<button className="btn-vintage px-3 py-2 rounded-md text-xs"
-											onClick={deleteLobby}
-											disabled={confirmName.trim().length === 0}>
-											Delete Lobby
-										</button>
-									</div>
 								</div>
 							</div>
 						</motion.div>

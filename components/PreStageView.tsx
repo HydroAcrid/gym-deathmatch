@@ -214,24 +214,27 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 			{isOwner && (
 				<div className="paper-card paper-grain ink-edge p-4 mb-6">
 					<div className="poster-headline text-base mb-2">HOST CONTROLS</div>
-					<div className="flex flex-col md:flex-row items-start gap-3">
-						<button onClick={startNow} className="btn-vintage px-4 py-2 rounded-md">Start Deathmatch now</button>
-						<div className="flex items-center gap-2">
+					<div className="flex flex-col gap-3 md:flex-row md:items-end">
+						<button onClick={startNow} className="btn-vintage px-4 py-3 rounded-md w-full md:w-auto md:flex-1">Start Deathmatch now</button>
+						<div className="w-full md:w-auto md:flex-1">
+							<div className="text-[11px] text-muted mb-1">Or schedule a start time:</div>
 							<input
 								type="datetime-local"
 								value={scheduleAt}
 								onChange={(e) => setScheduleAt(e.target.value)}
-								className="bg-cream text-deepBrown border border-deepBrown/40 rounded-md px-2 py-1"
+								className="w-full bg-main text-main border border-strong rounded-md px-2 py-2"
 							/>
-							<button onClick={schedule} className="btn-secondary px-3 py-2 rounded-md">Schedule start</button>
 						</div>
+						<button onClick={schedule} className="btn-secondary px-4 py-3 rounded-md w-full md:w-auto md:flex-1">Schedule start</button>
+					</div>
+					<div className="mt-3 flex flex-col sm:flex-row gap-2">
 						{lobby.status === "scheduled" && (
-							<button onClick={cancelSchedule} className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs">
+							<button onClick={cancelSchedule} className="px-3 py-2 rounded-md border border-strong text-xs flex-1">
 								Cancel scheduled start
 							</button>
 						)}
 						{user && !iHaveAPlayer && (
-							<button onClick={addMeToLobby} className="btn-secondary px-3 py-2 rounded-md">Add me to this lobby</button>
+							<button onClick={addMeToLobby} className="btn-secondary px-3 py-2 rounded-md flex-1">Add me to this lobby</button>
 						)}
 					</div>
 				</div>
