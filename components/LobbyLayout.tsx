@@ -104,13 +104,27 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				<motion.div className="paper-card paper-grain ink-edge px-4 py-3 border-b-4" style={{ borderColor: "#E1542A" }}>
 					<div className="flex flex-wrap items-center gap-3">
 						<button
-							aria-label="Copy invite link"
+							aria-label="Share lobby"
 							className="p-1 text-xs"
-							onClick={() => {
-								if (typeof window !== "undefined") {
-									navigator.clipboard?.writeText(`${window.location.origin}/join/${lobby.id}`);
-									toast.push("Invite link copied");
+							onClick={async () => {
+								if (typeof window === "undefined") return;
+								const shareUrl = `${window.location.origin}/join/${lobby.id}`;
+								const ownerName = players.find(p => p.id === lobby.ownerId)?.name || "Your friend";
+								const text = `${ownerName} is inviting you to the Deathmatch — ${lobby.name}. Join now:`;
+								try {
+									if (navigator.share) {
+										await navigator.share({
+											title: "Gym Deathmatch",
+											text: text,
+											url: shareUrl
+										});
+										return;
+									}
+								} catch {
+									// fallthrough to clipboard
 								}
+								navigator.clipboard?.writeText(shareUrl);
+								toast.push("Invite link copied");
 							}}
 						>
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

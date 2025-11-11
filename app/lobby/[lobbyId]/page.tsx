@@ -1,5 +1,6 @@
 import { getLobbyById } from "@/lib/lobbies";
 import { LobbySwitcher } from "@/components/LobbySwitcher";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import type { Lobby, Player } from "@/types/game";
@@ -54,6 +55,47 @@ export default async function LobbyPage({
 		}
 	}
 	return <LobbySwitcher lobby={lobby} />;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ lobbyId: string }> }): Promise<Metadata> {
+	const { lobbyId } = await params;
+	const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+	// Owner invite text
+	let desc = "Join the Deathmatch and put your money where your mouth is.";
+	try {
+		const supabase = getServerSupabase();
+		if (supabase) {
+			const { data: lrow } = await supabase.from("lobby").select("owner_id,name").eq("id", lobbyId).single();
+			if (lrow) {
+				let owner = "Your friend";
+				if (lrow.owner_id) {
+					const { data: prow } = await supabase.from("player").select("name").eq("id", lrow.owner_id).maybeSingle();
+					if (prow?.name) owner = prow.name;
+				}
+				desc = `${owner} is inviting you to the Deathmatch — ${lrow.name}.`;
+			}
+		}
+	} catch { /* ignore */ }
+	const title = "Gym Deathmatch";
+	const image = `${base}/og/lobby/${encodeURIComponent(lobbyId)}`;
+	const url = `${base}/join/${encodeURIComponent(lobbyId)}`;
+	return {
+		title,
+		description: desc,
+		openGraph: {
+			title,
+			description: desc,
+			type: "website",
+			images: [{ url: image, width: 1200, height: 630 }],
+			url
+		},
+		twitter: {
+			card: "summary_large_image",
+			title,
+			description: desc,
+			images: [image]
+		}
+	};
 }
 
 

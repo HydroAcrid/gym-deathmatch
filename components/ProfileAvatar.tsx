@@ -14,8 +14,6 @@ export function ProfileAvatar() {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [current, setCurrent] = useState<string>("");
 
-	if (!user) return null;
-
 	// Load current avatar (by user_id, then fallback to local player id)
 	useEffect(() => {
 		(async () => {
@@ -23,6 +21,7 @@ export function ProfileAvatar() {
 				const supabase = getBrowserSupabase();
 				if (!supabase) return;
 				let avatar: string | null = null;
+				if (!user) return;
 				const { data, error } = await supabase.from("player").select("avatar_url").eq("user_id", user.id).maybeSingle();
 				if (!error && data?.avatar_url) avatar = data.avatar_url as string;
 				if (!avatar) {
@@ -38,6 +37,8 @@ export function ProfileAvatar() {
 			}
 		})();
 	}, [user?.id]);
+
+	if (!user) return null;
 
 	async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
