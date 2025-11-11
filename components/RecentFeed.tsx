@@ -39,19 +39,21 @@ export function RecentFeed({
 				// Also read latest manual posts (including pending) so new posts appear immediately
 				try {
 					// Use server API (membership-validated) to avoid client RLS issues
-					const res2 = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history?limit=5`, {
-						headers: user?.id ? { "x-user-id": user.id } as any : undefined,
-						cache: "no-store"
-					});
-					if (res2.ok) {
-						const j = await res2.json();
-						const acts = (j?.activities ?? []) as any[];
-						const players = (data?.lobby?.players ?? []) as any[];
-						const nameById = new Map<string, string>(players.map((p: any) => [p.id, p.name || "Player"]));
-						for (const a of acts) {
-							const when = a.created_at || a.date;
-							const txt = `${nameById.get(a.player_id) || "Player"}: ${a.caption || "manual workout"} ✍️${a.status === "pending" ? " · pending vote" : ""}`;
-							evs.push({ message: txt, timestamp: when });
+					if (user?.id) {
+						const res2 = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history?limit=5`, {
+							headers: { "x-user-id": user.id } as any,
+							cache: "no-store"
+						});
+						if (res2.ok) {
+							const j = await res2.json();
+							const acts = (j?.activities ?? []) as any[];
+							const players = (data?.lobby?.players ?? []) as any[];
+							const nameById = new Map<string, string>(players.map((p: any) => [p.id, p.name || "Player"]));
+							for (const a of acts) {
+								const when = a.created_at || a.date;
+								const txt = `${nameById.get(a.player_id) || "Player"}: ${a.caption || "manual workout"} ✍️${a.status === "pending" ? " · pending vote" : ""}`;
+								evs.push({ message: txt, timestamp: when });
+							}
 						}
 					}
 				} catch { /* ignore */ }
@@ -66,7 +68,7 @@ export function RecentFeed({
 		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
 		const id = setInterval(refresh, 12 * 60 * 1000); // 12 minutes
 		return () => { ignore = true; clearInterval(id); if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
-	}, [lobbyId]);
+	}, [lobbyId, user?.id]);
 
 	return (
 		<motion.div
