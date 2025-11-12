@@ -19,4 +19,29 @@ export async function GET(req: Request) {
 	}
 }
 
+export async function PUT(req: Request) {
+	const supabase = getServerSupabase();
+	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+	try {
+		const body = await req.json();
+		const userId = body?.userId as string | undefined;
+		if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+
+		const row: any = {
+			user_id: userId,
+			display_name: body?.displayName ?? null,
+			avatar_url: body?.avatarUrl ?? null,
+			location: body?.location ?? null,
+			quip: body?.quip ?? null
+		};
+
+		const { error } = await supabase.from("user_profile").upsert(row, { onConflict: "user_id" });
+		if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+		return NextResponse.json({ ok: true });
+	} catch (e: any) {
+		return NextResponse.json({ error: String(e?.message ?? e) }, { status: 500 });
+	}
+}
+
 
