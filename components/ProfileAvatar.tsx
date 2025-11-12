@@ -81,7 +81,7 @@ export function ProfileAvatar() {
 		setBusy(true);
 		try {
 			// Save to user_profile
-			await fetch("/api/profile", {
+			await fetch("/api/user/profile", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -100,11 +100,11 @@ export function ProfileAvatar() {
 					body: JSON.stringify({ userId: user.id, avatarUrl: url.trim(), playerId: localStorage.getItem("gymdm_playerId") || null })
 				});
 			}
-			// Sync existing player names to profile (replace 'Owner'/'Me')
+			// Sync all player rows for this user to the updated profile (overwrite all fields)
 			await fetch("/api/user/sync", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: user.id })
+				body: JSON.stringify({ userId: user.id, overwriteAll: true })
 			});
 			// Persist to auth metadata for easy retrieval across the app
 			try {
@@ -139,7 +139,7 @@ export function ProfileAvatar() {
 						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 						<motion.div className="paper-card paper-grain ink-edge max-w-md w-[92%] p-6 bg-tan"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
-							<div className="poster-headline text-xl mb-3">Update Profile Picture</div>
+							<div className="poster-headline text-xl mb-3">Update Profile</div>
 							<div className="space-y-3">
 								<label className="block text-xs">
 									<span className="block mb-1">Display name</span>
