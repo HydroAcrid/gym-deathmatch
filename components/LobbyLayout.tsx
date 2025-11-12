@@ -13,6 +13,7 @@ import { RecentFeed } from "./RecentFeed";
 import { oneLinerFromActivity } from "@/lib/messages";
 import { KoOverlay } from "./KoOverlay";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
+import { useAuth } from "./AuthProvider";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
@@ -22,6 +23,13 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [showKo, setShowKo] = useState<boolean>(false);
 	const [me, setMe] = useState<string | null>(null);
 	const [editOpen, setEditOpen] = useState(false);
+	const { user } = useAuth();
+	const isOwner = useMemo(() => {
+		if (user?.id && (lobby as any).ownerUserId) return user.id === (lobby as any).ownerUserId;
+		const ownerPlayer = players.find(p => p.id === lobby.ownerId);
+		if (user?.id && ownerPlayer?.userId) return ownerPlayer.userId === user.id;
+		return !!(lobby.ownerId && me && lobby.ownerId === me);
+	}, [user?.id, (lobby as any).ownerUserId, lobby.ownerId, me, players]);
 	const search = useSearchParams();
 	const stravaConnected = search.get("stravaConnected");
 	const connectedPlayerId = search.get("playerId");
@@ -161,7 +169,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 						<div className="poster-headline text-2xl">{lobby.name.toUpperCase()}</div>
 						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · WINTER GRIND</div>
 						<div className="ml-auto">
-							{me && lobby.ownerId === me && (
+							{isOwner && (
 								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setEditOpen(true)}>
 									Edit
 								</button>
@@ -184,14 +192,14 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				<RecentFeed lobbyId={lobby.id} />
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-start">
+			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
 				{players.slice(0, 2).map((p) => (
-					<motion.div key={p.id} variants={item}>
+					<motion.div key={p.id} variants={item} className="h-full">
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
 					</motion.div>
 				))}
 				{players.slice(2).map((p) => (
-					<motion.div key={p.id} variants={item}>
+					<motion.div key={p.id} variants={item} className="h-full">
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
 					</motion.div>
 				))}
@@ -206,7 +214,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				loserAvatar={players.find(p => p.id === koEvent?.loserPlayerId)?.avatarUrl}
 				pot={currentPot}
 			/>
-			{me && lobby.ownerId === me && (
+			{isOwner && (
 				<OwnerSettingsModal
 					open={editOpen}
 					onClose={() => setEditOpen(false)}

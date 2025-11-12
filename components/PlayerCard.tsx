@@ -16,7 +16,7 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 	const isMe = (mePlayerId && mePlayerId === player.id) || (!!user?.id && !!player.userId && user.id === player.userId);
 	return (
 		<motion.div
-			className={`paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 min-h-[520px] md:min-h-[440px] ${player.livesRemaining === 0 ? "opacity-80" : ""}`}
+			className={`paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 min-h-[520px] h-full ${player.livesRemaining === 0 ? "opacity-80" : ""}`}
 			initial={{ opacity: 0, scale: 0.96, y: 12 }}
 			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
 			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}

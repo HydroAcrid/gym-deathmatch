@@ -47,11 +47,19 @@ export function Countdown({ endIso }: { endIso: string }) {
 					</motion.span>
 				</AnimatePresence>
 				<span>·</span>
-				<AnimatePresence mode="popLayout" initial={false}>
-					<motion.span className="text-xl" key={`s-${remaining.seconds}`} {...numVariants}>
-						{String(remaining.seconds).padStart(2, "0")} S
-					</motion.span>
-				</AnimatePresence>
+				{/* Seconds: animate only the digits; keep the suffix static and clip overflow to avoid ghost glyphs */}
+				<span className="inline-flex items-baseline overflow-hidden">
+					<AnimatePresence mode="popLayout" initial={false}>
+						<motion.span
+							className="text-xl inline-block w-[2ch] tabular-nums text-right"
+							key={`s-${remaining.seconds}`}
+							{...numVariants}
+						>
+							{String(remaining.seconds).padStart(2, "0")}
+						</motion.span>
+					</AnimatePresence>
+					<span className="text-xl">&nbsp;S</span>
+				</span>
 			</div>
 		</div>
 	);
