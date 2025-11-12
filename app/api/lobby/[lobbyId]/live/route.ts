@@ -68,7 +68,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					players,
 					seasonNumber: rawSeasonNumber,
 					seasonStart: lrow.season_start ?? seasonStartFallback,
-					seasonEnd: lrow.season_end ?? new Date().toISOString(),
+					seasonEnd: (() => {
+						// Sensible fallback if not configured: two weeks after season start or now+14d
+						if (lrow.season_end) return lrow.season_end as string;
+						const start = lrow.season_start ? new Date(lrow.season_start as string).getTime() : Date.now();
+						return new Date(start + 14 * 24 * 60 * 60 * 1000).toISOString();
+					})(),
 					cashPool: lrow.cash_pool ?? 0,
 					initialPot: potConfig.initialPot,
 					weeklyAnte: potConfig.weeklyAnte,
