@@ -280,12 +280,38 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 									<button className="px-3 py-1.5 rounded-md border border-deepBrown/30 text-xs" disabled={busy} onClick={() => overrideActivity(a.id, "rejected")}>Reject</button>
 								</div>
 							) : null}
+							<ActivityComments activityId={a.id} />
 						</div>
 					);
 				})}
 				{items.length === 0 && <div className="text-deepBrown/70 text-sm">No posts yet.</div>}
 			</div>
 			<Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+		</div>
+	);
+}
+
+function ActivityComments({ activityId }: { activityId: string }) {
+	const [comments, setComments] = useState<Array<{ id: string; type: string; rendered: string; created_at: string }>>([]);
+	useEffect(() => {
+		(async () => {
+			try {
+				const res = await fetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, { cache: "no-store" });
+				if (!res.ok) return;
+				const j = await res.json();
+				setComments(j.comments ?? []);
+			} catch { /* ignore */ }
+		})();
+	}, [activityId]);
+	if (!comments.length) return null;
+	return (
+		<div className="mt-2 border-t border-deepBrown/20 pt-2 space-y-1">
+			{comments.map(c => (
+				<div key={c.id} className="text-[12px] text-deepBrown/90">
+					{c.rendered}
+					<span className="ml-2 text-[11px] text-deepBrown/60">{new Date(c.created_at).toLocaleString()}</span>
+				</div>
+			))}
 		</div>
 	);
 }

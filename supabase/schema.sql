@@ -242,3 +242,27 @@ for select using (
   exists (select 1 from player p where p.lobby_id = weekly_pot_contributions.lobby_id and p.user_id = auth.uid())
 );
 
+-- Commentary / quips
+create table if not exists comments (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  type text not null check (type in ('ACTIVITY','VOTE','HEARTS','POT','KO','SUMMARY')),
+  primary_player_id text null references player(id) on delete set null,
+  secondary_player_id text null references player(id) on delete set null,
+  activity_id uuid null references manual_activities(id) on delete set null,
+  payload jsonb not null,
+  rendered text not null,
+  visibility text not null default 'both' check (visibility in ('feed','history','both')),
+  created_at timestamptz not null default now()
+);
+alter table comments enable row level security;
+drop policy if exists comments_read_member on comments;
+create policy comments_read_member on comments
+for select using (
+  exists (select 1 from player p where p.lobby_id = comments.lobby_id and p.user_id = auth.uid())
+);
+-- service-role writes only via API; no public insert policy
+create index if not exists comments_lobby_created_idx on comments (lobby_id, created_at desc);
+-- Dedupe helper: prevent duplicates per activity/rendered
+create unique index if not exists comments_activity_dedupe_idx on comments (lobby_id, type, activity_id, rendered) where activity_id is not null;
+

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
+import { onVoteResolved } from "@/lib/commentary";
 
 async function resolveActivityVotes(supabase: any, activityId: string) {
 	// load activity and votes
@@ -81,6 +82,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		if (error) throw error;
 		// Try resolve
 		await resolveActivityVotes(supabase, activityId);
+		try {
+			// Commentary quip (fire-and-forget)
+			const act = { id: activityId, playerId: act?.player_id } as any;
+			await onVoteResolved(act.lobby_id as any, act as any, choice === "legit" ? "approved" : "rejected");
+		} catch { /* ignore */ }
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		console.error("vote error", e);

@@ -13,7 +13,7 @@ export function RecentFeed({
 	lobbyId?: string;
 	events?: FeedEvent[];
 }) {
-	const [items, setItems] = useState<FeedEvent[]>(events ?? []);
+	const [items, setItems] = useState<any[]>([]);
 	const { user } = useAuth();
 
 	// Seed from props when they change
@@ -23,52 +23,26 @@ export function RecentFeed({
 		}
 	}, [events]);
 
-	// Optional auto-refresh if lobbyId provided
+	// Fetch from /feed and refresh periodically
 	useEffect(() => {
 		if (!lobbyId) return;
 		let ignore = false;
 		async function refresh() {
 			try {
 				const lid = lobbyId as string;
-				// Pull /live for recent activities + heart events
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lid)} /live`.replace(" /", "/"), { cache: "no-store" });
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lid)}/feed`, { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
-				if (ignore || !data?.lobby?.players) return;
-				const evs: FeedEvent[] = buildFromLive(data);
-				// Also read latest manual posts (including pending) so new posts appear immediately
-				try {
-					// Use server API (membership-validated) to avoid client RLS issues
-					if (user?.id) {
-						const res2 = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history?limit=5`, {
-							headers: { "x-user-id": user.id } as any,
-							cache: "no-store"
-						});
-						if (res2.ok) {
-							const j = await res2.json();
-							const acts = (j?.activities ?? []) as any[];
-							const players = (data?.lobby?.players ?? []) as any[];
-							const nameById = new Map<string, string>(players.map((p: any) => [p.id, p.name || "Player"]));
-							for (const a of acts) {
-								const when = a.created_at || a.date;
-								const txt = `${nameById.get(a.player_id) || "Player"}: ${a.caption || "manual workout"} ✍️${a.status === "pending" ? " · pending vote" : ""}`;
-								evs.push({ message: txt, timestamp: when });
-							}
-						}
-					}
-				} catch { /* ignore */ }
-				setItems(prev => mergeNewest(prev, evs));
+				if (ignore) return;
+				setItems(data.items ?? []);
 			} catch {
 				// ignore
 			}
 		}
 		refresh();
-		// Refresh on global "gymdm:refresh-live" events too (after posting)
-		function onRefresh() { refresh(); }
-		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
-		const id = setInterval(refresh, 12 * 60 * 1000); // 12 minutes
-		return () => { ignore = true; clearInterval(id); if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
-	}, [lobbyId, user?.id]);
+		const id = setInterval(refresh, 30 * 1000);
+		return () => { ignore = true; clearInterval(id); };
+	}, [lobbyId ?? ""]);
 
 	return (
 		<motion.div
@@ -82,23 +56,45 @@ export function RecentFeed({
 				<div className="poster-headline text-sm sm:text-base mb-2">LIVE ARENA FEED</div>
 				<div className="space-y-2 relative scroll-fade-bottom overflow-hidden flex-1">
 					<AnimatePresence initial={false}>
-						{(items.length ? items : defaultMockEvents()).map((e) => (
+						{items.map((e) => (
 							<motion.div
-								key={`${e.timestamp}-${e.message}`}
+								key={e.id}
 								initial={{ opacity: 0, y: 8 }}
 								animate={{ opacity: 1, y: 0 }}
 								exit={{ opacity: 0, y: -6 }}
 								transition={{ duration: 0.5, ease: "easeOut" }}
-								className="group flex items-start gap-2 p-2 transition rounded-none hover:ring-2 hover:ring-inset hover:ring-[rgba(225,84,42,0.35)] min-h-[44px]"
+								className="group flex items-start gap-2 p-2 transition rounded-none hover:ring-2 hover:ring-inset hover:ring-[rgba(225,84,42,0.35)] min-h-[44px] border-b border-strong/30 last:border-b-0"
 							>
-								<div className="mt-0.5 text-lg">💬</div>
+								{e.player?.avatar_url ? (
+									<img src={e.player.avatar_url} alt="" className="h-7 w-7 rounded-md object-cover" />
+								) : (
+									<div className="h-7 w-7 rounded-md bg-muted flex items-center justify-center">💬</div>
+								)}
 								<div className="flex-1">
-									<div className="text-sm leading-tight">{e.message}</div>
-									<div className="text-[11px] text-deepBrown/70">{timeAgo(e.timestamp)}</div>
+									<div className="text-sm leading-tight">
+										{e.player?.name ? (() => {
+											const name: string = e.player.name as string;
+											let text: string = e.text || "";
+											// If rendered text already begins with the name, strip it to avoid duplication
+											if (text && name && text.toLowerCase().startsWith(name.toLowerCase())) {
+												text = text.slice(name.length).replace(/^[:,\-–—]\s*/, "").trim();
+											}
+											return (
+												<>
+													<span className="font-semibold">{name}</span>
+													{text ? <> — {text}</> : null}
+												</>
+											);
+										})() : (e.text)}
+									</div>
+									<div className="text-[11px] text-deepBrown/70">{timeAgo(e.createdAt)}</div>
 								</div>
 							</motion.div>
 						))}
 					</AnimatePresence>
+					{items.length === 0 && (
+						<div className="text-[12px] text-muted px-2 py-3">No events yet.</div>
+					)}
 				</div>
 				<a href={lobbyId ? `/lobby/${encodeURIComponent(lobbyId)}/history` : "/history"} className="mt-3 inline-flex items-center gap-1 text-xs underline hover:shadow-[0_0_0_2px_rgba(225,84,42,0.25)] transition">
 					View full history →
@@ -106,16 +102,6 @@ export function RecentFeed({
 			</div>
 		</motion.div>
 	);
-}
-
-function defaultMockEvents(): FeedEvent[] {
-	const now = Date.now();
-	return [
-		{ message: "Kevin did 42m run — night grinder 🌙", timestamp: new Date(now - 10 * 60 * 1000).toISOString() },
-		{ message: "Nelly hit weekly target (4) ✅", timestamp: new Date(now - 2 * 60 * 60 * 1000).toISOString() },
-		{ message: "Kevin missed target (1) 💀", timestamp: new Date(now - 6 * 60 * 60 * 1000).toISOString() },
-		{ message: "Nelly 6.2km ride — cold can’t stop her 🥶", timestamp: new Date(now - 20 * 60 * 60 * 1000).toISOString() }
-	];
 }
 
 function limitAndFresh(evs: FeedEvent[]): FeedEvent[] {
@@ -146,37 +132,4 @@ function timeAgo(iso: string) {
 	return `${d}d ago`;
 }
 
-// Builds a compact feed from /live payload without importing server types
-function buildFromLive(data: any): FeedEvent[] {
-	const evs: FeedEvent[] = [];
-	for (const p of (data?.lobby?.players ?? [])) {
-		const name = p.name || "Player";
-		if (p.taunt) {
-			evs.push({ message: `${name}: ${p.taunt}`, timestamp: data?.fetchedAt || new Date().toISOString() });
-		}
-		for (const a of (p.recentActivities ?? [])) {
-			const src = a.source === "manual" ? "✍️" : "📡";
-			const msg = `${name} did ${a.durationMinutes}m ${readableType(a.type)} ${src} — ${a.name}`;
-			evs.push({ message: msg, timestamp: a.startDate });
-		}
-		// Weekly target events
-		for (const e of (p.events ?? [])) {
-			const msg = e.met ? `${name} hit weekly target (${e.count}) ✅` : `${name} missed target (${e.count}) 💀`;
-			evs.push({ message: msg, timestamp: e.weekStart });
-		}
-	}
-	evs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-	return evs.slice(0, 5);
-}
-
-function readableType(t: string) {
-	const s = (t || "").toLowerCase();
-	if (s.includes("run")) return "run 🏃";
-	if (s.includes("ride") || s.includes("bike")) return "ride 🚴";
-	if (s.includes("swim")) return "swim 🏊";
-	if (s.includes("walk")) return "walk 🚶";
-	if (s.includes("hike")) return "hike 🥾";
-	return "session 💪";
-}
-
-
+// Old helpers removed (feed now comes from /api/lobby/[id]/feed)

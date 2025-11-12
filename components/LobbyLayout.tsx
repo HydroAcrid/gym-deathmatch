@@ -12,6 +12,7 @@ import { useToast } from "./ToastProvider";
 import { RecentFeed } from "./RecentFeed";
 import { oneLinerFromActivity } from "@/lib/messages";
 import { KoOverlay } from "./KoOverlay";
+import { OwnerSettingsModal } from "./OwnerSettingsModal";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
@@ -20,6 +21,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [koEvent, setKoEvent] = useState<any>(null);
 	const [showKo, setShowKo] = useState<boolean>(false);
 	const [me, setMe] = useState<string | null>(null);
+	const [editOpen, setEditOpen] = useState(false);
 	const search = useSearchParams();
 	const stravaConnected = search.get("stravaConnected");
 	const connectedPlayerId = search.get("playerId");
@@ -158,6 +160,13 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 						</button>
 						<div className="poster-headline text-2xl">{lobby.name.toUpperCase()}</div>
 						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · WINTER GRIND</div>
+						<div className="ml-auto">
+							{me && lobby.ownerId === me && (
+								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setEditOpen(true)}>
+									Edit
+								</button>
+							)}
+						</div>
 					</div>
 				</motion.div>
 				
@@ -167,25 +176,20 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			<div className="header-divider-glow mb-3" />
 
 			{/* Scoreboard */}
-			<div className="mb-6">
+			<div className="mb-4">
 				<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
 			</div>
+			{/* Arena feed directly under pot */}
+			<div className="mb-6">
+				<RecentFeed lobbyId={lobby.id} />
+			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_320px] gap-3 sm:gap-4 items-start">
+			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-start">
 				{players.slice(0, 2).map((p) => (
 					<motion.div key={p.id} variants={item}>
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
 					</motion.div>
 				))}
-				{(() => {
-					// Make the feed span as many rows as there are player rows
-					const rowSpan = Math.max(1, Math.ceil(players.length / 2));
-					return (
-						<div className="order-last md:order-none" style={{ gridRow: `span ${rowSpan}` }}>
-							<RecentFeed lobbyId={lobby.id} events={feedEvents} />
-						</div>
-					);
-				})()}
 				{players.slice(2).map((p) => (
 					<motion.div key={p.id} variants={item}>
 						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
@@ -202,6 +206,22 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				loserAvatar={players.find(p => p.id === koEvent?.loserPlayerId)?.avatarUrl}
 				pot={currentPot}
 			/>
+			{me && lobby.ownerId === me && (
+				<OwnerSettingsModal
+					open={editOpen}
+					onClose={() => setEditOpen(false)}
+					lobbyId={lobby.id}
+					defaultWeekly={lobby.weeklyTarget ?? 3}
+					defaultLives={lobby.initialLives ?? 3}
+					defaultSeasonEnd={lobby.seasonEnd}
+					defaultInitialPot={(lobby as any).initialPot ?? 0}
+					defaultWeeklyAnte={(lobby as any).weeklyAnte ?? 10}
+					defaultScalingEnabled={(lobby as any).scalingEnabled ?? false}
+					defaultPerPlayerBoost={(lobby as any).perPlayerBoost ?? 0}
+					onSaved={() => { setEditOpen(false); reloadLive(); }}
+					hideTrigger
+				/>
+			)}
 		</div>
 	);
 }

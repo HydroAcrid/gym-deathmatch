@@ -11,6 +11,7 @@ import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 import { getDailyTaunts } from "@/lib/funFacts";
 import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
+import { onHeartsChanged, onKO, onPotChanged } from "@/lib/commentary";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	// Optional debug mode: /live?debug=1 will include extra details and server logs
@@ -222,6 +223,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						count: e.workouts
 					}))
 					.slice(-4); // keep recent few weeks to avoid noisy long histories
+				// Commentary: heart change for the most recent completed week (if any)
+				try {
+					const completed = weekly.events.filter(e => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs);
+					if (completed.length) {
+						const last = completed[completed.length - 1];
+						if (last.heartsLost > 0) {
+							await onHeartsChanged(lobby.id, p.id, -last.heartsLost, `missed weekly target (${last.workouts}/${weeklyTarget})`);
+						}
+						if (last.heartsGained > 0) {
+							await onHeartsChanged(lobby.id, p.id, last.heartsGained, `hit weekly target (${last.workouts}/${weeklyTarget})`);
+						}
+					}
+				} catch { /* ignore */ }
 				// Persist the most recent weekly result into history_events if not already recorded,
 				// so the History page mirrors the feed at least for weekly outcomes.
 				try {
@@ -283,6 +297,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						(result as any).livesRemaining = Math.max(0, Math.min(3, (result as any).livesRemaining + bonus));
 					}
 				} catch { /* ignore */ }
+				// Streak quips: milestones and PR
+				try {
+					if ([3,5,7,10].includes(currentStreak)) {
+						const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
+						await onStreakMilestone(lobby.id, p.id, currentStreak);
+						await onStreakPR(lobby.id, p.id, currentStreak);
+					} else {
+						// Still attempt PR detection (if any)
+						const { onStreakPR } = await import("@/lib/commentary");
+						await onStreakPR(lobby.id, p.id, currentStreak);
+					}
+				} catch { /* ignore */ }
 				return result;
 			} catch (e: any) {
 				// Attempt token refresh on 401/403
@@ -330,6 +356,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								count: e.workouts
 							}))
 							.slice(-4);
+						try {
+							const completed = weekly.events.filter(e => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs2);
+							if (completed.length) {
+								const last = completed[completed.length - 1];
+								if (last.heartsLost > 0) {
+									await onHeartsChanged(lobby.id, p.id, -last.heartsLost, `missed weekly target (${last.workouts}/${weeklyTarget})`);
+								}
+								if (last.heartsGained > 0) {
+									await onHeartsChanged(lobby.id, p.id, last.heartsGained, `hit weekly target (${last.workouts}/${weeklyTarget})`);
+								}
+							}
+						} catch { /* ignore */ }
 						const recentActivities = (combined as any[]).slice(0, 5).map(a => {
 							const s = toActivitySummary(a);
 							return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
@@ -361,6 +399,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								const { data: adjs } = await supabase.from("heart_adjustments").select("target_player_id, delta").eq("lobby_id", lobby.id).eq("target_player_id", p.id);
 								const bonus = (adjs ?? []).reduce((s: number, r: any) => s + (r.delta as number), 0);
 								(result2 as any).livesRemaining = Math.max(0, Math.min(3, (result2 as any).livesRemaining + bonus));
+							}
+						} catch { /* ignore */ }
+						// Streak quips after refresh
+						try {
+							if ([3,5,7,10].includes(currentStreak)) {
+								const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
+								await onStreakMilestone(lobby.id, p.id, currentStreak);
+								await onStreakPR(lobby.id, p.id, currentStreak);
+							} else {
+								const { onStreakPR } = await import("@/lib/commentary");
+								await onStreakPR(lobby.id, p.id, currentStreak);
 							}
 						} catch { /* ignore */ }
 						return result2;
@@ -411,6 +460,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						amount: amt,
 						player_count: survivors
 					});
+					// Commentary: pot climbed
+					try { await onPotChanged(lobby.id, amt); } catch { /* ignore */ }
 				}
 			}
 		}
@@ -441,6 +492,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					type: "SEASON_KO",
 					payload: { loserPlayerId: loser.id, currentPot, seasonNumber: lobby.seasonNumber }
 				});
+				try { await onKO(lobby.id, loser.id, currentPot); } catch { /* ignore */ }
 				rawStatus = "completed";
 				koEvent = { loserPlayerId: loser.id, potAtKO: currentPot };
 			}
