@@ -61,6 +61,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		if (!voter || voter.lobby_id !== actRow.lobby_id) return NextResponse.json({ error: "Not in lobby" }, { status: 400 });
 		// Prevent self-vote
 		if (voterPlayerId === actRow.player_id) return NextResponse.json({ error: "No self-vote" }, { status: 400 });
+		// Disable voting in very small lobbies (<= 2 players)
+		const { data: plist } = await supabase.from("player").select("id").eq("lobby_id", actRow.lobby_id);
+		if ((plist?.length || 0) <= 2) {
+			return NextResponse.json({ error: "Voting disabled for lobbies with fewer than 3 players" }, { status: 400 });
+		}
 		// If currently approved, first vote starts a challenge window by flipping to pending
 		if (actRow.status === "approved") {
 			const now = new Date();

@@ -93,6 +93,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 
 	function playerById(id: string) { return players.find(p => p.id === id); }
 	function canVote(a: ActivityRow) {
+		// Disable voting for very small lobbies (<=2 players)
+		if ((players?.length || 0) <= 2) return false;
 		if (!myPlayerId || a.player_id === myPlayerId) return false;
 		if (a.status !== "pending") return false;
 		if (a.vote_deadline && new Date(a.vote_deadline).getTime() < Date.now()) return false;
