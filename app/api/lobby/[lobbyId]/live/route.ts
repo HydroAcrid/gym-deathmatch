@@ -114,6 +114,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const weeklyTarget = lobby.weeklyTarget ?? 3;
 	const initialLives = lobby.initialLives ?? 3;
 
+	// If season end has passed, mark as completed (idempotent)
+	try {
+		const now = Date.now();
+		if (rawStatus !== "completed" && new Date(seasonEnd).getTime() <= now) {
+			const supabase = getServerSupabase();
+			if (supabase) {
+				await supabase.from("lobby").update({ status: "completed" }).eq("id", lobby.id);
+				rawStatus = "completed";
+			}
+		}
+	} catch { /* ignore */ }
+
 	// Prefetch approved manual activities for the whole lobby and index by player_id
 	let manualByPlayer: Record<string, ManualActivityRow[]> = {};
 	try {
@@ -204,6 +216,33 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					met: e.workouts >= weeklyTarget,
 					count: e.workouts
 				})).slice(-4); // keep recent few weeks to avoid noisy long histories
+				// Persist the most recent weekly result into history_events if not already recorded,
+				// so the History page mirrors the feed at least for weekly outcomes.
+				try {
+					const supabase = getServerSupabase();
+					if (supabase && events.length) {
+						const last = events[events.length - 1];
+						const type = last.met ? "WEEKLY_TARGET_MET" : "WEEKLY_TARGET_MISSED";
+						// Check if an event already exists for this (lobby, player, weekStart, type)
+						const { data: existing } = await supabase
+							.from("history_events")
+							.select("id")
+							.eq("lobby_id", lobby.id)
+							.eq("target_player_id", p.id)
+							.eq("type", type)
+							.contains("payload", { weekStart: last.weekStart } as any)
+							.limit(1);
+						if (!existing || existing.length === 0) {
+							await supabase.from("history_events").insert({
+								lobby_id: lobby.id,
+								actor_player_id: null,
+								target_player_id: p.id,
+								type,
+								payload: { weekStart: last.weekStart, workouts: last.count, weeklyTarget }
+							});
+						}
+					}
+				} catch { /* ignore */ }
 				const recentActivities = (combined as any[]).slice(0, 5).map(a => {
 					const s = toActivitySummary(a);
 					return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };

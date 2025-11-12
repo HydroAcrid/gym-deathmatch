@@ -253,6 +253,60 @@ export function OwnerSettingsModal({
 								<button className="px-3 py-2 rounded-md border border-strong text-xs flex-1" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
 								<button className="btn-vintage px-3 py-2 rounded-md text-xs flex-1" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 							</div>
+							{/* Stage controls */}
+							<div className="mt-4">
+								<div className="poster-headline text-sm mb-2">STAGE CONTROLS</div>
+								<div className="grid sm:grid-cols-3 gap-2">
+									<button
+										className="btn-secondary px-3 py-2 rounded-md text-xs"
+										title="Return to pre-stage (waiting room)"
+										onClick={async () => {
+											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+												method: "PATCH",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify({ status: "pending", scheduledStart: null })
+											});
+											onSaved();
+											setOpen(false);
+											onClose?.();
+										}}
+									>
+										Set to Pre-Stage
+									</button>
+									<button
+										className="btn-secondary px-3 py-2 rounded-md text-xs"
+										title="Begin now"
+										onClick={async () => {
+											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+												method: "PATCH",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify({ startNow: true })
+											});
+											onSaved();
+											setOpen(false);
+											onClose?.();
+										}}
+									>
+										Start now
+									</button>
+									<button
+										className="btn-secondary px-3 py-2 rounded-md text-xs"
+										title="Mark season completed"
+										onClick={async () => {
+											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+												method: "PATCH",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify({ status: "completed" })
+											});
+											onSaved();
+											setOpen(false);
+											onClose?.();
+										}}
+									>
+										Complete season
+									</button>
+								</div>
+							</div>
 							{/* Danger zone */}
 							<div className="mt-6">
 								<div className="poster-headline text-sm mb-2">DANGER ZONE</div>
