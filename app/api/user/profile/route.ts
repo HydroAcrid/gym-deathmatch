@@ -27,12 +27,19 @@ export async function PUT(req: Request) {
 		const userId = body?.userId as string | undefined;
 		if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
+		// Enforce sane limits server-side
+		const clamp = (v: any, max: number) => {
+			if (v === null || v === undefined) return null;
+			const s = String(v);
+			return s.length > max ? s.slice(0, max) : s;
+		};
+
 		const row: any = {
 			user_id: userId,
-			display_name: body?.displayName ?? null,
+			display_name: clamp(body?.displayName ?? null, 40),
 			avatar_url: body?.avatarUrl ?? null,
-			location: body?.location ?? null,
-			quip: body?.quip ?? null
+			location: clamp(body?.location ?? null, 60),
+			quip: clamp(body?.quip ?? null, 140)
 		};
 
 		const { error } = await supabase.from("user_profile").upsert(row, { onConflict: "user_id" });

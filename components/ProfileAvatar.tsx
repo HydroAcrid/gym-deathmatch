@@ -146,6 +146,7 @@ export function ProfileAvatar() {
 									<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
 										placeholder="Your name"
 										value={displayName}
+										maxLength={40}
 										onChange={(e) => setDisplayName(e.target.value)}
 									/>
 								</label>
@@ -155,6 +156,7 @@ export function ProfileAvatar() {
 										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
 											placeholder="City, State"
 											value={locationVal}
+											maxLength={60}
 											onChange={(e) => setLocationVal(e.target.value)}
 										/>
 									</label>
@@ -163,6 +165,7 @@ export function ProfileAvatar() {
 										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
 											placeholder="Short tagline"
 											value={quipVal}
+											maxLength={140}
 											onChange={(e) => setQuipVal(e.target.value)}
 										/>
 									</label>
