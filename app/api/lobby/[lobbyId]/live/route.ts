@@ -209,13 +209,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				const currentStreak = calculateStreakFromActivities(combined as any[]);
 				const longestStreak = calculateLongestStreak(combined as any[]);
 				const avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc.toISOString(), seasonEnd);
-				const weekly = computeWeeklyHearts(combined as any[], startForCalc, { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
+				// Evaluate hearts up to "now" (not full season) so players aren't penalized for future weeks
+				const weekly = computeWeeklyHearts(combined as any[], startForCalc, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
 				// Back-compat feed events (met/count) derived from weekly events
-				const events = weekly.events.map((e) => ({
-					weekStart: e.weekStart,
-					met: e.workouts >= weeklyTarget,
-					count: e.workouts
-				})).slice(-4); // keep recent few weeks to avoid noisy long histories
+				const nowTs = Date.now();
+				const events = weekly.events
+					// Only include fully completed weeks (avoid premature "missed" on current week)
+					.filter(e => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs)
+					.map((e) => ({
+						weekStart: e.weekStart,
+						met: e.workouts >= weeklyTarget,
+						count: e.workouts
+					}))
+					.slice(-4); // keep recent few weeks to avoid noisy long histories
 				// Persist the most recent weekly result into history_events if not already recorded,
 				// so the History page mirrors the feed at least for weekly outcomes.
 				try {
@@ -314,12 +320,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						const currentStreak = calculateStreakFromActivities(combined as any[]);
 						const longestStreak = calculateLongestStreak(combined as any[]);
 						const avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc2.toISOString(), seasonEnd);
-						const weekly = computeWeeklyHearts(combined as any[], startForCalc2, { weeklyTarget, maxHearts: 3, seasonEnd: new Date(seasonEnd) });
-						const events = weekly.events.map((e) => ({
-							weekStart: e.weekStart,
-							met: e.workouts >= weeklyTarget,
-							count: e.workouts
-						})).slice(-4);
+						const weekly = computeWeeklyHearts(combined as any[], startForCalc2, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+						const nowTs2 = Date.now();
+						const events = weekly.events
+							.filter(e => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs2)
+							.map((e) => ({
+								weekStart: e.weekStart,
+								met: e.workouts >= weeklyTarget,
+								count: e.workouts
+							}))
+							.slice(-4);
 						const recentActivities = (combined as any[]).slice(0, 5).map(a => {
 							const s = toActivitySummary(a);
 							return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };

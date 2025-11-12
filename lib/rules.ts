@@ -67,9 +67,12 @@ export function computeWeeklyHearts(
 	const weeklyTarget = Math.max(0, config?.weeklyTarget ?? 4);
 	const maxHearts = Math.max(1, config?.maxHearts ?? 3);
 	const start = new Date(seasonStart.getFullYear(), seasonStart.getMonth(), seasonStart.getDate());
-	const endBound = config?.seasonEnd && !Number.isNaN(config.seasonEnd.getTime())
+	// Use "now" as the evaluation bound; if a future end was supplied, clamp to today.
+	const today = new Date();
+	const suppliedEnd = config?.seasonEnd && !Number.isNaN(config.seasonEnd.getTime())
 		? new Date(config.seasonEnd.getFullYear(), config.seasonEnd.getMonth(), config.seasonEnd.getDate())
-		: new Date();
+		: today;
+	const endBound = suppliedEnd < today ? suppliedEnd : today;
 
 	// Normalize activity dates to midnight for grouping and within bounds
 	const normalized = activities
@@ -93,17 +96,21 @@ export function computeWeeklyHearts(
 		let heartsLost = 0;
 		let heartsGained = 0;
 
-		if (workouts >= weeklyTarget && weeklyTarget > 0) {
-			// Regain at most 1 heart if goal met
-			if (hearts < maxHearts) {
-				heartsGained = 1;
-				hearts += 1;
-			}
-		} else {
-			// Lose at most 1 heart for a failed week (more forgiving start)
-			if (weeklyTarget > 0 && hearts > 0) {
-				heartsLost = 1;
-				hearts -= 1;
+		// Do not award/penalize hearts while the current (not-yet-finished) week is in progress.
+		const isCurrentPartial = weekEnd > today;
+		if (!isCurrentPartial) {
+			if (workouts >= weeklyTarget && weeklyTarget > 0) {
+				// Regain at most 1 heart if goal met
+				if (hearts < maxHearts) {
+					heartsGained = 1;
+					hearts += 1;
+				}
+			} else {
+				// Lose at most 1 heart for a failed week
+				if (weeklyTarget > 0 && hearts > 0) {
+					heartsLost = 1;
+					hearts -= 1;
+				}
 			}
 		}
 

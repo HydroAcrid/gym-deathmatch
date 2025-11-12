@@ -185,67 +185,128 @@ export function OwnerSettingsModal({
 						style={{ background: "var(--overlay-backdrop)" }}
 						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 						<motion.div
-							className="paper-card paper-grain ink-edge max-w-md w-[92%] p-5"
+							className="paper-card paper-grain ink-edge max-w-md md:max-w-2xl lg:max-w-3xl w-[92%] p-5 md:p-6"
 							// Make inner panel scroll on small screens while keeping the overlay fixed
 							style={{ maxHeight: "85vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }}
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 							<div className="poster-headline text-xl mb-3">Edit Lobby</div>
-							{/* Basic Info */}
-							<div className="mb-4">
-								<div className="poster-headline text-sm mb-2">BASIC INFO</div>
-								<div className="grid gap-3">
-									<label className="text-xs">
-										<span className="block mb-1">Weekly target</span>
-										<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
-											value={weekly} onChange={e => setWeekly(Number(e.target.value))} />
-									</label>
-									<label className="text-xs">
-										<span className="block mb-1">Initial lives</span>
-										<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
-											value={lives} onChange={e => setLives(Number(e.target.value))} />
-									</label>
+							{/* 2-column desktop layout to reduce scrolling */}
+							<div className="grid md:grid-cols-2 gap-6">
+								<div>
+									{/* Basic Info */}
+									<div className="mb-4">
+										<div className="poster-headline text-sm mb-2">BASIC INFO</div>
+										<div className="grid gap-3">
+											<label className="text-xs">
+												<span className="block mb-1">Weekly target</span>
+												<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													value={weekly} onChange={e => setWeekly(Number(e.target.value))} />
+											</label>
+											<label className="text-xs">
+												<span className="block mb-1">Initial lives</span>
+												<input type="number" min={1} className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													value={lives} onChange={e => setLives(Number(e.target.value))} />
+											</label>
+										</div>
+									</div>
+									{/* Season Timing */}
+									<div className="mb-4">
+										<div className="poster-headline text-sm mb-2">SEASON TIMING</div>
+										<div className="grid gap-3">
+											<label className="text-xs">
+												<span className="block mb-1">Season start (local)</span>
+												<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
+											</label>
+											<label className="text-xs">
+												<span className="block mb-1">Season end (local)</span>
+												<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
+											</label>
+										</div>
+									</div>
 								</div>
-							</div>
-							{/* Pot & Ante */}
-							<div className="mb-4">
-								<div className="poster-headline text-sm mb-2">POT & ANTE</div>
-								<div className="grid gap-3">
-									<label className="text-xs">
-										<span className="block mb-1">Initial pot ($)</span>
-										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
-											value={initialPot} onChange={e => setInitialPot(e.target.value)} />
-									</label>
-									<label className="text-xs">
-										<span className="block mb-1">Weekly ante ($)</span>
-										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
-											value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
-									</label>
-									<label className="text-xs flex items-center gap-2">
-										<input type="checkbox" checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
-										<span>Scale ante with lobby size</span>
-									</label>
-									<label className={`text-xs ${scalingEnabled ? "" : "opacity-50"}`}>
-										<span className="block mb-1">Per-player boost ($)</span>
-										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
-											disabled={!scalingEnabled}
-											value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
-									</label>
-								</div>
-							</div>
-							{/* Season Timing */}
-							<div className="mb-4">
-								<div className="poster-headline text-sm mb-2">SEASON TIMING</div>
-								<div className="grid gap-3">
-									<label className="text-xs">
-										<span className="block mb-1">Season start (local)</span>
-										<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
-											value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
-									</label>
-									<label className="text-xs">
-										<span className="block mb-1">Season end (local)</span>
-										<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
-											value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
-									</label>
+								<div>
+									{/* Pot & Ante */}
+									<div className="mb-4">
+										<div className="poster-headline text-sm mb-2">POT & ANTE</div>
+										<div className="grid gap-3">
+											<label className="text-xs">
+												<span className="block mb-1">Initial pot ($)</span>
+												<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													value={initialPot} onChange={e => setInitialPot(e.target.value)} />
+											</label>
+											<label className="text-xs">
+												<span className="block mb-1">Weekly ante ($)</span>
+												<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
+											</label>
+											<label className="text-xs flex items-center gap-2">
+												<input type="checkbox" checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
+												<span>Scale ante with lobby size</span>
+											</label>
+											<label className={`text-xs ${scalingEnabled ? "" : "opacity-50"}`}>
+												<span className="block mb-1">Per-player boost ($)</span>
+												<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													disabled={!scalingEnabled}
+													value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
+											</label>
+										</div>
+									</div>
+									{/* Stage controls */}
+									<div className="mt-4">
+										<div className="poster-headline text-sm mb-2">STAGE CONTROLS</div>
+										<div className="grid sm:grid-cols-3 gap-2">
+											<button
+												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												title="Return to pre-stage (waiting room)"
+												onClick={async () => {
+													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														method: "PATCH",
+														headers: { "Content-Type": "application/json" },
+														body: JSON.stringify({ status: "pending", scheduledStart: null })
+													});
+													onSaved();
+													setOpen(false);
+													onClose?.();
+												}}
+											>
+												Set to Pre-Stage
+											</button>
+											<button
+												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												title="Begin now"
+												onClick={async () => {
+													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														method: "PATCH",
+														headers: { "Content-Type": "application/json" },
+														body: JSON.stringify({ startNow: true })
+													});
+													onSaved();
+													setOpen(false);
+													onClose?.();
+												}}
+											>
+												Start now
+											</button>
+											<button
+												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												title="Mark season completed"
+												onClick={async () => {
+													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														method: "PATCH",
+														headers: { "Content-Type": "application/json" },
+														body: JSON.stringify({ status: "completed" })
+													});
+													onSaved();
+													setOpen(false);
+													onClose?.();
+												}}
+											>
+												Complete season
+											</button>
+										</div>
+									</div>
 								</div>
 							</div>
 							{/* Actions */}
@@ -253,62 +314,8 @@ export function OwnerSettingsModal({
 								<button className="px-3 py-2 rounded-md border border-strong text-xs flex-1" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
 								<button className="btn-vintage px-3 py-2 rounded-md text-xs flex-1" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 							</div>
-							{/* Stage controls */}
-							<div className="mt-4">
-								<div className="poster-headline text-sm mb-2">STAGE CONTROLS</div>
-								<div className="grid sm:grid-cols-3 gap-2">
-									<button
-										className="btn-secondary px-3 py-2 rounded-md text-xs"
-										title="Return to pre-stage (waiting room)"
-										onClick={async () => {
-											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
-												method: "PATCH",
-												headers: { "Content-Type": "application/json" },
-												body: JSON.stringify({ status: "pending", scheduledStart: null })
-											});
-											onSaved();
-											setOpen(false);
-											onClose?.();
-										}}
-									>
-										Set to Pre-Stage
-									</button>
-									<button
-										className="btn-secondary px-3 py-2 rounded-md text-xs"
-										title="Begin now"
-										onClick={async () => {
-											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
-												method: "PATCH",
-												headers: { "Content-Type": "application/json" },
-												body: JSON.stringify({ startNow: true })
-											});
-											onSaved();
-											setOpen(false);
-											onClose?.();
-										}}
-									>
-										Start now
-									</button>
-									<button
-										className="btn-secondary px-3 py-2 rounded-md text-xs"
-										title="Mark season completed"
-										onClick={async () => {
-											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
-												method: "PATCH",
-												headers: { "Content-Type": "application/json" },
-												body: JSON.stringify({ status: "completed" })
-											});
-											onSaved();
-											setOpen(false);
-											onClose?.();
-										}}
-									>
-										Complete season
-									</button>
-								</div>
-							</div>
 							{/* Danger zone */}
-							<div className="mt-6">
+							<div className="mt-6 md:mt-8 md:col-span-2">
 								<div className="poster-headline text-sm mb-2">DANGER ZONE</div>
 								<div className="grid gap-3">
 									<div className="border border-strong rounded-md p-3">
