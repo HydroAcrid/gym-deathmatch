@@ -12,8 +12,11 @@ import { useToast } from "./ToastProvider";
 import { RecentFeed } from "./RecentFeed";
 import { oneLinerFromActivity } from "@/lib/messages";
 import { KoOverlay } from "./KoOverlay";
+import { WinnerOverlay } from "./WinnerOverlay";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { useAuth } from "./AuthProvider";
+import { WeeklyPunishmentCard } from "./WeeklyPunishmentCard";
+import { PunishmentBanner } from "./PunishmentBanner";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
@@ -21,6 +24,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [seasonStatus, setSeasonStatus] = useState<"pending" | "scheduled" | "active" | "completed" | undefined>(lobby.status);
 	const [koEvent, setKoEvent] = useState<any>(null);
 	const [showKo, setShowKo] = useState<boolean>(false);
+	const [showWinner, setShowWinner] = useState<boolean>(false);
 	const [me, setMe] = useState<string | null>(null);
 	const [editOpen, setEditOpen] = useState(false);
 	const { user } = useAuth();
@@ -76,7 +80,11 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			setSeasonStatus(data.seasonStatus);
 			if (data.koEvent) {
 				setKoEvent(data.koEvent);
-				setShowKo(true);
+				if (data.koEvent.winnerPlayerId) {
+					setShowWinner(true);
+				} else {
+					setShowKo(true);
+				}
 			}
 			// show reconnect hint if there are errors
 			if (data?.errors?.length) {
@@ -167,7 +175,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 							</svg>
 						</button>
 						<div className="poster-headline text-2xl">{lobby.name.toUpperCase()}</div>
-						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · WINTER GRIND</div>
+						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · MODE: {(lobby as any).mode || "MONEY_SURVIVAL"}</div>
 						<div className="ml-auto">
 							{isOwner && (
 								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setEditOpen(true)}>
@@ -187,10 +195,20 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			<div className="mb-4">
 				<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
 			</div>
+			{/* Active punishment under pot (challenge modes) */}
+			{String((lobby as any).mode || "").startsWith("CHALLENGE_") && (
+				<PunishmentBanner lobbyId={lobby.id} />
+			)}
 			{/* Arena feed directly under pot */}
 			<div className="mb-6">
 				<RecentFeed lobbyId={lobby.id} />
 			</div>
+			{/* Weekly punishment card for challenge modes */}
+			{String((lobby as any).mode || "").startsWith("CHALLENGE_") && (
+				<div className="mb-6">
+					<WeeklyPunishmentCard lobbyId={lobby.id} seasonStart={lobby.seasonStart} isOwner={isOwner} />
+				</div>
+			)}
 
 			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
 				{players.slice(0, 2).map((p) => (
@@ -214,6 +232,22 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				loserAvatar={players.find(p => p.id === koEvent?.loserPlayerId)?.avatarUrl}
 				pot={currentPot}
 			/>
+			<WinnerOverlay
+				open={seasonStatus === "completed" && !!koEvent?.winnerPlayerId && showWinner}
+				onClose={() => setShowWinner(false)}
+				winnerName={players.find(p => p.id === koEvent?.winnerPlayerId)?.name || "Player"}
+				winnerAvatar={players.find(p => p.id === koEvent?.winnerPlayerId)?.avatarUrl || undefined}
+				pot={currentPot}
+				lobbyId={lobby.id}
+			/>
+			{/* Owner Celebrate Again button */}
+			{isOwner && seasonStatus === "completed" && !!koEvent?.winnerPlayerId && (
+				<div className="fixed bottom-3 right-3 z-[90]">
+					<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setShowWinner(true)}>
+						Celebrate again
+					</button>
+				</div>
+			)}
 			{isOwner && (
 				<OwnerSettingsModal
 					open={editOpen}

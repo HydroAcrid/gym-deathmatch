@@ -1,0 +1,57 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+function nextWeekStartLocal(): Date {
+	const now = new Date();
+	const day = now.getDay(); // 0 Sun..6 Sat
+	// Next Sunday 00:00 local
+	const daysUntilSun = (7 - day) % 7;
+	const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSun, 0, 0, 0, 0);
+	if (base.getTime() <= now.getTime()) {
+		base.setDate(base.getDate() + 7);
+	}
+	return base;
+}
+
+export function PunishmentBanner({ lobbyId }: { lobbyId: string }) {
+	const [text, setText] = useState<string | null>(null);
+	const [eta, setEta] = useState<number>(0);
+	const [tz, setTz] = useState<string>("");
+
+	async function load() {
+		try {
+			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
+			if (!res.ok) return;
+			const j = await res.json();
+			setText(j?.active?.text || null);
+		} catch { /* ignore */ }
+	}
+
+	useEffect(() => {
+		load();
+		const id = setInterval(() => setEta(nextWeekStartLocal().getTime() - Date.now()), 1000);
+		try { setTz(Intl.DateTimeFormat().resolvedOptions().timeZone || ""); } catch { /* ignore */ }
+		return () => clearInterval(id);
+	}, [lobbyId]);
+
+	if (!text) return null;
+	const ms = Math.max(0, eta);
+	const d = Math.floor(ms / 86400000);
+	const h = Math.floor((ms % 86400000) / 3600000);
+	const m = Math.floor((ms % 3600000) / 60000);
+	const s = Math.floor((ms % 60000) / 1000);
+
+	return (
+		<div className="paper-card paper-grain ink-edge px-3 py-2 mb-3 border border-deepBrown/20">
+			<div className="flex flex-wrap items-center gap-2">
+				<div className="text-xs text-deepBrown/70">WEEKLY PUNISHMENT</div>
+				<div className="text-sm">“{text}”</div>
+				<div className="ml-auto text-xs text-deepBrown/70">{d}d {h}h {m}m {String(s).padStart(2, "0")}s · {tz || "local"}</div>
+				<a href="#suggest-punishment" className="text-xs underline ml-2">Suggest</a>
+			</div>
+		</div>
+	);
+}
+
+

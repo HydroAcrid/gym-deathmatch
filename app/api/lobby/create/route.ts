@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
+import { jsonError } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
 	const supabase = getServerSupabase();
-	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+	if (!supabase) return jsonError("SUPABASE_NOT_CONFIGURED", "Supabase not configured", 501);
 	try {
 		const body = await req.json();
 		// Generate a collision-safe lobby id (slug) on the server
@@ -23,9 +24,28 @@ export async function POST(req: NextRequest) {
 			candidate = `${desired}-${Math.random().toString(36).slice(2, 6)}`;
 		}
 		const lobbyId = candidate;
+		// Validate challenge settings (optional)
+		let challengeSettings = null as any;
+		if (body.mode && String(body.mode).startsWith("CHALLENGE_")) {
+			const cs = body.challengeSettings || {};
+			const limit = Math.min(140, Math.max(10, Number(cs.suggestionCharLimit ?? 50)));
+			challengeSettings = {
+				selection: cs.selection ?? "ROULETTE",
+				spinFrequency: cs.spinFrequency ?? "WEEKLY",
+				visibility: cs.visibility ?? "PUBLIC",
+				stackPunishments: !!(cs.stackPunishments ?? (body.mode === "CHALLENGE_CUMULATIVE")),
+				allowSuggestions: !!(cs.allowSuggestions ?? true),
+				requireLockBeforeSpin: !!(cs.requireLockBeforeSpin ?? true),
+				autoSpinAtWeekStart: !!(cs.autoSpinAtWeekStart ?? false),
+				showLeaderboard: !!(cs.showLeaderboard ?? true),
+				profanityFilter: !!(cs.profanityFilter ?? true),
+				suggestionCharLimit: limit
+			};
+		}
+
 		const lobby = {
 			id: lobbyId,
-			name: body.name,
+			name: String(body.name || "").slice(0, 48),
 			season_number: body.seasonNumber ?? 1,
 			season_start: body.seasonStart,
 			season_end: body.seasonEnd,
@@ -34,12 +54,22 @@ export async function POST(req: NextRequest) {
 			initial_lives: body.initialLives ?? 3,
 			owner_id: body.ownerId || null,
 			owner_user_id: body.userId || null,
-			status: body.status || "pending"
+			status: body.status || "pending",
+			mode: body.mode || "MONEY_SURVIVAL",
+			sudden_death_enabled: !!body.suddenDeathEnabled,
+			initial_pot: body.initialPot ?? 0,
+			weekly_ante: body.weeklyAnte ?? 10,
+			scaling_enabled: !!body.scalingEnabled,
+			per_player_boost: body.perPlayerBoost ?? 0,
+			challenge_allow_suggestions: body.challengeAllowSuggestions ?? true,
+			challenge_require_lock: body.challengeRequireLock ?? false,
+			challenge_auto_spin: body.challengeAutoSpin ?? false,
+			challenge_settings: challengeSettings
 		};
 		const { error: lerr } = await supabase.from("lobby").insert(lobby);
 		if (lerr) {
 			console.error("create lobby error", lerr);
-			return NextResponse.json({ error: "Failed to create lobby" }, { status: 500 });
+			return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);
 		}
 		// Ensure owner player created/updated from user profile
 		if (body.ownerId) {

@@ -85,6 +85,20 @@ begin
   if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='season_number') then
     alter table lobby add column season_number int not null default 1;
   end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='mode') then
+    alter table lobby add column mode text not null default 'MONEY_SURVIVAL' check (mode in ('MONEY_SURVIVAL','MONEY_LAST_MAN','CHALLENGE_ROULETTE','CHALLENGE_CUMULATIVE'));
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='sudden_death_enabled') then
+    alter table lobby add column sudden_death_enabled boolean not null default false;
+  end if;
+end $$;
+
+-- JSON challenge settings (for challenge modes)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='challenge_settings') then
+    alter table lobby add column challenge_settings jsonb null;
+  end if;
 end $$;
 
 -- Manual activities: allow logging workouts without Strava
@@ -108,8 +122,8 @@ for select using (
   exists (
     select 1 from player p
     where p.id = manual_activities.player_id
-      and (p.user_id = auth.uid()
-        or exists (select 1 from lobby l where l.id = manual_activities.lobby_id and l.owner_user_id = auth.uid())
+      and (p.user_id::text = auth.uid()::text
+        or exists (select 1 from lobby l where l.id = manual_activities.lobby_id and l.owner_user_id::text = auth.uid()::text)
       )
   )
 );
@@ -121,7 +135,7 @@ for insert with check (
   exists (
     select 1 from player p
     where p.id = manual_activities.player_id
-      and p.user_id = auth.uid()
+      and p.user_id::text = auth.uid()::text
       and p.lobby_id = manual_activities.lobby_id
   )
 );
@@ -129,7 +143,7 @@ for insert with check (
 drop policy if exists manual_act_update_self on manual_activities;
 create policy manual_act_update_self on manual_activities
 for update using (
-  exists (select 1 from player p where p.id = manual_activities.player_id and p.user_id = auth.uid())
+  exists (select 1 from player p where p.id = manual_activities.player_id and p.user_id::text = auth.uid()::text)
 );
 
 drop policy if exists manual_act_delete_self_or_owner on manual_activities;
@@ -138,8 +152,8 @@ for delete using (
   exists (
     select 1 from player p
     where p.id = manual_activities.player_id
-      and (p.user_id = auth.uid()
-        or exists (select 1 from lobby l where l.id = manual_activities.lobby_id and l.owner_user_id = auth.uid())
+      and (p.user_id::text = auth.uid()::text
+        or exists (select 1 from lobby l where l.id = manual_activities.lobby_id and l.owner_user_id::text = auth.uid()::text)
       )
   )
 );
@@ -207,7 +221,7 @@ alter table history_events enable row level security;
 drop policy if exists history_events_lobby_read on history_events;
 create policy history_events_lobby_read on history_events
 for select using (
-  exists (select 1 from player p where p.lobby_id = history_events.lobby_id and p.user_id = auth.uid())
+  exists (select 1 from player p where p.lobby_id = history_events.lobby_id and p.user_id::text = auth.uid()::text)
 );
 
 -- Heart adjustments (owner overrides)
@@ -222,7 +236,7 @@ alter table heart_adjustments enable row level security;
 drop policy if exists heart_adj_lobby_read on heart_adjustments;
 create policy heart_adj_lobby_read on heart_adjustments
 for select using (
-  exists (select 1 from player p where p.lobby_id = heart_adjustments.lobby_id and p.user_id = auth.uid())
+  exists (select 1 from player p where p.lobby_id = heart_adjustments.lobby_id and p.user_id::text = auth.uid()::text)
 );
 
 -- Weekly pot contributions (for precise accounting)
@@ -239,7 +253,7 @@ alter table weekly_pot_contributions enable row level security;
 drop policy if exists weekly_pot_select_member on weekly_pot_contributions;
 create policy weekly_pot_select_member on weekly_pot_contributions
 for select using (
-  exists (select 1 from player p where p.lobby_id = weekly_pot_contributions.lobby_id and p.user_id = auth.uid())
+  exists (select 1 from player p where p.lobby_id = weekly_pot_contributions.lobby_id and p.user_id::text = auth.uid()::text)
 );
 
 -- Commentary / quips
@@ -259,10 +273,90 @@ alter table comments enable row level security;
 drop policy if exists comments_read_member on comments;
 create policy comments_read_member on comments
 for select using (
-  exists (select 1 from player p where p.lobby_id = comments.lobby_id and p.user_id = auth.uid())
+  exists (select 1 from player p where p.lobby_id = comments.lobby_id and p.user_id::text = auth.uid()::text)
 );
 -- service-role writes only via API; no public insert policy
 create index if not exists comments_lobby_created_idx on comments (lobby_id, created_at desc);
 -- Dedupe helper: prevent duplicates per activity/rendered
 create unique index if not exists comments_activity_dedupe_idx on comments (lobby_id, type, activity_id, rendered) where activity_id is not null;
+
+-- Idempotent add: per-player sudden death toggle
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='player' and column_name='sudden_death') then
+    alter table player add column sudden_death boolean not null default false;
+  end if;
+end $$;
+
+-- Challenge mode scaffolding tables (punishments/ready states)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='challenge_allow_suggestions') then
+    alter table lobby add column challenge_allow_suggestions boolean not null default true;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='challenge_require_lock') then
+    alter table lobby add column challenge_require_lock boolean not null default false;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='challenge_auto_spin') then
+    alter table lobby add column challenge_auto_spin boolean not null default false;
+  end if;
+end $$;
+
+create table if not exists lobby_punishments (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  week int not null,
+  text text not null,
+  created_by text null references player(id) on delete set null,
+  chosen_by text null references player(id) on delete set null,
+  active boolean not null default false,
+  locked boolean not null default false,
+  created_at timestamptz default now()
+);
+alter table lobby_punishments enable row level security;
+drop policy if exists lobby_punishments_member_read on lobby_punishments;
+create policy lobby_punishments_member_read on lobby_punishments
+for select using (
+  exists (select 1 from player p where p.lobby_id = lobby_punishments.lobby_id and p.user_id = auth.uid())
+);
+
+create table if not exists user_punishments (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  lobby_id text not null references lobby(id) on delete cascade,
+  week int not null,
+  text text not null,
+  resolved boolean not null default false,
+  created_at timestamptz default now()
+);
+alter table user_punishments enable row level security;
+drop policy if exists user_punishments_member_read on user_punishments;
+create policy user_punishments_member_read on user_punishments
+for select using (
+  exists (select 1 from player p where p.lobby_id = user_punishments.lobby_id and p.user_id = auth.uid())
+);
+drop policy if exists user_punishments_update_self on user_punishments;
+create policy user_punishments_update_self on user_punishments
+for update using (auth.uid()::text = user_id)
+with check (auth.uid()::text = user_id);
+drop policy if exists user_punishments_update_owner on user_punishments;
+create policy user_punishments_update_owner on user_punishments
+for update using (
+  exists (select 1 from lobby l where l.id = user_punishments.lobby_id and l.owner_user_id::text = auth.uid()::text)
+);
+
+create table if not exists user_ready_states (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  lobby_id text not null references lobby(id) on delete cascade,
+  ready boolean not null default false,
+  updated_at timestamptz default now(),
+  unique(user_id, lobby_id)
+);
+alter table user_ready_states enable row level security;
+drop policy if exists user_ready_member on user_ready_states;
+create policy user_ready_member on user_ready_states
+for select using (
+  exists (select 1 from player p where p.lobby_id = user_ready_states.lobby_id and p.user_id::text = auth.uid()::text)
+);
 

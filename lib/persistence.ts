@@ -68,4 +68,18 @@ export async function updateLobbyStage(lobbyId: string, updates: Partial<{ statu
 	return true;
 }
 
+export async function updateLobbySettingsCore(lobbyId: string, updates: Partial<{ mode: string; suddenDeathEnabled: boolean }>): Promise<boolean> {
+	const supabase = getServerSupabase();
+	if (!supabase) return false;
+	const payload: any = {};
+	if (updates.mode !== undefined) payload.mode = updates.mode;
+	if (updates.suddenDeathEnabled !== undefined) payload.sudden_death_enabled = updates.suddenDeathEnabled;
+	const { error } = await supabase.from("lobby").update(payload).eq("id", lobbyId);
+	if (error) {
+		console.error("updateLobbySettingsCore error", error);
+		return false;
+	}
+	return true;
+}
+
 

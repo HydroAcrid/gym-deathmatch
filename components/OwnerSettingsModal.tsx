@@ -56,6 +56,22 @@ export function OwnerSettingsModal({
 		setOpen(openProp);
 	}, [openProp]);
 
+	const [mode, setMode] = useState<"MONEY_SURVIVAL"|"MONEY_LAST_MAN"|"CHALLENGE_ROULETTE"|"CHALLENGE_CUMULATIVE">("MONEY_SURVIVAL");
+	const [suddenDeath, setSuddenDeath] = useState<boolean>(false);
+
+	useEffect(() => {
+		(async () => {
+			try {
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/mode`, { cache: "no-store" });
+				if (res.ok) {
+					const j = await res.json();
+					if (j?.mode) setMode(j.mode);
+					if (typeof j?.suddenDeathEnabled === "boolean") setSuddenDeath(!!j.suddenDeathEnabled);
+				}
+			} catch { /* ignore */ }
+		})();
+	}, [lobbyId, open]);
+
 	async function save() {
 		setSaving(true);
 		try {
@@ -70,7 +86,9 @@ export function OwnerSettingsModal({
 					initialPot: Number(initialPot || 0),
 					weeklyAnte: Number(weeklyAnte || 0),
 					scalingEnabled: Boolean(scalingEnabled),
-					perPlayerBoost: Number(perPlayerBoost || 0)
+					perPlayerBoost: Number(perPlayerBoost || 0),
+					mode,
+					suddenDeathEnabled: suddenDeath
 				})
 			});
 			if (res.ok) {
@@ -230,25 +248,33 @@ export function OwnerSettingsModal({
 									{/* Pot & Ante */}
 									<div className="mb-4">
 										<div className="poster-headline text-sm mb-2">POT & ANTE</div>
-										<div className="grid gap-3">
+										{String(mode).startsWith("CHALLENGE_") && (
+											<div className="text-[11px] text-deepBrown/60 mb-1 flex items-center gap-1">
+												<span>🔒</span>
+												<span>Disabled in Challenge modes</span>
+											</div>
+										)}
+										<div className={`grid gap-3 ${String(mode).startsWith("CHALLENGE_") ? "opacity-40 pointer-events-none select-none" : ""}`}>
 											<label className="text-xs">
 												<span className="block mb-1">Initial pot ($)</span>
 												<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													disabled={String(mode).startsWith("CHALLENGE_")}
 													value={initialPot} onChange={e => setInitialPot(e.target.value)} />
 											</label>
 											<label className="text-xs">
 												<span className="block mb-1">Weekly ante ($)</span>
 												<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													disabled={String(mode).startsWith("CHALLENGE_")}
 													value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
 											</label>
 											<label className="text-xs flex items-center gap-2">
-												<input type="checkbox" checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
+												<input type="checkbox" checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} disabled={String(mode).startsWith("CHALLENGE_")} />
 												<span>Scale ante with lobby size</span>
 											</label>
 											<label className={`text-xs ${scalingEnabled ? "" : "opacity-50"}`}>
 												<span className="block mb-1">Per-player boost ($)</span>
 												<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
-													disabled={!scalingEnabled}
+													disabled={!scalingEnabled || String(mode).startsWith("CHALLENGE_")}
 													value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
 											</label>
 										</div>
@@ -307,15 +333,50 @@ export function OwnerSettingsModal({
 											</button>
 										</div>
 									</div>
+									{/* Mode */}
+									<div className="mt-6">
+										<div className="poster-headline text-sm mb-2">GAME MODE</div>
+										<div className="grid gap-3">
+											<label className="text-xs">
+												<span className="block mb-1">Mode</span>
+												<select
+													className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													value={mode}
+													onChange={e => setMode(e.target.value as any)}
+												>
+													<option value="MONEY_SURVIVAL">Money: Survival (classic)</option>
+													<option value="MONEY_LAST_MAN">Money: Last Man Standing</option>
+													<option value="CHALLENGE_ROULETTE">Challenge: Roulette</option>
+													<option value="CHALLENGE_CUMULATIVE">Challenge: Cumulative</option>
+												</select>
+											</label>
+											<label className="text-xs flex items-center gap-2 mt-1">
+												<input type="checkbox" checked={suddenDeath} onChange={e => setSuddenDeath(e.target.checked)} />
+												<span>Allow Sudden Death revive (1 heart, cannot win pot)</span>
+											</label>
+											{String(mode).startsWith("CHALLENGE_") && (
+												<div className="mt-2 grid gap-2">
+													<div className="poster-headline text-sm">CHALLENGE SETTINGS</div>
+													<label className="text-xs flex items-center gap-2">
+														<input type="checkbox" checked={challengeAllowSuggestions} onChange={e => setChallengeAllowSuggestions(e.target.checked)} />
+														<span>Allow player suggestions</span>
+													</label>
+													<label className="text-xs flex items-center gap-2">
+														<input type="checkbox" checked={challengeRequireLock} onChange={e => setChallengeRequireLock(e.target.checked)} />
+														<span>Require list lock before spin</span>
+													</label>
+													<label className="text-xs flex items-center gap-2">
+														<input type="checkbox" checked={challengeAutoSpin} onChange={e => setChallengeAutoSpin(e.target.checked)} />
+														<span>Auto‑spin at week start</span>
+													</label>
+												</div>
+											)}
+										</div>
+									</div>
 								</div>
 							</div>
-							{/* Actions */}
-							<div className="flex flex-col sm:flex-row gap-2">
-								<button className="px-3 py-2 rounded-md border border-strong text-xs flex-1" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
-								<button className="btn-vintage px-3 py-2 rounded-md text-xs flex-1" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
-							</div>
 							{/* Danger zone */}
-							<div className="mt-6 md:mt-8 md:col-span-2">
+							<div className="mt-8 md:mt-10 md:col-span-2">
 								<div className="poster-headline text-sm mb-2">DANGER ZONE</div>
 								<div className="grid gap-3">
 									<div className="border border-strong rounded-md p-3">
@@ -368,6 +429,11 @@ export function OwnerSettingsModal({
 										Cancel scheduled start
 									</button>
 								</div>
+							</div>
+							{/* Actions fixed at the very bottom */}
+							<div className="mt-8 flex flex-col sm:flex-row gap-2">
+								<button className="px-3 py-2 rounded-md border border-strong text-xs flex-1" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
+								<button className="btn-vintage px-3 py-2 rounded-md text-xs flex-1" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 							</div>
 						</motion.div>
 					</motion.div>

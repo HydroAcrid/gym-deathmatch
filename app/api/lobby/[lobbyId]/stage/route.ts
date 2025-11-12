@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { updateLobbyStage } from "@/lib/persistence";
+import { jsonError, logError } from "@/lib/logger";
+import { getServerSupabase } from "@/lib/supabaseClient";
+import { onReadyChanged } from "@/lib/commentary";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyId: string }> }) {
 	try {
@@ -17,13 +20,39 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 			payload.status = "active";
 			payload.seasonStart = new Date().toISOString();
 			payload.scheduledStart = null;
+			// Quip: match started
+			try {
+				const supabase = getServerSupabase();
+				if (supabase) {
+					// dedupe start comment in last hour
+					const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+					const { data: exists } = await supabase
+						.from("comments")
+						.select("id")
+						.eq("lobby_id", decoded)
+						.eq("rendered", "The arena opens. Fight!")
+						.gte("created_at", since)
+						.limit(1);
+					if (!exists || !exists.length) {
+						await supabase.from("comments").insert({
+							lobby_id: decoded,
+							type: "SUMMARY",
+							rendered: "The arena opens. Fight!",
+							payload: { type: "START" },
+							visibility: "feed"
+						});
+					}
+				}
+			} catch (e) {
+				logError({ route: "PATCH /api/lobby/[id]/stage", code: "START_ANNOUNCE_FAILED", err: e, lobbyId: decoded });
+			}
 		}
 		const ok = await updateLobbyStage(decoded, payload);
-		if (!ok) return NextResponse.json({ ok: false }, { status: 500 });
+		if (!ok) return jsonError("STAGE_UPDATE_FAILED", "Failed to update stage", 500);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
-		console.error("stage PATCH error", e);
-		return NextResponse.json({ ok: false, error: "bad request" }, { status: 400 });
+		logError({ route: "PATCH /api/lobby/[id]/stage", code: "STAGE_BAD_REQUEST", err: e });
+		return jsonError("STAGE_BAD_REQUEST", "Bad request", 400);
 	}
 }
 

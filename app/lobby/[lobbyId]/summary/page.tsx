@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 
 type Contribution = { week_start: string; amount: number; player_count: number };
 type EventRow = { id: string; type: string; payload: any; created_at: string; target_player_id?: string | null };
-type PlayerLite = { id: string; name: string; avatar_url?: string | null };
+type PlayerLite = { id: string; name: string; avatar_url?: string | null; user_id?: string | null };
+type UserPun = { id: string; user_id: string; lobby_id: string; week: number; text: string; resolved: boolean };
 
 export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyId: string }> }) {
 	const [lobbyId, setLobbyId] = useState<string>("");
@@ -12,6 +13,7 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 	const [events, setEvents] = useState<EventRow[]>([]);
 	const [initialPot, setInitialPot] = useState<number>(0);
 	const [seasonNumber, setSeasonNumber] = useState<number>(1);
+	const [userPuns, setUserPuns] = useState<UserPun[]>([]);
 
 	useEffect(() => {
 		(async () => {
@@ -19,17 +21,19 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 			setLobbyId(lobbyId);
 			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
 			if (!supabase) return;
-			const [{ data: p }, { data: c }, { data: e }, { data: l }] = await Promise.all([
-				supabase.from("player").select("id,name,avatar_url").eq("lobby_id", lobbyId),
+			const [{ data: p }, { data: c }, { data: e }, { data: l }, { data: up }] = await Promise.all([
+				supabase.from("player").select("id,name,avatar_url,user_id").eq("lobby_id", lobbyId),
 				supabase.from("weekly_pot_contributions").select("week_start,amount,player_count").eq("lobby_id", lobbyId).order("week_start"),
 				supabase.from("history_events").select("*").eq("lobby_id", lobbyId).order("created_at", { ascending: false }).limit(100),
-				supabase.from("lobby").select("initial_pot,season_number").eq("id", lobbyId).maybeSingle()
+				supabase.from("lobby").select("initial_pot,season_number").eq("id", lobbyId).maybeSingle(),
+				supabase.from("user_punishments").select("*").eq("lobby_id", lobbyId).order("created_at")
 			]);
 			setPlayers((p ?? []) as any);
 			setContribs((c ?? []) as any);
 			setEvents((e ?? []) as any);
 			setInitialPot((l as any)?.initial_pot ?? 0);
 			setSeasonNumber((l as any)?.season_number ?? 1);
+			setUserPuns((up ?? []) as any);
 		})();
 	}, [params]);
 
@@ -80,6 +84,46 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 					</div>
 				) : (
 					<div className="text-deepBrown/70 text-sm">No KO recorded yet.</div>
+				)}
+			</div>
+
+			<div className="paper-card paper-grain ink-edge p-5 mt-6">
+				<div className="poster-headline text-base mb-2">Cumulative Punishments</div>
+				{userPuns.length ? (
+					<div className="space-y-2">
+						{players.map(pl => {
+							const list = userPuns.filter(u => u.user_id === (pl.user_id || "")) || [];
+							if (!list.length) return null;
+							const unresolved = list.filter(u => !u.resolved);
+							return (
+								<div key={pl.id}>
+									<div className="font-semibold mb-1">{pl.name}</div>
+									<ul className="list-disc pl-5 text-sm">
+										{list.map(u => <li key={u.id}>Week {u.week}: “{u.text}” {u.resolved ? "✅" : "⚠️"}</li>)}
+									</ul>
+									{unresolved.length > 0 && (
+										<div className="mt-1">
+											<button
+												className="px-3 py-1.5 rounded-md border border-deepBrown/30 text-xs"
+												onClick={async () => {
+													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments/resolve-all`, {
+														method: "POST",
+														headers: { "Content-Type": "application/json" },
+														body: JSON.stringify({ userId: pl.user_id })
+													});
+													window.location.reload();
+												}}
+											>
+												Resolve all ({unresolved.length})
+											</button>
+										</div>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				) : (
+					<div className="text-deepBrown/70 text-sm">No punishments recorded.</div>
 				)}
 			</div>
 

@@ -39,9 +39,19 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 				</div>
 				{/* Top-right status/actions with a reserved height so the card doesn't jump when buttons appear */}
 				<div className="ml-auto flex flex-col items-end gap-1 min-h-[48px]">
+					{player.inSuddenDeath && player.livesRemaining > 0 && (
+						<span className="mr-2 text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
+							SUDDEN DEATH ⚡
+						</span>
+					)}
 					{player.livesRemaining === 0 && (
 						<span className="mr-2 text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
 							KO’D 💀
+						</span>
+					)}
+					{typeof player.ready === "boolean" && (
+						<span className={`mr-2 text-[10px] px-2 py-1 rounded-md border ${player.ready ? "bg-[#2b6b2b] text-cream border-transparent" : "text-deepBrown border-deepBrown/40 bg-cream"}`}>
+							{player.ready ? "READY ✅" : "NOT READY ⏳"}
 						</span>
 					)}
 					{player.isStravaConnected ? (

@@ -5,6 +5,7 @@ import { PageMotion } from "@/components/PageMotion";
 import { ToastProvider } from "@/components/ToastProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Analytics } from "@vercel/analytics/react";
+import { DebugFooter } from "@/components/DebugFooter";
 
 export const metadata: Metadata = {
 	title: "Gym Deathmatch",
@@ -30,6 +31,7 @@ export default function RootLayout({
 					</ToastProvider>
 				</AuthProvider>
 				<Analytics />
+				<DebugFooter />
 			</body>
 		</html>
 	);

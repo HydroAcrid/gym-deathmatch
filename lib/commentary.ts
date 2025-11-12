@@ -144,6 +144,66 @@ export async function onKO(lobbyId: string, loserId: string, potAtKO: number): P
 	await insertQuips(lobbyId, quips);
 }
 
+export async function onSpin(lobbyId: string, text: string): Promise<void> {
+	const rendered = `Wheel spun. Punishment: “${text}”`;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { text }, visibility: "feed" }]);
+}
+
+export async function onReadyChanged(lobbyId: string, playerId: string, ready: boolean): Promise<void> {
+	const rendered = ready ? `{name} fears no punishment. Ready ✅` : `{name} is not ready yet ⏳`;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { ready }, primaryPlayerId: playerId, visibility: "feed" }]);
+}
+
+export async function onPunishmentResolved(lobbyId: string, playerId: string): Promise<void> {
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const rendered = `{name} cleared a punishment ✅`;
+	// dedupe within 30 minutes per player
+	const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("primary_player_id", playerId)
+		.eq("rendered", rendered)
+		.gte("created_at", since)
+		.limit(1);
+	if (exists && exists.length) return;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: {}, primaryPlayerId: playerId, visibility: "feed" }]);
+}
+
+export async function onAllReady(lobbyId: string): Promise<void> {
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	// dedupe within an hour
+	const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+	const rendered = `All athletes ready. Bell rings soon.`;
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("rendered", rendered)
+		.gte("created_at", since)
+		.limit(1);
+	if (exists && exists.length) return;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { type: "ALL_READY" }, visibility: "feed" }]);
+}
+
+export async function onWeeklyReset(lobbyId: string, weekStartIso: string): Promise<void> {
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const rendered = `The arena resets. New week begins.`;
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("rendered", rendered)
+		.contains("payload", { weekStart: weekStartIso } as any)
+		.limit(1);
+	if (exists && exists.length) return;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { type: "WEEK_RESET", weekStart: weekStartIso }, visibility: "feed" }]);
+}
+
 export async function onStreakMilestone(lobbyId: string, playerId: string, streak: number): Promise<void> {
 	// Dedupe: skip if same milestone already recorded in last 24h
 	const supabase = getServerSupabase();

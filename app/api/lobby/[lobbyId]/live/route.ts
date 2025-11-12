@@ -11,7 +11,8 @@ import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 import { getDailyTaunts } from "@/lib/funFacts";
 import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
-import { onHeartsChanged, onKO, onPotChanged } from "@/lib/commentary";
+import { onHeartsChanged, onKO, onPotChanged, onWeeklyReset, onAllReady } from "@/lib/commentary";
+import { logError } from "@/lib/logger";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	// Optional debug mode: /live?debug=1 will include extra details and server logs
@@ -43,6 +44,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				};
 				// Create lobby from DB rows
 				const { data: prows } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
+				// Ready states by user
+				const readyByUser: Record<string, boolean> = {};
+				try {
+					const { data: rrows } = await supabase.from("user_ready_states").select("user_id,ready").eq("lobby_id", lobbyId);
+					for (const r of (rrows ?? []) as any[]) {
+						readyByUser[r.user_id as string] = !!r.ready;
+					}
+				} catch { /* ignore */ }
 				const players: Player[] = (prows ?? []).map((p: any) => ({
 					id: p.id,
 					name: p.name,
@@ -55,7 +64,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					totalWorkouts: 0,
 					averageWorkoutsPerWeek: 0,
 					quip: p.quip ?? "",
-					isStravaConnected: false
+					isStravaConnected: false,
+					inSuddenDeath: !!p.sudden_death,
+					ready: p.user_id ? !!readyByUser[p.user_id] : false
 				}));
 				// Season start fallback: if missing, assume 14 days ago so fresh manual posts are counted
 				const seasonStartFallback = (() => {
@@ -82,7 +93,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					perPlayerBoost: potConfig.perPlayerBoost,
 					weeklyTarget: lrow.weekly_target ?? 3,
 					initialLives: lrow.initial_lives ?? 3,
-					ownerId: lrow.owner_id ?? undefined
+					ownerId: lrow.owner_id ?? undefined,
+					mode: (lrow.mode as any) || "MONEY_SURVIVAL",
+					suddenDeathEnabled: !!lrow.sudden_death_enabled
 				} as Lobby;
 				// Build user map and overlay DB fields on mock lobby players as well
 				const { data: prows2 } = await supabase.from("player").select("id,user_id,avatar_url,location,quip").eq("lobby_id", lobbyId);
@@ -104,7 +117,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				}
 			}
 		}
-	} catch { /* ignore */ }
+	} catch (e) {
+		logError({ route: "GET /api/lobby/[id]/live", code: "LOBBY_LOAD_FAILED", err: e, lobbyId });
+	}
 	if (!lobby) {
 		return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
 	}
@@ -236,6 +251,37 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						}
 					}
 				} catch { /* ignore */ }
+				// Challenge: cumulative punishments — log missing weeks
+				try {
+					const mode = (lobby as any).mode || "MONEY_SURVIVAL";
+					if (mode === "CHALLENGE_CUMULATIVE" && userId) {
+						const supabase = getServerSupabase();
+						if (supabase) {
+							for (const ev of weekly.events) {
+								const weekEnd = new Date(new Date(ev.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000);
+								if (weekEnd.getTime() > nowTs) continue; // only completed weeks
+								if (ev.workouts >= weeklyTarget) continue; // only failed weeks
+								// week index since season start
+								const start = new Date(seasonStart).getTime();
+								const wi = Math.max(1, Math.floor((new Date(ev.weekStart).getTime() - start) / (7 * 24 * 60 * 60 * 1000)) + 1);
+								// fetch active punishment for that week
+								const { data: pun } = await supabase.from("lobby_punishments").select("id,text").eq("lobby_id", lobby.id).eq("week", wi).eq("active", true).maybeSingle();
+								const text = (pun?.text as string) || "Arena punishment";
+								// insert if not exists
+								const { data: exists } = await supabase
+									.from("user_punishments")
+									.select("id")
+									.eq("user_id", userId)
+									.eq("lobby_id", lobby.id)
+									.eq("week", wi)
+									.limit(1);
+								if (!exists || exists.length === 0) {
+									await supabase.from("user_punishments").insert({ user_id: userId, lobby_id: lobby.id, week: wi, text, resolved: false });
+								}
+							}
+						}
+					}
+				} catch { /* ignore */ }
 				// Persist the most recent weekly result into history_events if not already recorded,
 				// so the History page mirrors the feed at least for weekly outcomes.
 				try {
@@ -286,8 +332,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						strava: (activities as any[]).length,
 						manual: manual.length
 					},
-					taunt
+					taunt,
+					inSuddenDeath: p.inSuddenDeath
 				};
+				// Sudden death revive: if enabled and player opted-in, show them at 1 heart but mark inSuddenDeath
+				if ((lobby as any).suddenDeathEnabled && (result as any).livesRemaining === 0 && p.inSuddenDeath) {
+					(result as any).livesRemaining = 1;
+					(result as any).inSuddenDeath = true;
+				}
 				// Apply heart adjustments
 				try {
 					const supabase = getServerSupabase();
@@ -414,12 +466,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						} catch { /* ignore */ }
 						return result2;
 					} catch (refreshErr) {
-						console.error("refresh failed for player", p.id, refreshErr);
+						logError({ route: "GET /api/lobby/[id]/live", code: "STRAVA_REFRESH_FAILED", err: refreshErr, lobbyId, extra: { playerId: p.id } });
 						errors.push({ playerId: p.id, reason: "refresh_failed" });
 						return { ...p, isStravaConnected: false };
 					}
 				}
-				console.error("Live fetch error for player", p.id, e);
+				logError({ route: "GET /api/lobby/[id]/live", code: "PLAYER_FETCH_FAILED", err: e, lobbyId, extra: { playerId: p.id } });
 				errors.push({ playerId: p.id, reason: "fetch_failed" });
 				return { ...p, isStravaConnected: false };
 			}
@@ -477,27 +529,80 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	} catch { /* ignore */ }
 	const currentPot = (lobby.initialPot ?? 0) + contributionsSum;
 
-	// KO detection - first KO ends season
+	// KO detection depends on mode
 	let koEvent: LiveLobbyResponse["koEvent"] | undefined;
-	const loser = updatedPlayers.find(p => p.livesRemaining === 0);
+	const mode = (lobby as any).mode || "MONEY_SURVIVAL";
+	const aliveNonSD = updatedPlayers.filter(p => p.livesRemaining > 0 && !p.inSuddenDeath);
+	const anyZero = updatedPlayers.find(p => p.livesRemaining === 0 && !p.inSuddenDeath);
 	try {
-		if (loser && rawStatus === "active") {
-			const supabase = getServerSupabase();
-			if (supabase) {
-				await supabase.from("lobby").update({ status: "completed", season_end: new Date().toISOString() }).eq("id", lobby.id);
-				await supabase.from("history_events").insert({
-					lobby_id: lobby.id,
-					actor_player_id: null,
-					target_player_id: loser.id,
-					type: "SEASON_KO",
-					payload: { loserPlayerId: loser.id, currentPot, seasonNumber: lobby.seasonNumber }
-				});
-				try { await onKO(lobby.id, loser.id, currentPot); } catch { /* ignore */ }
-				rawStatus = "completed";
-				koEvent = { loserPlayerId: loser.id, potAtKO: currentPot };
+		if (rawStatus === "active") {
+			if (mode === "MONEY_SURVIVAL") {
+				const loser = anyZero;
+				if (loser) {
+					const supabase = getServerSupabase();
+					if (supabase) {
+						await supabase.from("lobby").update({ status: "completed", season_end: new Date().toISOString() }).eq("id", lobby.id);
+						await supabase.from("history_events").insert({
+							lobby_id: lobby.id,
+							actor_player_id: null,
+							target_player_id: loser.id,
+							type: "SEASON_KO",
+							payload: { loserPlayerId: loser.id, currentPot, seasonNumber: lobby.seasonNumber }
+						});
+						try { await onKO(lobby.id, loser.id, currentPot); } catch { /* ignore */ }
+						rawStatus = "completed";
+						koEvent = { loserPlayerId: loser.id, potAtKO: currentPot };
+					}
+				}
+			} else if (mode === "MONEY_LAST_MAN") {
+				// Season ends only when exactly one non-sudden-death player remains alive
+				if (aliveNonSD.length === 1) {
+					const winner = aliveNonSD[0];
+					const supabase = getServerSupabase();
+					if (supabase) {
+						await supabase.from("lobby").update({ status: "completed", season_end: new Date().toISOString() }).eq("id", lobby.id);
+						await supabase.from("history_events").insert({
+							lobby_id: lobby.id,
+							actor_player_id: null,
+							target_player_id: winner.id,
+							type: "SEASON_WINNER",
+							payload: { winnerPlayerId: winner.id, currentPot, seasonNumber: lobby.seasonNumber }
+						});
+						rawStatus = "completed";
+						koEvent = { loserPlayerId: "", winnerPlayerId: winner.id, potAtKO: currentPot };
+					}
+				}
 			}
 		}
 	} catch { /* ignore */ }
+
+	// Weekly reset quip and readiness reset (UTC Sunday 00:00) with 10-min window
+	try {
+		const now = new Date();
+		const day = now.getUTCDay(); // 0 Sun
+		const isWindow = day === 0 && now.getUTCHours() === 0 && now.getUTCMinutes() < 10;
+		if (isWindow) {
+			// start of week iso (UTC)
+			const ws = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString();
+			await onWeeklyReset(lobby.id, ws);
+			// Reset ready states to false
+			const supabase = getServerSupabase();
+			if (supabase) {
+				await supabase.from("user_ready_states").update({ ready: false }).eq("lobby_id", lobby.id);
+			}
+		}
+	} catch (e) {
+		logError({ route: "GET /api/lobby/[id]/live", code: "WEEKLY_RESET_FAILED", err: e, lobbyId: lobby.id });
+	}
+
+	// If everyone is ready, optionally announce once per hour
+	try {
+		if (updatedPlayers.length > 0 && updatedPlayers.every(p => (p as any).ready)) {
+			await onAllReady(lobby.id);
+		}
+	} catch (e) {
+		logError({ route: "GET /api/lobby/[id]/live", code: "ALL_READY_QUIP_FAILED", err: e, lobbyId: lobby.id });
+	}
 
 	const live: LiveLobbyResponse = {
 		lobby: { ...lobby, players: updatedPlayers, cashPool: currentPot },

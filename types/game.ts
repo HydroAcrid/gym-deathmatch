@@ -1,6 +1,29 @@
 export type PlayerId = string;
 export type LobbyId = string;
 
+export type GameMode =
+	| "MONEY_SURVIVAL"
+	| "MONEY_LAST_MAN"
+	| "CHALLENGE_ROULETTE"
+	| "CHALLENGE_CUMULATIVE";
+
+export type PunishmentSelection = "ROULETTE" | "VOTING" | "HOST_DECIDES";
+export type SpinFrequency = "WEEKLY" | "BIWEEKLY" | "SEASON_ONLY";
+export type PunishmentVisibility = "PUBLIC" | "HIDDEN_ON_FAIL";
+
+export interface ChallengeSettings {
+	selection: PunishmentSelection;
+	spinFrequency: SpinFrequency;
+	visibility: PunishmentVisibility;
+	stackPunishments: boolean;
+	allowSuggestions: boolean;
+	requireLockBeforeSpin: boolean;
+	autoSpinAtWeekStart: boolean;
+	showLeaderboard: boolean;
+	profanityFilter: boolean;
+	suggestionCharLimit: number; // 10..140
+}
+
 export interface Player {
 	id: PlayerId;
 	name: string;
@@ -17,6 +40,8 @@ export interface Player {
 	weeklyTarget?: number;
 	heartsTimeline?: { weekStart: string; workouts: number; heartsLost: number; heartsGained: number }[];
 	taunt?: string | null;
+	inSuddenDeath?: boolean; // UI tag only; cannot win pot
+	ready?: boolean;
 }
 
 export interface Lobby {
@@ -37,6 +62,9 @@ export interface Lobby {
 	ownerUserId?: string; // Supabase auth user id of lobby owner
 	status?: "pending" | "scheduled" | "active" | "completed";
 	scheduledStart?: string | null; // ISO when status === 'scheduled'
+	mode?: GameMode;
+	suddenDeathEnabled?: boolean;
+	challengeSettings?: ChallengeSettings | null;
 }
 
 export interface ActivitySummary {
