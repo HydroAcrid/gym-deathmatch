@@ -17,6 +17,8 @@
   --accent-danger: #c0352c;
   --accent-success: #2d7c4f;
   --overlay-backdrop: rgba(0,0,0,0.65);
+  /* nav height (mobile default) */
+  --nav-height: 112px;
 }
 
 .dark {
@@ -31,6 +33,10 @@
   --accent-danger: #ff4b3a;
   --accent-success: #4ddf88;
   --overlay-backdrop: rgba(0,0,0,0.7);
+}
+
+@media (min-width: 640px) {
+  :root { --nav-height: 96px; }
 }
 
 @theme inline {
@@ -320,6 +326,27 @@ body {
   overflow-wrap: anywhere;
   word-break: break-word;
   hyphens: auto;
+}
+
+/* Pad content below the fixed/sticky navbar */
+.pt-nav {
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--nav-height));
+}
+.mt-nav {
+  margin-top: calc(env(safe-area-inset-top, 0px) + var(--nav-height));
+}
+.h-screen-minus-nav {
+  height: calc(100svh - var(--nav-height) - env(safe-area-inset-top, 0px));
+}
+
+/* Ensure modals begin visually below the fixed navbar on small screens */
+.below-navbar {
+  margin-top: calc(env(safe-area-inset-top, 0px) + 72px);
+}
+@media (min-width: 640px) {
+  .below-navbar {
+    margin-top: calc(env(safe-area-inset-top, 0px) + 96px);
+  }
 }
 
 /* Unified field styles for inputs/selects across themes */

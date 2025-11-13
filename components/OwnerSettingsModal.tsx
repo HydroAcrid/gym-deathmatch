@@ -161,7 +161,10 @@ export function OwnerSettingsModal({
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}`;
-		const body = isAdmin ? undefined : JSON.stringify({ ownerPlayerId: localStorage.getItem("gymdm_playerId") || "" });
+		const body = isAdmin ? undefined : JSON.stringify({
+			ownerPlayerId: localStorage.getItem("gymdm_playerId") || "",
+			userId: (typeof window !== "undefined" && localStorage.getItem("gymdm_userId")) || undefined
+		});
 		const res = await fetch(url, { method: "DELETE", headers, body });
 		if (res.ok) {
 			toast.push("Lobby deleted");
@@ -205,12 +208,12 @@ export function OwnerSettingsModal({
 			)}
 			<AnimatePresence>
 				{open && (
-					<motion.div className="fixed inset-0 z-50 flex items-start justify-center p-0 sm:p-6 bg-black/70"
+					<motion.div className="fixed inset-0 z-50 flex items-start justify-center p-0 sm:p-6 bg-black/70 pt-nav"
 						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 						<motion.div
 							role="dialog"
 							aria-modal="true"
-							className="ui-panel relative w-full sm:max-w-5xl h-[calc(100svh-72px)] sm:h-[78vh] rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden mt-16 sm:mt-24"
+							className="ui-panel relative w-full sm:max-w-5xl h-screen-minus-nav sm:h-[76vh] rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
 								<div className="min-w-0">

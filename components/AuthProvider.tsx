@@ -28,6 +28,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		});
 		const { data: sub } = supabase.auth.onAuthStateChange((_e: any, session: any) => {
 			setUser(session?.user ?? null);
+			try {
+				if (typeof window !== "undefined" && session?.user?.id) {
+					localStorage.setItem("gymdm_userId", session.user.id);
+				}
+			} catch { /* ignore */ }
 		});
 		return () => {
 			ignore = true;

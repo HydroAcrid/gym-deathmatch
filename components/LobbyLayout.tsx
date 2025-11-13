@@ -27,6 +27,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [showWinner, setShowWinner] = useState<boolean>(false);
 	const [me, setMe] = useState<string | null>(null);
 	const [editOpen, setEditOpen] = useState(false);
+	const [mode, setMode] = useState<string | undefined>((lobby as any).mode);
 	const { user } = useAuth();
 	const isOwner = useMemo(() => {
 		if (user?.id && (lobby as any).ownerUserId) return user.id === (lobby as any).ownerUserId;
@@ -77,6 +78,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				setFeedEvents(buildFeedFromPlayers(data.lobby.players));
 				if (typeof data.lobby.cashPool === "number") setCurrentPot(data.lobby.cashPool);
 			}
+			if ((data?.lobby as any)?.mode) setMode((data.lobby as any).mode);
 			setSeasonStatus(data.seasonStatus);
 			if (data.koEvent) {
 				setKoEvent(data.koEvent);
@@ -175,7 +177,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 							</svg>
 						</button>
 						<div className="poster-headline text-2xl">{lobby.name.toUpperCase()}</div>
-						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · MODE: {(lobby as any).mode || "MONEY_SURVIVAL"}</div>
+						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · MODE: {mode || (lobby as any).mode || "MONEY_SURVIVAL"}</div>
 						<div className="ml-auto">
 							{isOwner && (
 								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setEditOpen(true)}>

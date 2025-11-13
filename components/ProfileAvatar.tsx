@@ -100,11 +100,11 @@ export function ProfileAvatar() {
 					body: JSON.stringify({ userId: user.id, avatarUrl: url.trim(), playerId: localStorage.getItem("gymdm_playerId") || null })
 				});
 			}
-			// Sync all player rows for this user to the updated profile (overwrite all fields)
+			// Sync all player rows for this user to the updated profile (overwrite all fields) and backfill current playerId if needed
 			await fetch("/api/user/sync", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: user.id, overwriteAll: true })
+				body: JSON.stringify({ userId: user.id, overwriteAll: true, playerId: localStorage.getItem("gymdm_playerId") || null })
 			});
 			// Persist to auth metadata for easy retrieval across the app
 			try {

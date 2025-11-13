@@ -25,7 +25,7 @@ export default function RootLayout({
 				<AuthProvider>
 					<ToastProvider>
 						<Navbar />
-						<main className="relative z-20 px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+						<main className="relative z-20 px-3 sm:px-6 lg:px-8 pt-nav pb-4 sm:pb-6">
 							<PageMotion>{children}</PageMotion>
 						</main>
 					</ToastProvider>

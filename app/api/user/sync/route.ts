@@ -5,10 +5,19 @@ export async function POST(req: Request) {
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
-		const { userId, overwriteAll } = await req.json();
+		const { userId, overwriteAll, playerId } = await req.json();
 		if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 		const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", userId).maybeSingle();
 		if (!prof) return NextResponse.json({ ok: true });
+
+		// Optional: backfill a specific player row (older lobbies may have null user_id)
+		if (playerId) {
+			const backfill: any = { user_id: userId };
+			if (prof.display_name) backfill.name = prof.display_name;
+			if (prof.location !== undefined) backfill.location = prof.location;
+			if (prof.quip !== undefined) backfill.quip = prof.quip;
+			await supabase.from("player").update(backfill).eq("id", playerId);
+		}
 
 		if (overwriteAll) {
 			// Force-sync all mapped fields from profile onto every player row for this user

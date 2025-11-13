@@ -43,7 +43,9 @@ export default async function LobbyPage({
 			ownerId: lrow.owner_id ?? undefined,
 			ownerUserId: lrow.owner_user_id ?? undefined,
 			status: lrow.status ?? "active",
-			scheduledStart: lrow.scheduled_start ?? null
+			scheduledStart: lrow.scheduled_start ?? null,
+			mode: (lrow.mode as any) || "MONEY_SURVIVAL",
+			suddenDeathEnabled: !!lrow.sudden_death_enabled
 		};
 		return <LobbySwitcher lobby={lobby} />;
 	} catch {
