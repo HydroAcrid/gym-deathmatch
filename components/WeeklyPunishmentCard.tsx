@@ -17,7 +17,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
   const [allReady, setAllReady] = useState<boolean>(false);
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const locked = useMemo(() => (items || []).some(i => i.locked), [items] as any);
+  const [locked, setLocked] = useState<boolean>(false);
   const [wheelOpen, setWheelOpen] = useState(false);
   const [wheelAngle, setWheelAngle] = useState(0);
   const [wheelSegs, setWheelSegs] = useState<string[]>([]);
@@ -51,6 +51,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
       setItems(j.items || []);
       setActive(j.active || null);
       setWeek(j.week || null);
+      if (typeof j.locked === "boolean") setLocked(!!j.locked);
       setErrorMsg(null);
     } catch { /* ignore */ }
   }
@@ -236,6 +237,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
                       setErrorMsg(j?.error || "Lock toggle failed");
                     } else {
                       setErrorMsg(null);
+                      setLocked(!locked);
                       await load();
                     }
                   } catch {
