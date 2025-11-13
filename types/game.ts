@@ -60,7 +60,7 @@ export interface Lobby {
 	initialLives?: number;
 	ownerId?: PlayerId;
 	ownerUserId?: string; // Supabase auth user id of lobby owner
-	status?: "pending" | "scheduled" | "active" | "completed";
+	status?: "pending" | "scheduled" | "transition_spin" | "active" | "completed";
 	scheduledStart?: string | null; // ISO when status === 'scheduled'
 	mode?: GameMode;
 	suddenDeathEnabled?: boolean;

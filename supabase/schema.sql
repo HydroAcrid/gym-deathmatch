@@ -93,6 +93,19 @@ begin
   end if;
 end $$;
 
+-- Allow a new intermediate status for challenge roulette transition
+do $$
+begin
+  -- If the table exists and the constraint exists, replace it with a version that includes 'transition_spin'
+  if exists (select 1 from information_schema.table_constraints where table_name='lobby' and constraint_name='lobby_status_check') then
+    alter table lobby drop constraint lobby_status_check;
+  end if;
+  alter table lobby add constraint lobby_status_check check (status in ('pending','scheduled','transition_spin','active','completed'));
+exception when duplicate_object then
+  -- ignore if another migration already created it
+  null;
+end $$;
+
 -- JSON challenge settings (for challenge modes)
 do $$
 begin

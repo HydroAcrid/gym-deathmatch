@@ -6,6 +6,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ items: [] });
 	try {
+		// Determine mode to filter money-only events for challenge lobbies
+		const { data: lrow } = await supabase.from("lobby").select("mode").eq("id", lobbyId).maybeSingle();
+		const mode = (lrow?.mode as string) || "MONEY_SURVIVAL";
+		const isChallenge = String(mode).startsWith("CHALLENGE_");
 		const { data, error } = await supabase
 			.from("comments")
 			.select("id, type, rendered, created_at, primary_player_id")
@@ -30,12 +34,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			players = prows ?? [];
 		}
 		const byId = new Map(players.map(p => [p.id, p]));
-		const items1 = (data ?? []).map((d: any) => ({
+		let items1 = (data ?? []).map((d: any) => ({
 			id: d.id,
 			text: d.rendered,
 			createdAt: d.created_at,
 			player: byId.get(d.primary_player_id) || null
 		}));
+		// Filter out pot/ante events for challenge modes
+		if (isChallenge) {
+			items1 = (data ?? [])
+				.filter((d: any) => d.type !== "POT")
+				.map((d: any) => ({
+					id: d.id,
+					text: d.rendered,
+					createdAt: d.created_at,
+					player: byId.get(d.primary_player_id) || null
+				}));
+		}
 		const items2 = (evs ?? []).map((e: any) => ({
 			id: e.id,
 			text: (e.type === "PUNISHMENT_SPUN" ? `🎡 Wheel spun: “${(e.payload as any)?.text ?? ""}”` : e.type),

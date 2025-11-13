@@ -193,20 +193,22 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 
 			<div className="header-divider-glow mb-3" />
 
-			{/* Scoreboard */}
-			<div className="mb-4">
-				<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
-			</div>
-			{/* Active punishment under pot (challenge modes) */}
-			{String((lobby as any).mode || "").startsWith("CHALLENGE_") && (
-				<PunishmentBanner lobbyId={lobby.id} />
+			{/* Money vs Challenge header blocks */}
+			{String((lobby as any).mode || "").startsWith("MONEY_") ? (
+				<div className="mb-4">
+					<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
+				</div>
+			) : (
+				<div className="mb-4">
+					<PunishmentBanner lobbyId={lobby.id} />
+				</div>
 			)}
 			{/* Arena feed directly under pot */}
 			<div className="mb-6">
 				<RecentFeed lobbyId={lobby.id} />
 			</div>
-			{/* Weekly punishment card for challenge modes */}
-			{String((lobby as any).mode || "").startsWith("CHALLENGE_") && (
+			{/* Weekly punishment card shows only during ACTIVE challenge weeks */}
+			{String((lobby as any).mode || "").startsWith("CHALLENGE_") && seasonStatus === "active" && (
 				<div className="mb-6">
 					<WeeklyPunishmentCard lobbyId={lobby.id} seasonStart={lobby.seasonStart} isOwner={isOwner} />
 				</div>

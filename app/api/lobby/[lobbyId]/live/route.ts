@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	})();
 	const { lobbyId } = await params;
 	let lobby: Lobby | null = null;
-	let rawStatus: "pending" | "scheduled" | "active" | "completed" | undefined;
+	let rawStatus: "pending" | "scheduled" | "transition_spin" | "active" | "completed" | undefined;
 	let rawSeasonNumber = 1;
 	let potConfig = { initialPot: 0, weeklyAnte: 10, scalingEnabled: false, perPlayerBoost: 0 };
 	let userIdByPlayer: Record<string, string | null> = {};
@@ -115,6 +115,23 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						};
 					});
 				}
+				// Auto-transition when scheduled time arrives
+				try {
+					if ((lrow.status === "scheduled") && lrow.scheduled_start) {
+						const now = Date.now();
+						const sched = new Date(lrow.scheduled_start as string).getTime();
+						if (sched <= now) {
+							const mode = (lrow.mode as string) || "MONEY_SURVIVAL";
+							if (String(mode).startsWith("CHALLENGE_ROULETTE")) {
+								await supabase.from("lobby").update({ status: "transition_spin", scheduled_start: null }).eq("id", lobbyId);
+								rawStatus = "transition_spin";
+							} else {
+								await supabase.from("lobby").update({ status: "active", scheduled_start: null, season_start: new Date().toISOString() }).eq("id", lobbyId);
+								rawStatus = "active";
+							}
+						}
+					}
+				} catch { /* ignore */ }
 			}
 		}
 	} catch (e) {
@@ -478,60 +495,58 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		})
 	);
 
-	// Compute pot with simplified model: weeks elapsed * effective ante * playerCount + initial pot
-	const playerCount = updatedPlayers.length;
-	const weeks = weeksSince(lobby.seasonStart);
-	const effectiveAnte = computeEffectiveWeeklyAnte({
-		initialPot: lobby.initialPot ?? 0,
-		weeklyAnte: lobby.weeklyAnte ?? 10,
-		scalingEnabled: !!lobby.scalingEnabled,
-		perPlayerBoost: lobby.perPlayerBoost ?? 0
-	}, playerCount);
-	// Upsert weekly contribution rows for completed weeks (simple model: logs latest week only if missing)
-	try {
-		const supabase = getServerSupabase();
-		if (supabase && weeks > 0) {
-			// Insert for each completed week (avoid race with unique index)
-			const weekStarts: string[] = [];
-			const start = new Date(lobby.seasonStart);
-			for (let i = 0; i < weeks; i++) {
-				const d = new Date(start.getTime() + i * 7 * 24 * 60 * 60 * 1000);
-				weekStarts.push(d.toISOString());
-			}
-			// Find which are missing
-			const { data: existing } = await supabase.from("weekly_pot_contributions").select("week_start").eq("lobby_id", lobby.id);
-			const existingSet = new Set((existing ?? []).map((r: any) => new Date(r.week_start).toISOString().slice(0,10)));
-			const survivors = updatedPlayers.filter(p => p.livesRemaining > 0).length;
-			for (const ws of weekStarts) {
-				const key = ws.slice(0,10);
-				if (!existingSet.has(key)) {
-					const amt = effectiveAnte * Math.max(survivors, 0);
-					await supabase.from("weekly_pot_contributions").insert({
-						lobby_id: lobby.id,
-						week_start: ws,
-						amount: amt,
-						player_count: survivors
-					});
-					// Commentary: pot climbed
-					try { await onPotChanged(lobby.id, amt); } catch { /* ignore */ }
+	// Compute pot only for Money modes
+	const mode = (lobby as any).mode || "MONEY_SURVIVAL";
+	let currentPot = 0;
+	if (String(mode).startsWith("MONEY_")) {
+		const playerCount = updatedPlayers.length;
+		const weeks = weeksSince(lobby.seasonStart);
+		const effectiveAnte = computeEffectiveWeeklyAnte({
+			initialPot: lobby.initialPot ?? 0,
+			weeklyAnte: lobby.weeklyAnte ?? 10,
+			scalingEnabled: !!lobby.scalingEnabled,
+			perPlayerBoost: lobby.perPlayerBoost ?? 0
+		}, playerCount);
+		try {
+			const supabase = getServerSupabase();
+			if (supabase && weeks > 0) {
+				const weekStarts: string[] = [];
+				const start = new Date(lobby.seasonStart);
+				for (let i = 0; i < weeks; i++) {
+					const d = new Date(start.getTime() + i * 7 * 24 * 60 * 60 * 1000);
+					weekStarts.push(d.toISOString());
+				}
+				const { data: existing } = await supabase.from("weekly_pot_contributions").select("week_start").eq("lobby_id", lobby.id);
+				const existingSet = new Set((existing ?? []).map((r: any) => new Date(r.week_start).toISOString().slice(0,10)));
+				const survivors = updatedPlayers.filter(p => p.livesRemaining > 0).length;
+				for (const ws of weekStarts) {
+					const key = ws.slice(0,10);
+					if (!existingSet.has(key)) {
+						const amt = effectiveAnte * Math.max(survivors, 0);
+						await supabase.from("weekly_pot_contributions").insert({
+							lobby_id: lobby.id,
+							week_start: ws,
+							amount: amt,
+							player_count: survivors
+						});
+						try { await onPotChanged(lobby.id, amt); } catch { /* ignore */ }
+					}
 				}
 			}
-		}
-	} catch { /* ignore */ }
-	// Sum contributions
-	let contributionsSum = 0;
-	try {
-		const supabase = getServerSupabase();
-		if (supabase) {
-			const { data: sumRows } = await supabase.from("weekly_pot_contributions").select("amount").eq("lobby_id", lobby.id);
-			contributionsSum = (sumRows ?? []).reduce((s: number, r: any) => s + (r.amount as number), 0);
-		}
-	} catch { /* ignore */ }
-	const currentPot = (lobby.initialPot ?? 0) + contributionsSum;
+		} catch { /* ignore */ }
+		let contributionsSum = 0;
+		try {
+			const supabase = getServerSupabase();
+			if (supabase) {
+				const { data: sumRows } = await supabase.from("weekly_pot_contributions").select("amount").eq("lobby_id", lobby.id);
+				contributionsSum = (sumRows ?? []).reduce((s: number, r: any) => s + (r.amount as number), 0);
+			}
+		} catch { /* ignore */ }
+		currentPot = (lobby.initialPot ?? 0) + contributionsSum;
+	}
 
 	// KO detection depends on mode
 	let koEvent: LiveLobbyResponse["koEvent"] | undefined;
-	const mode = (lobby as any).mode || "MONEY_SURVIVAL";
 	const aliveNonSD = updatedPlayers.filter(p => p.livesRemaining > 0 && !p.inSuddenDeath);
 	const anyZero = updatedPlayers.find(p => p.livesRemaining === 0 && !p.inSuddenDeath);
 	try {

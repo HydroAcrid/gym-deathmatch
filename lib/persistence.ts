@@ -53,7 +53,7 @@ export async function upsertStravaTokens(playerId: string, tokens: StravaTokens)
 	return true;
 }
 
-export async function updateLobbyStage(lobbyId: string, updates: Partial<{ status: "pending"|"scheduled"|"active"|"completed"; scheduledStart: string | null; seasonStart: string | null }>): Promise<boolean> {
+export async function updateLobbyStage(lobbyId: string, updates: Partial<{ status: "pending"|"scheduled"|"transition_spin"|"active"|"completed"; scheduledStart: string | null; seasonStart: string | null }>): Promise<boolean> {
 	const supabase = getServerSupabase();
 	if (!supabase) return false;
 	const payload: any = {};

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Lobby } from "@/types/game";
 import { LobbyLayout } from "./LobbyLayout";
 import { PreStageView } from "./PreStageView";
+import { RouletteTransitionPanel } from "./RouletteTransitionPanel";
 
 export function LobbySwitcher({ lobby }: { lobby: Lobby }) {
 	const [overridePre, setOverridePre] = useState<boolean>(false);
@@ -29,7 +30,7 @@ export function LobbySwitcher({ lobby }: { lobby: Lobby }) {
 	}
 
 	const shouldShowPre =
-		(lobby.status && lobby.status !== "active") || overridePre;
+		(lobby.status && lobby.status !== "active" && lobby.status !== "transition_spin") || overridePre;
 
 	// Provide a scheduled start when we fake pre-stage so countdown renders
 	const stagedLobby: Lobby = shouldShowPre && !lobby.scheduledStart
@@ -49,7 +50,13 @@ export function LobbySwitcher({ lobby }: { lobby: Lobby }) {
 					</button>
 				</div>
 			)}
-			{shouldShowPre ? <PreStageView lobby={stagedLobby} /> : <LobbyLayout lobby={lobby} />}
+			{shouldShowPre ? (
+				<PreStageView lobby={stagedLobby} />
+			) : (lobby.status === "transition_spin" && String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE")) ? (
+				<RouletteTransitionPanel lobby={lobby} />
+			) : (
+				<LobbyLayout lobby={lobby} />
+			)}
 		</div>
 	);
 }
