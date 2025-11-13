@@ -339,6 +339,15 @@ body {
   height: calc(100svh - var(--nav-height) - env(safe-area-inset-top, 0px));
 }
 
+/* Modal/overlay region that occupies the viewport below the navbar */
+.overlay-below-nav {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + var(--nav-height));
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
 /* Ensure modals begin visually below the fixed navbar on small screens */
 .below-navbar {
   margin-top: calc(env(safe-area-inset-top, 0px) + 72px);
