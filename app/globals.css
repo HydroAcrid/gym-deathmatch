@@ -306,3 +306,31 @@ body {
   animation: flicker 1.2s infinite;
 }
 
+/* UI panel tokens - shared across modals/menus */
+.ui-panel {
+  background: var(--bg-elevated);
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+}
+.ui-panel-muted { color: var(--text-muted); }
+.ui-panel-hover { background: var(--bg-muted); }
+
+/* Hard-wrap utility for long text in modals/tooltips */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Unified field styles for inputs/selects across themes */
+.ui-field, .ui-select {
+  background: var(--bg-main);
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+}
+.ui-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+

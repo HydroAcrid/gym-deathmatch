@@ -112,126 +112,161 @@ export function CreateLobby() {
 			</button>
 			<AnimatePresence>
 				{open && (
-					<motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-						<motion.div className="paper-card paper-grain ink-edge max-w-md md:max-w-2xl lg:max-w-3xl w-[92%] p-6 bg-tan"
-							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
-							<div className="poster-headline text-xl mb-3 flex items-center justify-between">
-								<span>Create Lobby</span>
-								<button className="px-2 py-1 rounded-md border border-deepBrown/30 text-xs" onClick={() => setInfoOpen(true)}>Info</button>
-							</div>
-							<div className="grid md:grid-cols-2 gap-6">
-								<label className="text-xs">
-									<span className="block mb-1">Lobby name</span>
-									<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" placeholder="e.g., Winter Grind 2025"
-									value={lobbyName} maxLength={48} onChange={e => setLobbyName(e.target.value)} />
-								</label>
-								<div className="grid grid-cols-2 gap-2">
-									<label className="text-xs">
-										<span className="block mb-1">Start date (local)</span>
-										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="datetime-local"
-											value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
-									</label>
-									<label className="text-xs">
-										<span className="block mb-1">End date (local)</span>
-										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="datetime-local"
-											value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
-									</label>
+					<motion.div
+						className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6 bg-black/70"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+					>
+						<motion.div
+							role="dialog"
+							aria-modal="true"
+							className="ui-panel relative w-full sm:max-w-5xl h-[100svh] sm:h-[85vh] rounded-none sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full"
+							initial={{ scale: 0.96, opacity: 0 }}
+							animate={{ scale: 1, opacity: 1 }}
+							exit={{ scale: 0.96, opacity: 0 }}
+						>
+							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
+								<div className="min-w-0">
+									<h2 className="poster-headline text-lg sm:text-xl tracking-wide truncate">Create Lobby</h2>
+									<p className="ui-panel-muted text-xs sm:text-sm truncate">Configure dates, mode, targets, and challenge options</p>
 								</div>
-								<div className="grid grid-cols-2 gap-2">
-									<label className="text-xs">
-										<span className="block mb-1">Weekly target</span>
-										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="number" min={1}
-											value={weekly} onChange={e => setWeekly(Number(e.target.value))} placeholder="3" />
-										<div className="text-[10px] mt-1 text-deepBrown/70">Workouts required per week</div>
-									</label>
-									<label className="text-xs">
-										<span className="block mb-1">Initial lives</span>
-										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="number" min={1}
-											value={lives} onChange={e => setLives(Number(e.target.value))} placeholder="3" />
-										<div className="text-[10px] mt-1 text-deepBrown/70">Lives each player starts with</div>
-									</label>
-								</div>
-								<div className="grid gap-3">
-									<label className="text-xs">
-										<span className="block mb-1">Game mode</span>
-										<select
-											className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-[#1f1a17] text-cream"
-											style={{ colorScheme: "dark" }}
-											value={mode}
-											onChange={e => {
-												const val = e.target.value as any;
-												setMode(val);
-												if (String(val).startsWith("CHALLENGE_")) {
-													setChallengeSettings(resetChallengeDefaults(val));
-												}
-											}}
-										>
-											<option value="MONEY_SURVIVAL">Money: Survival (classic)</option>
-											<option value="MONEY_LAST_MAN">Money: Last Man Standing</option>
-											<option value="CHALLENGE_ROULETTE">Challenge: Roulette</option>
-											<option value="CHALLENGE_CUMULATIVE">Challenge: Cumulative</option>
-										</select>
-									</label>
-									<label className="text-xs flex items-center gap-2">
-										<input type="checkbox" className="h-4 w-4 border border-deepBrown/40 rounded-sm bg-cream text-deepBrown"
-											checked={suddenDeath} onChange={e => setSuddenDeath(e.target.checked)} />
-										<span>Allow Sudden Death revive (1 heart, no pot share)</span>
-									</label>
-									<div className="poster-headline text-sm">POT & ANTE</div>
-									{String(mode).startsWith("CHALLENGE_") && (
-										<div className="text-[11px] text-deepBrown/60 mb-1 flex items-center gap-1">
-											<span>🔒</span>
-											<span>Disabled in Challenge modes</span>
-										</div>
-									)}
-									<div className={String(mode).startsWith("CHALLENGE_") ? "opacity-40 pointer-events-none select-none" : ""}>
-									<label className="text-xs">
-										<span className="block mb-1">Initial pot ($)</span>
-										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-											disabled={String(mode).startsWith("CHALLENGE_")}
-											value={initialPot} onChange={e => setInitialPot(e.target.value)} />
-									</label>
-									<label className="text-xs">
-										<span className="block mb-1">Weekly ante ($)</span>
-										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-											disabled={String(mode).startsWith("CHALLENGE_")}
-											value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
-									</label>
-									<label className="text-xs flex items-center gap-2">
-										<input type="checkbox" className="h-4 w-4 border border-deepBrown/40 rounded-sm bg-cream text-deepBrown"
-											disabled={String(mode).startsWith("CHALLENGE_")}
-											checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
-										<span>Scale ante with lobby size</span>
-									</label>
-									<label className={`text-xs ${scalingEnabled ? "" : "opacity-60"}`}>
-										<span className="block mb-1">Per-player boost ($)</span>
-										<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-											disabled={!scalingEnabled || String(mode).startsWith("CHALLENGE_")}
-											value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
-									</label>
-									</div>
-
-									{String(mode).startsWith("CHALLENGE_") && (
-										<>
-											<div className="poster-headline text-sm mt-4">CHALLENGE SETTINGS</div>
-											<ChallengeSettingsCard mode={mode as any} value={challengeSettings} onChange={setChallengeSettings} />
-										</>
-									)}
-								</div>
-								{!localStorage.getItem("gymdm_playerId") && (
-									<label className="text-xs">
-										<span className="block mb-1">Your display name (you’ll be the owner)</span>
-										<input className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" placeholder="Your name"
-											value={ownerName} onChange={e => setOwnerName(e.target.value)} />
-									</label>
-								)}
-							{/* Sticky footer on small screens */}
-							<div className="md:col-span-2 flex justify-end gap-2 mt-2 sticky bottom-2">
+								<div className="shrink-0 flex items-center gap-2">
+									<button
+										className="h-9 w-9 rounded-md border border-deepBrown/30 flex items-center justify-center"
+										aria-label="Help"
+										onClick={() => setInfoOpen(true)}
+										title="Lobby Info"
+									>
+										<span className="text-white text-base leading-none">?</span>
+									</button>
 									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setOpen(false)}>Cancel</button>
 									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={submit}>Create</button>
 								</div>
+							</header>
+							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
+									<section className="space-y-4">
+										<div className="ui-panel rounded-xl p-4 space-y-3 border">
+											<h3 className="text-sm font-bold tracking-wide">Basics</h3>
+											<label className="text-xs">
+												<span className="block mb-1">Lobby name</span>
+												<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" placeholder="e.g., Winter Grind 2025"
+													value={lobbyName} maxLength={48} onChange={e => setLobbyName(e.target.value)} />
+											</label>
+											<div className="grid grid-cols-2 gap-2">
+												<label className="text-xs">
+													<span className="block mb-1">Start date (local)</span>
+													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="datetime-local"
+														value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
+												</label>
+												<label className="text-xs">
+													<span className="block mb-1">End date (local)</span>
+													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="datetime-local"
+														value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
+												</label>
+											</div>
+										</div>
+										<div className="ui-panel rounded-xl p-4 space-y-3 border">
+											<h3 className="text-sm font-bold tracking-wide">Hearts & Target</h3>
+											<div className="grid grid-cols-2 gap-2">
+												<label className="text-xs">
+													<span className="block mb-1">Weekly target</span>
+													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="number" min={1}
+														value={weekly} onChange={e => setWeekly(Number(e.target.value))} placeholder="3" />
+													<div className="text-[10px] mt-1 text-deepBrown/70">Workouts required per week</div>
+												</label>
+												<label className="text-xs">
+													<span className="block mb-1">Initial lives</span>
+													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="number" min={1}
+														value={lives} onChange={e => setLives(Number(e.target.value))} placeholder="3" />
+													<div className="text-[10px] mt-1 text-deepBrown/70">Lives each player starts with</div>
+												</label>
+											</div>
+											<label className="text-xs flex items-center gap-2">
+												<input type="checkbox" className="h-4 w-4 border border-deepBrown/40 rounded-sm bg-cream text-deepBrown"
+													checked={suddenDeath} onChange={e => setSuddenDeath(e.target.checked)} />
+												<span>Allow Sudden Death revive (1 heart, no pot share)</span>
+											</label>
+										</div>
+										<div className="ui-panel rounded-xl p-4 space-y-3 border">
+											<h3 className="text-sm font-bold tracking-wide">Pot & Ante</h3>
+											{String(mode).startsWith("CHALLENGE_") && (
+												<div className="text-[11px] text-deepBrown/60 mb-1 flex items-center gap-1">
+													<span>🔒</span>
+													<span>Disabled in Challenge modes</span>
+												</div>
+											)}
+											<div className={`${String(mode).startsWith("CHALLENGE_") ? "opacity-40 pointer-events-none select-none" : ""} grid gap-3`}>
+												<label className="text-xs">
+													<span className="block mb-1">Initial pot ($)</span>
+													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+														disabled={String(mode).startsWith("CHALLENGE_")}
+														value={initialPot} onChange={e => setInitialPot(e.target.value)} />
+												</label>
+												<label className="text-xs">
+													<span className="block mb-1">Weekly ante ($)</span>
+													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+														disabled={String(mode).startsWith("CHALLENGE_")}
+														value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
+												</label>
+												<label className="text-xs flex items-center gap-2">
+													<input type="checkbox" className="h-4 w-4 border border-deepBrown/40 rounded-sm bg-cream text-deepBrown"
+														disabled={String(mode).startsWith("CHALLENGE_")}
+														checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
+													<span>Scale ante with lobby size</span>
+												</label>
+												<label className={`text-xs ${scalingEnabled ? "" : "opacity-60"}`}>
+													<span className="block mb-1">Per-player boost ($)</span>
+													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+														disabled={!scalingEnabled || String(mode).startsWith("CHALLENGE_")}
+														value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
+												</label>
+											</div>
+										</div>
+									</section>
+									<section className="space-y-4">
+										<div className="ui-panel rounded-xl p-4 space-y-3 border">
+											<h3 className="text-sm font-bold tracking-wide">Game Mode</h3>
+											<label className="text-xs">
+												<span className="block mb-1">Mode</span>
+												<select
+													className="ui-select w-full h-10 px-3 rounded-md"
+													value={mode}
+													onChange={e => {
+														const val = e.target.value as any;
+														setMode(val);
+														if (String(val).startsWith("CHALLENGE_")) setChallengeSettings(resetChallengeDefaults(val));
+													}}
+												>
+													<option value="MONEY_SURVIVAL">Money: Survival (classic)</option>
+													<option value="MONEY_LAST_MAN">Money: Last Man Standing</option>
+													<option value="CHALLENGE_ROULETTE">Challenge: Roulette</option>
+													<option value="CHALLENGE_CUMULATIVE">Challenge: Cumulative</option>
+												</select>
+											</label>
+										</div>
+										{String(mode).startsWith("CHALLENGE_") && (
+											<div className="ui-panel rounded-xl p-4 border">
+												<ChallengeSettingsCard mode={mode as any} value={challengeSettings} onChange={setChallengeSettings} />
+											</div>
+										)}
+										{!localStorage.getItem("gymdm_playerId") && (
+											<div className="ui-panel rounded-xl p-4 border">
+												<label className="text-xs">
+													<span className="block mb-1">Your display name (you’ll be the owner)</span>
+													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" placeholder="Your name"
+														value={ownerName} onChange={e => setOwnerName(e.target.value)} />
+												</label>
+											</div>
+										)}
+									</section>
+								</div>
 							</div>
+							<footer className="sticky bottom-0 z-10 ui-panel px-4 sm:px-6 py-3 border-t flex items-center justify-end gap-2 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+								<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setOpen(false)}>Cancel</button>
+								<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={submit}>Create</button>
+							</footer>
 						</motion.div>
 					</motion.div>
 				)}
