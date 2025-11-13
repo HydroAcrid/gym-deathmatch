@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 		let challengeSettings = null as any;
 		if (body.mode && String(body.mode).startsWith("CHALLENGE_")) {
 			const cs = body.challengeSettings || {};
-			const limit = Math.min(140, Math.max(10, Number(cs.suggestionCharLimit ?? 50)));
+			const limit = Math.min(140, Math.max(1, Number(cs.suggestionCharLimit ?? 50)));
 			challengeSettings = {
 				selection: cs.selection ?? "ROULETTE",
 				spinFrequency: cs.spinFrequency ?? "WEEKLY",

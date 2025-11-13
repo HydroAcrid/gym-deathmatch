@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "./ToastProvider";
+import { ChallengeSettingsCard } from "./ChallengeSettingsCard";
+import type { ChallengeSettings } from "@/types/game";
+import { CreateLobbyInfo } from "./CreateLobbyInfo";
 
 export function OwnerSettingsModal({
 	lobbyId,
@@ -49,6 +52,8 @@ export function OwnerSettingsModal({
 	const [removeId, setRemoveId] = useState<string>("");
 	const [newOwnerId, setNewOwnerId] = useState<string>("");
 	const [confirmName, setConfirmName] = useState<string>("");
+	const [infoOpen, setInfoOpen] = useState(false);
+	const [challengeSettings, setChallengeSettings] = useState<ChallengeSettings | null>(null);
 
 	// Allow external control
 	useEffect(() => {
@@ -67,6 +72,7 @@ export function OwnerSettingsModal({
 					const j = await res.json();
 					if (j?.mode) setMode(j.mode);
 					if (typeof j?.suddenDeathEnabled === "boolean") setSuddenDeath(!!j.suddenDeathEnabled);
+					if (j?.challengeSettings) setChallengeSettings(j.challengeSettings as ChallengeSettings);
 				}
 			} catch { /* ignore */ }
 		})();
@@ -199,17 +205,33 @@ export function OwnerSettingsModal({
 			)}
 			<AnimatePresence>
 				{open && (
-					<motion.div className="fixed inset-0 z-50 flex items-center justify-center"
-						style={{ background: "var(--overlay-backdrop)" }}
+					<motion.div className="fixed inset-0 z-50 flex items-start justify-center p-0 sm:p-6 bg-black/70"
 						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 						<motion.div
-							className="paper-card paper-grain ink-edge max-w-md md:max-w-2xl lg:max-w-3xl w-[92%] p-5 md:p-6"
-							// Make inner panel scroll on small screens while keeping the overlay fixed
-							style={{ maxHeight: "85vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }}
+							role="dialog"
+							aria-modal="true"
+							className="ui-panel relative w-full sm:max-w-5xl h-[calc(100svh-72px)] sm:h-[78vh] rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden mt-16 sm:mt-24"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
-							<div className="poster-headline text-xl mb-3">Edit Lobby</div>
-							{/* 2-column desktop layout to reduce scrolling */}
-							<div className="grid md:grid-cols-2 gap-6">
+							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
+								<div className="min-w-0">
+									<h2 className="poster-headline text-lg sm:text-xl tracking-wide truncate">Edit Lobby</h2>
+									<p className="ui-panel-muted text-xs sm:text-sm truncate">Adjust dates, mode, pot, and challenge options</p>
+								</div>
+								<div className="shrink-0 flex items-center gap-2">
+									<button
+										className="h-9 w-9 rounded-md border border-deepBrown/30 flex items-center justify-center"
+										aria-label="Help"
+										onClick={() => setInfoOpen(true)}
+										title="Lobby Info"
+									>
+										<span className="text-base leading-none">?</span>
+									</button>
+									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
+									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
+								</div>
+							</header>
+							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
 								<div>
 									{/* Basic Info */}
 									<div className="mb-4">
@@ -340,7 +362,7 @@ export function OwnerSettingsModal({
 											<label className="text-xs">
 												<span className="block mb-1">Mode</span>
 												<select
-													className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													className="ui-select w-full h-10 px-3 rounded-md"
 													value={mode}
 													onChange={e => setMode(e.target.value as any)}
 												>
@@ -355,20 +377,8 @@ export function OwnerSettingsModal({
 												<span>Allow Sudden Death revive (1 heart, cannot win pot)</span>
 											</label>
 											{String(mode).startsWith("CHALLENGE_") && (
-												<div className="mt-2 grid gap-2">
-													<div className="poster-headline text-sm">CHALLENGE SETTINGS</div>
-													<label className="text-xs flex items-center gap-2">
-														<input type="checkbox" checked={challengeAllowSuggestions} onChange={e => setChallengeAllowSuggestions(e.target.checked)} />
-														<span>Allow player suggestions</span>
-													</label>
-													<label className="text-xs flex items-center gap-2">
-														<input type="checkbox" checked={challengeRequireLock} onChange={e => setChallengeRequireLock(e.target.checked)} />
-														<span>Require list lock before spin</span>
-													</label>
-													<label className="text-xs flex items-center gap-2">
-														<input type="checkbox" checked={challengeAutoSpin} onChange={e => setChallengeAutoSpin(e.target.checked)} />
-														<span>Auto‑spin at week start</span>
-													</label>
+												<div className="ui-panel rounded-xl p-4 border">
+													<ChallengeSettingsCard mode={mode as any} value={(challengeSettings as any) ?? { selection: "ROULETTE", spinFrequency: "WEEKLY", visibility: "PUBLIC", stackPunishments: false, allowSuggestions: true, requireLockBeforeSpin: true, autoSpinAtWeekStart: false, showLeaderboard: true, profanityFilter: true, suggestionCharLimit: 50 }} onChange={setChallengeSettings as any} />
 												</div>
 											)}
 										</div>
@@ -376,12 +386,12 @@ export function OwnerSettingsModal({
 								</div>
 							</div>
 							{/* Danger zone */}
-							<div className="mt-8 md:mt-10 md:col-span-2">
+							<div className="mt-6 md:mt-8 md:col-span-2">
 								<div className="poster-headline text-sm mb-2">DANGER ZONE</div>
 								<div className="grid gap-3">
 									<div className="border border-strong rounded-md p-3">
 										<div className="text-xs mb-2">Remove player</div>
-										<select className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+										<select className="ui-select w-full h-10 px-3 rounded-md"
 											value={removeId} onChange={e => setRemoveId(e.target.value)}>
 											<option value="">Select player</option>
 											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -392,7 +402,7 @@ export function OwnerSettingsModal({
 									</div>
 									<div className="border border-strong rounded-md p-3">
 										<div className="text-xs mb-2">Transfer ownership</div>
-										<select className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+										<select className="ui-select w-full h-10 px-3 rounded-md"
 											value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)}>
 											<option value="">Select new owner</option>
 											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -430,12 +440,9 @@ export function OwnerSettingsModal({
 									</button>
 								</div>
 							</div>
-							{/* Actions fixed at the very bottom */}
-							<div className="mt-8 flex flex-col sm:flex-row gap-2">
-								<button className="px-3 py-2 rounded-md border border-strong text-xs flex-1" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
-								<button className="btn-vintage px-3 py-2 rounded-md text-xs flex-1" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 							</div>
 						</motion.div>
+						<CreateLobbyInfo open={infoOpen} onClose={() => setInfoOpen(false)} />
 					</motion.div>
 				)}
 			</AnimatePresence>

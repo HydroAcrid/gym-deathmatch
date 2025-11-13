@@ -35,11 +35,12 @@ export function ChallengeSettingsCard({
 	onChange: (v: ChallengeSettings) => void;
 }) {
 	const isChallenge = String(mode).startsWith("CHALLENGE_");
+	const isCumulative = mode === "CHALLENGE_CUMULATIVE";
 	useEffect(() => {
 		if (!isChallenge) return;
-		// Ensure char limit stays in [10,140]
-		if (value.suggestionCharLimit < 10 || value.suggestionCharLimit > 140) {
-			onChange({ ...value, suggestionCharLimit: Math.min(140, Math.max(10, value.suggestionCharLimit)) });
+		// Ensure char limit stays in [1,140]
+		if (value.suggestionCharLimit < 1 || value.suggestionCharLimit > 140) {
+			onChange({ ...value, suggestionCharLimit: Math.min(140, Math.max(1, value.suggestionCharLimit)) });
 		}
 	}, [isChallenge, value, onChange]);
 
@@ -105,11 +106,19 @@ export function ChallengeSettingsCard({
 				))}
 			</div>
 
-			{/* Stack punishments */}
-			<label className="text-xs flex items-center gap-2 mb-2">
-				<input type="checkbox" checked={value.stackPunishments} onChange={e => onChange({ ...value, stackPunishments: e.target.checked })} />
-				<span title="Fail multiple weeks → carry multiple punishments.">Stack punishments each week</span>
+			{/* Stack punishments (CUMULATIVE only) */}
+			<label className={`text-xs flex items-center gap-2 mb-1 ${!isCumulative ? "opacity-60 pointer-events-none" : ""}`}>
+				<input
+					type="checkbox"
+					checked={!!value.stackPunishments}
+					disabled={!isCumulative}
+					onChange={e => onChange({ ...value, stackPunishments: e.target.checked })}
+				/>
+				<span title="Cumulative only: each failed week adds another punishment for that player.">Stack punishments each week</span>
 			</label>
+			{!isCumulative && (
+				<div className="text-[11px] text-deepBrown/70 mb-2">Cumulative only. In Roulette, punishments are weekly and don’t stack.</div>
+			)}
 
 			{/* Other toggles */}
 			<div className="grid sm:grid-cols-2 gap-2 mb-2">
@@ -136,15 +145,15 @@ export function ChallengeSettingsCard({
 					<span>Profanity filter</span>
 				</label>
 				<label className="text-xs">
-					<span className="block mb-1">Punishment input limit</span>
+					<span className="block mb-1">Punishment input limit (chars)</span>
 					<input
 						type="number"
-						min={10}
+						min={1}
 						max={140}
-						step={5}
+						step={1}
 						className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
 						value={value.suggestionCharLimit}
-						onChange={e => onChange({ ...value, suggestionCharLimit: Math.min(140, Math.max(10, Number(e.target.value || 50))) })}
+						onChange={e => onChange({ ...value, suggestionCharLimit: Math.min(140, Math.max(1, Number(e.target.value || 50))) })}
 					/>
 				</label>
 			</div>

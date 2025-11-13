@@ -121,7 +121,7 @@ export function CreateLobby() {
 						<motion.div
 							role="dialog"
 							aria-modal="true"
-							className="ui-panel relative w-full sm:max-w-5xl h-[100svh] sm:h-[85vh] rounded-none sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full"
+							className="ui-panel relative w-full sm:max-w-5xl h-[100svh] sm:h-[85vh] rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
 							initial={{ scale: 0.96, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.96, opacity: 0 }}
@@ -138,7 +138,7 @@ export function CreateLobby() {
 										onClick={() => setInfoOpen(true)}
 										title="Lobby Info"
 									>
-										<span className="text-white text-base leading-none">?</span>
+										<span className="text-base leading-none">?</span>
 									</button>
 									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setOpen(false)}>Cancel</button>
 									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={submit}>Create</button>
@@ -263,10 +263,7 @@ export function CreateLobby() {
 									</section>
 								</div>
 							</div>
-							<footer className="sticky bottom-0 z-10 ui-panel px-4 sm:px-6 py-3 border-t flex items-center justify-end gap-2 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-								<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setOpen(false)}>Cancel</button>
-								<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={submit}>Create</button>
-							</footer>
+							
 						</motion.div>
 					</motion.div>
 				)}
