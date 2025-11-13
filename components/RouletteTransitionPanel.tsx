@@ -20,6 +20,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const [spinIndex, setSpinIndex] = useState<number | null>(null);
 	const [spinNonce, setSpinNonce] = useState<number>(0);
 	const pendingChosenRef = useRef<string | null>(null);
+	const [overlayOpen, setOverlayOpen] = useState<boolean>(false);
 
 	useEffect(() => {
 		const ownerUserId = (lobby as any).ownerUserId;
@@ -260,6 +261,8 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 									pendingChosenRef.current = null;
 									if (finalText) setChosen(finalText);
 									setSpinning(false);
+									// Big, flashy reveal overlay
+									setOverlayOpen(true);
 								}}
 							/>
 						</div>
@@ -323,6 +326,42 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						>
 							<div className="text-sm">Punishment of the week:</div>
 							<div className="poster-headline text-xl">“{chosen}” 🎯</div>
+						</motion.div>
+					)}
+				</AnimatePresence>
+				{/* Full-screen reveal overlay */}
+				<AnimatePresence>
+					{overlayOpen && (
+						<motion.div
+							className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80"
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							exit={{ opacity: 0 }}
+							onClick={() => setOverlayOpen(false)}
+						>
+							<motion.div
+								className="paper-card paper-grain ink-edge p-8 text-center max-w-lg w-[92%] rounded-2xl border"
+								initial={{ scale: 0.9, opacity: 0 }}
+								animate={{ scale: 1, opacity: 1 }}
+								exit={{ scale: 0.9, opacity: 0 }}
+								onClick={(e) => e.stopPropagation()}
+							>
+								<div className="text-5xl mb-3">🎡</div>
+								<div className="poster-headline text-2xl mb-2">This week’s punishment is:</div>
+								<div className="poster-headline text-3xl text-accent-primary mb-6 break-anywhere">
+									{chosen ? `“${chosen}”` : "—"}
+								</div>
+								{isOwner ? (
+									<button
+										className="btn-vintage px-5 py-3 rounded-md text-xs"
+										onClick={startWeek}
+									>
+										Proceed
+									</button>
+								) : (
+									<div className="text-sm text-deepBrown/80">Waiting for host to proceed…</div>
+								)}
+							</motion.div>
 						</motion.div>
 					)}
 				</AnimatePresence>
