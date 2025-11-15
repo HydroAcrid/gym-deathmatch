@@ -149,7 +149,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
   }
 
   const hasActive = !!active;
-  const title = hasActive ? "WEEKLY PUNISHMENT" : "SUGGEST A PUNISHMENT";
+  const title = hasActive ? "CURRENT WEEK DETAILS" : "SUGGEST A PUNISHMENT";
   return (
     <div className="paper-card paper-grain ink-edge p-4 relative overflow-hidden">
       {showConfetti && (
@@ -160,7 +160,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
         </div>
       )}
       <div className="flex items-start gap-3">
-        <div className="poster-headline text-base">{title}</div>
+        <div className="poster-headline text-sm uppercase tracking-wide">{title}</div>
         <div className="ml-auto text-xs text-deepBrown/70">{week ? `Week ${week}` : ""}</div>
       </div>
       {errorMsg && <div className="mt-2 text-[12px] text-[#a13535]">⚠ {errorMsg}</div>}

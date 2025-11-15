@@ -12,7 +12,7 @@ function getRemaining(end: Date) {
 	return { days, hours, minutes, seconds, total };
 }
 
-export function Countdown({ endIso }: { endIso: string }) {
+export function Countdown({ endIso, label = "SEASON ENDS IN" }: { endIso: string; label?: string }) {
 	const end = useMemo(() => new Date(endIso), [endIso]);
 	const [remaining, setRemaining] = useState(() => getRemaining(end));
 	const prefersReduced = useReducedMotion();
@@ -27,7 +27,7 @@ export function Countdown({ endIso }: { endIso: string }) {
 	};
 	return (
 		<div className="inline-flex items-center gap-3 px-3 py-2 bg-elevated rounded-md border border-strong ink-edge">
-			<div className="text-[10px] text-muted">SEASON ENDS IN</div>
+			<div className="text-[10px] text-muted">{label}</div>
 			<div className="flex gap-2 items-baseline poster-headline text-2xl text-main">
 				<AnimatePresence mode="popLayout" initial={false}>
 					<motion.span key={`d-${remaining.days}`} {...numVariants}>

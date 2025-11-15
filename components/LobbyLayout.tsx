@@ -16,7 +16,7 @@ import { WinnerOverlay } from "./WinnerOverlay";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { useAuth } from "./AuthProvider";
 import { WeeklyPunishmentCard } from "./WeeklyPunishmentCard";
-import { PunishmentBanner } from "./PunishmentBanner";
+import { ChallengeHero } from "./ChallengeHero";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
@@ -200,7 +200,12 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				</div>
 			) : (
 				<div className="mb-4">
-					<PunishmentBanner lobbyId={lobby.id} />
+					<ChallengeHero
+						lobbyId={lobby.id}
+						mode={(lobby as any).mode as any}
+						challengeSettings={lobby.challengeSettings || null}
+						seasonEnd={lobby.seasonEnd}
+					/>
 				</div>
 			)}
 			{/* Arena feed directly under pot */}
