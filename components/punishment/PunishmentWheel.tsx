@@ -14,8 +14,8 @@ export type PunishmentEntry = {
 // Avoid SSR window access inside react-custom-roulette
 const WheelNoSSR = dynamic(async () => {
 	const mod = await import("react-custom-roulette");
-	return (mod as any).Wheel as any;
-}, { ssr: false });
+	return mod.Wheel;
+}, { ssr: false }) as any;
 
 export function PunishmentWheel({
 	entries,

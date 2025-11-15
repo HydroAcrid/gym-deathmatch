@@ -21,7 +21,7 @@ import { ChallengeHero } from "./ChallengeHero";
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
 	const [currentPot, setCurrentPot] = useState<number>(lobby.cashPool);
-	const [seasonStatus, setSeasonStatus] = useState<"pending" | "scheduled" | "active" | "completed" | undefined>(lobby.status);
+	const [seasonStatus, setSeasonStatus] = useState<"pending" | "scheduled" | "transition_spin" | "active" | "completed" | undefined>(lobby.status);
 	const [koEvent, setKoEvent] = useState<any>(null);
 	const [showKo, setShowKo] = useState<boolean>(false);
 	const [showWinner, setShowWinner] = useState<boolean>(false);
