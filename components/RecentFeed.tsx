@@ -52,9 +52,9 @@ export function RecentFeed({
 			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
 		>
 			<div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: "#E1542A" }} />
-			<div className="pl-2">
+			<div className="pl-2 flex flex-col">
 				<div className="poster-headline text-sm sm:text-base mb-2">LIVE ARENA FEED</div>
-				<div className="space-y-2 relative scroll-fade-bottom overflow-hidden flex-1">
+				<div className="space-y-2 relative scroll-fade-bottom overflow-y-auto max-h-[400px] pr-2">
 					<AnimatePresence initial={false}>
 						{items.map((e) => (
 							<motion.div
