@@ -268,6 +268,7 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 								lobbyId={lobby.id}
 								mode={(lobby as any).mode as any}
 								challengeSettings={lobby.challengeSettings || null}
+								seasonStart={lobby.seasonStart}
 								seasonEnd={lobby.seasonEnd}
 							/>
 						</div>

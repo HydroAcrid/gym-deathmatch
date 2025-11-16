@@ -4,27 +4,30 @@ import { useEffect, useState } from "react";
 import { Countdown } from "./Countdown";
 import type { ChallengeSettings, GameMode } from "@/types/game";
 
-function nextWeekStartLocal(): Date {
-	const now = new Date();
-	const day = now.getDay(); // 0 Sun..6 Sat
-	// Next Sunday 00:00 local
-	const daysUntilSun = (7 - day) % 7;
-	const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSun, 0, 0, 0, 0);
-	if (base.getTime() <= now.getTime()) {
-		base.setDate(base.getDate() + 7);
-	}
-	return base;
+// Calculate next week start based on season_start (7 days from start, not calendar weeks)
+function nextWeekFromSeasonStart(seasonStartIso: string | undefined | null, currentWeek: number | null): Date | null {
+	if (!seasonStartIso) return null;
+	const start = new Date(seasonStartIso);
+	const now = Date.now();
+	// Calculate which week we're in (0-indexed from season start)
+	const weekMs = 7 * 24 * 60 * 60 * 1000;
+	const weeksSinceStart = Math.floor((now - start.getTime()) / weekMs);
+	// Next week is (weeksSinceStart + 1) weeks from start
+	const nextWeekStart = new Date(start.getTime() + (weeksSinceStart + 1) * weekMs);
+	return nextWeekStart;
 }
 
 export function ChallengeHero({
 	lobbyId,
 	mode,
 	challengeSettings,
+	seasonStart,
 	seasonEnd
 }: {
 	lobbyId: string;
 	mode?: GameMode;
 	challengeSettings?: ChallengeSettings | null;
+	seasonStart?: string;
 	seasonEnd?: string;
 }) {
 	const [punishmentText, setPunishmentText] = useState<string | null>(null);
@@ -51,31 +54,65 @@ export function ChallengeHero({
 
 	// Calculate next spin time based on spinFrequency
 	useEffect(() => {
-		if (!challengeSettings) {
-			// Default to weekly
-			const next = nextWeekStartLocal();
-			setNextSpinIso(next.toISOString());
-			return;
+		const { spinFrequency } = challengeSettings || { spinFrequency: "WEEKLY" };
+		const now = Date.now();
+		
+		// Always prioritize seasonEnd if it's set and in the future
+		if (seasonEnd) {
+			const seasonEndTime = new Date(seasonEnd).getTime();
+			if (seasonEndTime > now) {
+				// Check if we should use seasonEnd or next week
+				if (spinFrequency === "SEASON_ONLY") {
+					// SEASON_ONLY - always use season end
+					setNextSpinIso(seasonEnd);
+					return;
+				}
+				
+				// For WEEKLY and BIWEEKLY, calculate next week from season_start
+				let nextWeek: Date | null = null;
+				if (seasonStart) {
+					nextWeek = nextWeekFromSeasonStart(seasonStart, week);
+					if (nextWeek && spinFrequency === "BIWEEKLY") {
+						// For biweekly, add another week
+						nextWeek.setTime(nextWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
+					}
+				}
+				
+				// Use whichever is sooner: seasonEnd or nextWeek
+				if (nextWeek && nextWeek.getTime() < seasonEndTime) {
+					setNextSpinIso(nextWeek.toISOString());
+				} else {
+					setNextSpinIso(seasonEnd);
+				}
+				return;
+			}
 		}
-		const { spinFrequency } = challengeSettings;
-		if (spinFrequency === "WEEKLY") {
-			const next = nextWeekStartLocal();
-			setNextSpinIso(next.toISOString());
-		} else if (spinFrequency === "BIWEEKLY") {
-			const next = nextWeekStartLocal();
-			next.setDate(next.getDate() + 7); // 2 weeks from now
-			setNextSpinIso(next.toISOString());
-		} else {
-			// SEASON_ONLY - use season end
-			setNextSpinIso(seasonEnd || null);
+		
+		// If no seasonEnd or it's in the past, calculate from season_start
+		if (seasonStart) {
+			const nextWeek = nextWeekFromSeasonStart(seasonStart, week);
+			if (nextWeek) {
+				if (spinFrequency === "BIWEEKLY") {
+					// For biweekly, add another week
+					nextWeek.setTime(nextWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
+				}
+				setNextSpinIso(nextWeek.toISOString());
+				return;
+			}
 		}
-	}, [challengeSettings, seasonEnd]);
+		
+		// Last resort: no countdown
+		setNextSpinIso(null);
+	}, [challengeSettings, seasonStart, seasonEnd, week]);
 
 	const isRoulette = mode === "CHALLENGE_ROULETTE";
 	const isCumulative = mode === "CHALLENGE_CUMULATIVE";
 	const label = isCumulative ? "CUMULATIVE CHALLENGES" : "WEEKLY PUNISHMENT";
 	const spinFrequency = challengeSettings?.spinFrequency || "WEEKLY";
-	const countdownLabel = spinFrequency === "SEASON_ONLY" ? "SEASON ENDS IN" : "NEXT SPIN IN";
+	
+	// Determine countdown label based on what we're actually showing
+	const isShowingSeasonEnd = nextSpinIso && seasonEnd && nextSpinIso === seasonEnd;
+	const countdownLabel = (spinFrequency === "SEASON_ONLY" || isShowingSeasonEnd) ? "SEASON ENDS IN" : "NEXT SPIN IN";
 
 	// If no active punishment yet, show placeholder
 	const displayText = punishmentText || "No punishment selected yet";
