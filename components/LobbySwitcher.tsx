@@ -8,6 +8,7 @@ import { RouletteTransitionPanel } from "./RouletteTransitionPanel";
 
 export function LobbySwitcher({ lobby }: { lobby: Lobby }) {
 	const [overridePre, setOverridePre] = useState<boolean>(false);
+	const [weekStatus, setWeekStatus] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -21,6 +22,29 @@ export function LobbySwitcher({ lobby }: { lobby: Lobby }) {
 		localStorage.setItem("gymdm_lastLobbyId", lobby.id);
 	}, [lobby.id]);
 
+	// Check weekStatus for challenge modes to determine if we should show WeekSetup
+	useEffect(() => {
+		if (!String((lobby as any).mode || "").startsWith("CHALLENGE_")) return;
+		let cancelled = false;
+		async function load() {
+			try {
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+				if (!res.ok || cancelled) return;
+				const j = await res.json();
+				if (!cancelled) {
+					setWeekStatus(j.weekStatus || null);
+				}
+			} catch { /* ignore */ }
+		}
+		// Load immediately, then poll
+		load();
+		const id = setInterval(load, 5 * 1000); // Poll every 5 seconds
+		return () => {
+			cancelled = true;
+			clearInterval(id);
+		};
+	}, [lobby.id, (lobby as any).mode]);
+
 	function toggle() {
 		const next = !overridePre;
 		setOverridePre(next);
@@ -31,6 +55,12 @@ export function LobbySwitcher({ lobby }: { lobby: Lobby }) {
 
 	const shouldShowPre =
 		(lobby.status && lobby.status !== "active" && lobby.status !== "transition_spin") || overridePre;
+
+	// If weekStatus is PENDING_CONFIRMATION, show LobbyLayout (which will show WeekSetup) instead of RouletteTransitionPanel
+	const shouldShowTransitionPanel = 
+		lobby.status === "transition_spin" && 
+		String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE") &&
+		weekStatus !== "PENDING_CONFIRMATION";
 
 	// Provide a scheduled start when we fake pre-stage so countdown renders
 	const stagedLobby: Lobby = shouldShowPre && !lobby.scheduledStart
@@ -52,7 +82,7 @@ export function LobbySwitcher({ lobby }: { lobby: Lobby }) {
 			)}
 			{shouldShowPre ? (
 				<PreStageView lobby={stagedLobby} />
-			) : (lobby.status === "transition_spin" && String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE")) ? (
+			) : shouldShowTransitionPanel ? (
 				<RouletteTransitionPanel lobby={lobby} />
 			) : (
 				<LobbyLayout lobby={lobby} />

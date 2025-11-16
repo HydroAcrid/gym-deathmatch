@@ -31,7 +31,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const active = (data || []).find((x: any) => x.active);
 	// Locked: when any row is locked true (we treat as list-level lock)
 	const locked = (data || []).length > 0 ? (data as any[]).every((x: any) => !!x.locked) : false;
-	return NextResponse.json({ week, items: data || [], active: active || null, locked });
+	// Week status: get from active punishment or default to PENDING_PUNISHMENT
+	const weekStatus = active?.week_status || (data && data.length > 0 ? "PENDING_PUNISHMENT" : null);
+	return NextResponse.json({ week, items: data || [], active: active || null, locked, weekStatus });
 }
 
 // Suggest a punishment for current week

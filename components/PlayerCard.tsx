@@ -10,7 +10,7 @@ import { useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { StatusBadge } from "./StatusBadge";
 
-export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lobbyId?: string; mePlayerId?: string }) {
+export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player: Player; lobbyId?: string; mePlayerId?: string; showReady?: boolean }) {
 	const avatar = player.avatarUrl || "";
 	const [openManual, setOpenManual] = useState(false);
 	const { user } = useAuth();
@@ -50,7 +50,7 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 							KO’D 💀
 						</span>
 					)}
-					{typeof player.ready === "boolean" && (
+					{showReady && typeof player.ready === "boolean" && (
 						<span className={`mr-2 text-[10px] px-2 py-1 rounded-md border ${player.ready ? "bg-[#2b6b2b] text-cream border-transparent" : "text-deepBrown border-deepBrown/40 bg-cream"}`}>
 							{player.ready ? "READY ✅" : "NOT READY ⏳"}
 						</span>

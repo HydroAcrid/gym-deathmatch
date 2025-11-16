@@ -85,12 +85,12 @@ export function ChallengeHero({
 			<div className="uppercase tracking-[0.14em] text-[10px] sm:text-[11px] text-deepBrown/70 mb-1">
 				{label}
 			</div>
-			<div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
+			<div className="flex flex-col items-center justify-center gap-4">
 				<div className="poster-headline text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight text-cream break-words max-w-full px-2">
 					"{displayText}"
 				</div>
 				{nextSpinIso && (
-					<div className="countdown-wrap mt-1 md:mt-0">
+					<div className="countdown-wrap">
 						<Countdown endIso={nextSpinIso} label={countdownLabel} />
 					</div>
 				)}

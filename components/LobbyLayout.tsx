@@ -17,11 +17,14 @@ import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { useAuth } from "./AuthProvider";
 import { WeeklyPunishmentCard } from "./WeeklyPunishmentCard";
 import { ChallengeHero } from "./ChallengeHero";
+import { WeekSetup } from "./WeekSetup";
 
 export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
 	const [currentPot, setCurrentPot] = useState<number>(lobby.cashPool);
 	const [seasonStatus, setSeasonStatus] = useState<"pending" | "scheduled" | "transition_spin" | "active" | "completed" | undefined>(lobby.status);
+	const [weekStatus, setWeekStatus] = useState<string | null>(null);
+	const [activePunishment, setActivePunishment] = useState<{ text: string; week: number } | null>(null);
 	const [koEvent, setKoEvent] = useState<any>(null);
 	const [showKo, setShowKo] = useState<boolean>(false);
 	const [showWinner, setShowWinner] = useState<boolean>(false);
@@ -101,6 +104,32 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			// ignore
 		}
 	};
+
+	// Load week status and active punishment for challenge modes
+	useEffect(() => {
+		if (!String((lobby as any).mode || "").startsWith("CHALLENGE_")) return;
+		let cancelled = false;
+		async function load() {
+			try {
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+				if (!res.ok || cancelled) return;
+				const j = await res.json();
+				if (j.active && j.weekStatus) {
+					setWeekStatus(j.weekStatus);
+					setActivePunishment({ text: j.active.text, week: j.week });
+				} else {
+					setWeekStatus(null);
+					setActivePunishment(null);
+				}
+			} catch { /* ignore */ }
+		}
+		load();
+		const id = setInterval(load, 10 * 1000);
+		return () => {
+			cancelled = true;
+			clearInterval(id);
+		};
+	}, [lobby.id, (lobby as any).mode]);
 
 	useEffect(() => {
 		let ignore = false;
@@ -207,45 +236,66 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 
 			<div className="header-divider-glow mb-3" />
 
-			{/* Money vs Challenge header blocks */}
-			{String((lobby as any).mode || "").startsWith("MONEY_") ? (
-				<div className="mb-4">
-					<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
-				</div>
+			{/* Week Setup (PENDING_CONFIRMATION) for Challenge Roulette */}
+			{String((lobby as any).mode || "").startsWith("CHALLENGE_") && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
+				<>
+					<div className="mb-6">
+						<WeekSetup
+							lobbyId={lobby.id}
+							week={activePunishment.week}
+							punishmentText={activePunishment.text}
+							mode={(lobby as any).mode as any}
+							challengeSettings={lobby.challengeSettings || null}
+							players={players}
+							isOwner={isOwner}
+						/>
+					</div>
+					{/* Arena feed */}
+					<div className="mb-6">
+						<RecentFeed lobbyId={lobby.id} />
+					</div>
+				</>
 			) : (
-				<div className="mb-4">
-					<ChallengeHero
-						lobbyId={lobby.id}
-						mode={(lobby as any).mode as any}
-						challengeSettings={lobby.challengeSettings || null}
-						seasonEnd={lobby.seasonEnd}
-					/>
-				</div>
-			)}
-			{/* Arena feed directly under pot */}
-			<div className="mb-6">
-				<RecentFeed lobbyId={lobby.id} />
-			</div>
-			{/* Weekly punishment card shows only during ACTIVE challenge weeks */}
-			{String((lobby as any).mode || "").startsWith("CHALLENGE_") && seasonStatus === "active" && (
-				<div className="mb-6">
-					<WeeklyPunishmentCard lobbyId={lobby.id} seasonStart={lobby.seasonStart} isOwner={isOwner} />
-				</div>
+				<>
+					{/* Money vs Challenge header blocks */}
+					{String((lobby as any).mode || "").startsWith("MONEY_") ? (
+						<div className="mb-4">
+							<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
+						</div>
+					) : (
+						<div className="mb-4">
+							<ChallengeHero
+								lobbyId={lobby.id}
+								mode={(lobby as any).mode as any}
+								challengeSettings={lobby.challengeSettings || null}
+								seasonEnd={lobby.seasonEnd}
+							/>
+						</div>
+					)}
+					{/* Arena feed directly under pot */}
+					<div className="mb-6">
+						<RecentFeed lobbyId={lobby.id} />
+					</div>
+					{/* Weekly punishment card removed - now handled by WeekSetup or ChallengeHero */}
+				</>
 			)}
 
-			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
-				{players.slice(0, 2).map((p) => (
-					<motion.div key={p.id} variants={item} className="h-full">
-						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
-					</motion.div>
-				))}
-				{players.slice(2).map((p) => (
-					<motion.div key={p.id} variants={item} className="h-full">
-						<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} />
-					</motion.div>
-				))}
-				{/* Invite flow is now handled via share/onboarding; manual add card removed */}
-			</div>
+			{/* Player cards - hide during PENDING_CONFIRMATION, show in WeekSetup instead */}
+			{!(String((lobby as any).mode || "").startsWith("CHALLENGE_") && weekStatus === "PENDING_CONFIRMATION") && (
+				<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
+					{players.slice(0, 2).map((p) => (
+						<motion.div key={p.id} variants={item} className="h-full">
+							<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} showReady={false} />
+						</motion.div>
+					))}
+					{players.slice(2).map((p) => (
+						<motion.div key={p.id} variants={item} className="h-full">
+							<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} showReady={false} />
+						</motion.div>
+					))}
+					{/* Invite flow is now handled via share/onboarding; manual add card removed */}
+				</div>
+			)}
 			{/* Strava reconnect banner removed – Strava is optional now */}
 			<KoOverlay
 				open={seasonStatus === "completed" && !!koEvent && showKo}

@@ -30,9 +30,17 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ lo
 	const pool = (items || []).filter((x: any) => !x.active);
 	if (!pool.length) return jsonError("NO_ITEMS", "Nothing to spin");
 	const chosen = pool[Math.floor(Math.random() * pool.length)];
-	// Mark chosen active, all others not active
-	await supabase.from("lobby_punishments").update({ active: false }).eq("lobby_id", lobbyId).eq("week", week);
-	await supabase.from("lobby_punishments").update({ active: true }).eq("id", chosen.id);
+	// Mark chosen active, all others not active, and set week_status to PENDING_CONFIRMATION
+	await supabase.from("lobby_punishments").update({ active: false, week_status: null }).eq("lobby_id", lobbyId).eq("week", week);
+	await supabase.from("lobby_punishments").update({ active: true, week_status: "PENDING_CONFIRMATION" }).eq("id", chosen.id);
+	
+	// Reset all week-ready states for this week
+	try {
+		await supabase.from("week_ready_states").delete().eq("lobby_id", lobbyId).eq("week", week);
+	} catch (e) {
+		logError({ route: "POST /api/lobby/[id]/spin", code: "READY_RESET_FAILED", err: e, lobbyId });
+	}
+	
 	// Log an event for the feed
 	try {
 		await supabase.from("history_events").insert({

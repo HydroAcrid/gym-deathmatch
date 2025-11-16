@@ -22,7 +22,14 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const [spinIndex, setSpinIndex] = useState<number | null>(null);
 	const [spinNonce, setSpinNonce] = useState<number>(0);
 	const pendingChosenRef = useRef<string | null>(null);
-	const [overlayOpen, setOverlayOpen] = useState<boolean>(false);
+	const [showDebug, setShowDebug] = useState<boolean>(false);
+	
+	// Check for debug mode only on client to avoid hydration mismatch
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			setShowDebug(window.localStorage?.getItem("gymdm_debug") === "1");
+		}
+	}, []);
 
 	useEffect(() => {
 		const ownerUserId = (lobby as any).ownerUserId;
@@ -333,33 +340,15 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		}
 	}
 
-	async function startWeek() {
-		setErrorMsg(null);
-		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ startNow: true })
-			});
-			if (!res.ok) {
-				const j = await res.json().catch(() => ({}));
-				setErrorMsg(j?.error || "Failed to start week");
-				return;
-			}
-			// reload page to switch to ACTIVE layout
-			if (typeof window !== "undefined") window.location.reload();
-		} catch {
-			setErrorMsg("Failed to start week");
-		}
-	}
+	// Removed startWeek - now handled by WeekSetup component
 
 	return (
 		<div className="mx-auto max-w-6xl">
 			<div className="paper-card paper-grain ink-edge p-4 sm:p-6 mb-6">
 				<div className="poster-headline text-xl mb-1">Week {computeWeekIndex(lobby.seasonStart)} · Punishment Selection</div>
-				<div className="text-deepBrown/70 text-sm">Here’s what everyone put on the wheel.</div>
+				<div className="text-deepBrown/70 text-sm">Here's what everyone put on the wheel.</div>
 				{/* Debug helpers: visible when localStorage.gymdm_debug=1 */}
-				{typeof window !== "undefined" && window.localStorage?.getItem("gymdm_debug") === "1" && (
+				{showDebug && (
 					<div className="mt-2 flex flex-wrap gap-2 text-[11px]">
 						<button
 							className="px-2 py-1 rounded-md border border-deepBrown/30"
@@ -385,11 +374,11 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 							className="px-2 py-1 rounded-md border border-deepBrown/30"
 							onClick={async () => {
 								try {
-                                    const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
-                                    const j = await res.json();
-                                    setItems(j.items || []);
+									const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+									const j = await res.json();
+									setItems(j.items || []);
 									setLocked(!!j.locked);
-                                } catch { /* ignore */ }
+								} catch { /* ignore */ }
 							}}
 						>
 							Reload from server
@@ -459,8 +448,10 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 									pendingChosenRef.current = null;
 									if (finalText) setChosen(finalText);
 									setSpinning(false);
-									// Big, flashy reveal overlay
-									setOverlayOpen(true);
+									// Reload page after animation fully completes (give extra time for any cleanup)
+									setTimeout(() => {
+										if (typeof window !== "undefined") window.location.reload();
+									}, 2500); // Increased delay to ensure animation completes
 								}}
 							/>
 						</div>
@@ -500,13 +491,6 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 							>
 								{spinning ? "Spinning…" : "Spin wheel"}
 							</button>
-							<button
-								className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs disabled:opacity-60"
-								onClick={startWeek}
-								disabled={!chosen}
-							>
-								Start week
-							</button>
 						</>
 					) : (
 						<div className="text-xs text-deepBrown/70">
@@ -514,55 +498,16 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						</div>
 					)}
 				</div>
-				<AnimatePresence>
-					{chosen && (
-						<motion.div
-							initial={{ opacity: 0, y: 8 }}
-							animate={{ opacity: 1, y: 0 }}
-							exit={{ opacity: 0, y: -6 }}
-							className="mt-4 p-3 rounded-md border border-deepBrown/30 bg-cream/5"
-						>
-							<div className="text-sm">Punishment of the week:</div>
-							<div className="poster-headline text-xl">“{chosen}” 🎯</div>
-						</motion.div>
-					)}
-				</AnimatePresence>
-				{/* Full-screen reveal overlay */}
-				<AnimatePresence>
-					{overlayOpen && (
-						<motion.div
-							className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							exit={{ opacity: 0 }}
-							onClick={() => setOverlayOpen(false)}
-						>
-							<motion.div
-								className="paper-card paper-grain ink-edge p-8 text-center max-w-lg w-[92%] rounded-2xl border"
-								initial={{ scale: 0.9, opacity: 0 }}
-								animate={{ scale: 1, opacity: 1 }}
-								exit={{ scale: 0.9, opacity: 0 }}
-								onClick={(e) => e.stopPropagation()}
-							>
-								<div className="text-5xl mb-3">🎡</div>
-								<div className="poster-headline text-2xl mb-2">This week’s punishment is:</div>
-								<div className="poster-headline text-3xl text-accent-primary mb-6 break-anywhere">
-									{chosen ? `“${chosen}”` : "—"}
-								</div>
-								{isOwner ? (
-									<button
-										className="btn-vintage px-5 py-3 rounded-md text-xs"
-										onClick={startWeek}
-									>
-										Proceed
-									</button>
-								) : (
-									<div className="text-sm text-deepBrown/80">Waiting for host to proceed…</div>
-								)}
-							</motion.div>
-						</motion.div>
-					)}
-				</AnimatePresence>
+				{/* After spin, the page will reload and show WeekSetup component */}
+				{chosen && (
+					<motion.div
+						initial={{ opacity: 0, y: 8 }}
+						animate={{ opacity: 1, y: 0 }}
+						className="mt-4 p-3 rounded-md border border-deepBrown/30 bg-cream/5"
+					>
+						<div className="text-sm">Punishment selected. Reloading to show confirmation stage…</div>
+					</motion.div>
+				)}
 			</div>
 		</div>
 	);

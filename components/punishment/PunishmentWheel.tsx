@@ -44,6 +44,7 @@ export function PunishmentWheel({
 	const [mustSpin, setMustSpin] = useState(false);
 	const [prizeNumber, setPrizeNumber] = useState(0);
 	const lastNonceRef = useRef<number | undefined>(undefined);
+	const isSpinningRef = useRef<boolean>(false);
 
 	// External spin trigger: when nonce changes, spin to provided index
 	useEffect(() => {
@@ -52,10 +53,12 @@ export function PunishmentWheel({
 		if (spinNonce === undefined) return;
 		if (lastNonceRef.current === spinNonce) return;
 		if (!eligible.length) return;
+		if (isSpinningRef.current) return; // Prevent interrupting an active spin
 		lastNonceRef.current = spinNonce;
 		// Clamp to valid range
 		const idx = Math.max(0, Math.min(spinToIndex, eligible.length - 1));
 		setPrizeNumber(idx);
+		isSpinningRef.current = true;
 		setMustSpin(true);
 	}, [disabled, spinToIndex, spinNonce, eligible.length]);
 
@@ -72,6 +75,7 @@ export function PunishmentWheel({
 						spinDuration={1}
 						onStopSpinning={() => {
 							setMustSpin(false);
+							isSpinningRef.current = false;
 							onStop?.(prizeNumber);
 						}}
 						outerBorderColor="#f3e0c8"

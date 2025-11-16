@@ -327,6 +327,21 @@ create table if not exists lobby_punishments (
   created_at timestamptz default now()
 );
 
+-- Add week_status column if it doesn't exist (for existing tables)
+do $$
+begin
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_name = 'lobby_punishments'
+      and column_name = 'week_status'
+  ) then
+    alter table lobby_punishments
+      add column week_status text
+      check (week_status in ('PENDING_PUNISHMENT','PENDING_CONFIRMATION','ACTIVE','COMPLETE'));
+  end if;
+end $$;
+
 -- Add unique constraint to prevent duplicate submissions per player/week
 -- First drop if exists to allow re-running
 drop index if exists lobby_punishments_unique_player_week;
@@ -380,5 +395,22 @@ drop policy if exists user_ready_member on user_ready_states;
 create policy user_ready_member on user_ready_states
 for select using (
   exists (select 1 from player p where p.lobby_id = user_ready_states.lobby_id and p.user_id::text = auth.uid()::text)
+);
+
+-- Week-ready states for challenge modes (per week, not just per lobby)
+create table if not exists week_ready_states (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  week int not null,
+  player_id text not null references player(id) on delete cascade,
+  ready boolean not null default false,
+  updated_at timestamptz default now(),
+  unique(lobby_id, week, player_id)
+);
+alter table week_ready_states enable row level security;
+drop policy if exists week_ready_member on week_ready_states;
+create policy week_ready_member on week_ready_states
+for select using (
+  exists (select 1 from player p where p.lobby_id = week_ready_states.lobby_id and p.user_id::text = auth.uid()::text)
 );
 
