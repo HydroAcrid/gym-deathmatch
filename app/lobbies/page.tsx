@@ -7,7 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 
 type LobbyRow = {
 	id: string; name: string; season_number: number; cash_pool: number;
-	season_start?: string; season_end?: string; weekly_target?: number; initial_lives?: number; owner_id?: string;
+	season_start?: string; season_end?: string; weekly_target?: number; initial_lives?: number; owner_id?: string; owner_user_id?: string;
 };
 
 export default function LobbiesPage() {
@@ -46,7 +46,7 @@ export default function LobbiesPage() {
 						<div className="flex items-center justify-between">
 							<Link href={`/lobby/${l.id}`} className="poster-headline text-xl hover:underline">
 								{l.name}
-								{playerId && l.owner_id === playerId && (
+								{((playerId && l.owner_id === playerId) || (user?.id && l.owner_user_id === user.id)) && (
 									<span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] border border-deepBrown/40">
 										Owner
 									</span>
@@ -54,7 +54,7 @@ export default function LobbiesPage() {
 							</Link>
 							<div className="flex items-center gap-2">
 								<Link href={`/lobby/${l.id}`} className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs">Open</Link>
-								{l.owner_id === playerId ? (
+								{((playerId && l.owner_id === playerId) || (user?.id && l.owner_user_id === user.id)) ? (
 									<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setEditLobby(l)}>Edit</button>
 								) : user?.id ? (
 									<button
@@ -93,7 +93,7 @@ export default function LobbiesPage() {
 					<div className="text-deepBrown/70 text-sm">No lobbies yet. Create one from the navbar.</div>
 				)}
 			</div>
-			{editLobby && playerId && editLobby.owner_id === playerId && (
+			{editLobby && ((playerId && editLobby.owner_id === playerId) || (user?.id && editLobby.owner_user_id === user.id)) && (
 				<OwnerSettingsModal
 					lobbyId={editLobby.id}
 					defaultWeekly={editLobby.weekly_target ?? 3}
