@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
 		const map = new Map<string, any>();
 		for (const r of (memberLobbies ?? [])) map.set(r.id, r);
 		for (const r of (ownerRows ?? [])) map.set(r.id, r);
-		const list = Array.from(map.values()).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+		const list = Array.from(map.values());
+		// Return all fields including created_at, status, mode for client-side filtering/sorting
 		return NextResponse.json({ lobbies: list });
 	} catch (e) {
 		console.error("lobbies list error", e);
