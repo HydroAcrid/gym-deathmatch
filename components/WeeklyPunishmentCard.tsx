@@ -57,14 +57,29 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
   }
 
   useEffect(() => { 
-    load(); 
-    const id = setInterval(load, 5 * 1000); // Poll every 5 seconds
-    return () => clearInterval(id);
+    load();
+    let cancelled = false;
+    function poll() {
+      if (cancelled || document.hidden) return;
+      load();
+    }
+    const id = setInterval(poll, 15 * 1000); // Poll every 15 seconds (less critical)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) load();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [lobbyId]);
   // Poll readiness (lightweight via live route)
   useEffect(() => {
     let tm: any;
+    let cancelled = false;
     async function poll() {
+      if (cancelled || document.hidden) return;
       try {
         const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
         if (res.ok) {
@@ -76,10 +91,18 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
           (window as any).__gymdm_ready = `${readyCount}/${total}`;
         }
       } catch { /* ignore */ }
-      tm = setTimeout(poll, 10000);
+      if (!cancelled) tm = setTimeout(poll, 15000); // Poll every 15 seconds
     }
     poll();
-    return () => clearTimeout(tm);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) poll();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      cancelled = true;
+      clearTimeout(tm);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [lobbyId]);
 
   async function suggest() {

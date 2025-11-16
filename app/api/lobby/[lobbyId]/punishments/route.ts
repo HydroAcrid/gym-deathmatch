@@ -56,7 +56,36 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			week = ((maxw && maxw.length) ? ((maxw[0] as any).week as number) : 1);
 		}
 		const trimmed = String(text).slice(0, 50);
-		await supabase.from("lobby_punishments").insert({ lobby_id: lobbyId, week, text: trimmed, created_by: playerId, active: false });
+		// First, delete any existing submission for this player/week
+		// Then insert the new one (simpler than upsert with partial unique index)
+		const { error: deleteError } = await supabase
+			.from("lobby_punishments")
+			.delete()
+			.eq("lobby_id", lobbyId)
+			.eq("week", week)
+			.eq("created_by", playerId);
+		
+		if (deleteError) {
+			logError({ route: "POST /api/lobby/[id]/punishments", code: "PUNISHMENT_DELETE_FAILED", err: deleteError, lobbyId, actorPlayerId: playerId });
+			// Continue anyway - might not exist
+		}
+		
+		// Insert new submission (locked has a default value, so we don't need to set it)
+		const { error: insertError } = await supabase
+			.from("lobby_punishments")
+			.insert({
+				lobby_id: lobbyId,
+				week,
+				text: trimmed,
+				created_by: playerId,
+				active: false,
+			});
+		
+		if (insertError) {
+			logError({ route: "POST /api/lobby/[id]/punishments", code: "PUNISHMENT_INSERT_FAILED", err: insertError, lobbyId, actorPlayerId: playerId });
+			return jsonError("PUNISHMENT_INSERT_FAILED", "Failed to save punishment", 400);
+		}
+		
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		logError({ route: "POST /api/lobby/[id]/punishments", code: "PUNISHMENT_SAVE_FAILED", err: e, lobbyId });

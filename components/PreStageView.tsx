@@ -8,6 +8,7 @@ import { Countdown } from "./Countdown";
 import { CountdownHero } from "./CountdownHero";
 import { useAuth } from "./AuthProvider";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
+import { StatusBadge } from "./StatusBadge";
 
 export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const router = useRouter();
@@ -149,6 +150,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	useEffect(() => {
 		let cancelled = false;
 		async function refresh() {
+			if (cancelled || document.hidden) return;
 			try {
 				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 				if (!res.ok) return;
@@ -161,8 +163,16 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 			} catch { /* ignore */ }
 		}
 		refresh();
-		const id = setInterval(refresh, 5 * 1000); // Poll every 5 seconds
-		return () => { cancelled = true; clearInterval(id); };
+		const id = setInterval(refresh, 10 * 1000); // Poll every 10 seconds
+		const handleVisibilityChange = () => {
+			if (!document.hidden) refresh();
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () => {
+			cancelled = true;
+			clearInterval(id);
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+		};
 	}, [lobby.id]);
 
 	return (
@@ -299,14 +309,14 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 							</div>
 							<div className="text-xs text-deepBrown/80 whitespace-nowrap">{p.currentStreak}-day streak</div>
 							{p.isStravaConnected ? (
-								<span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-[#2b6b2b] text-cream flicker-fast">READY</span>
+								<StatusBadge status="online" className="ml-2" />
 							) : me === p.id ? (
 								<a className="ml-2 px-2 py-0.5 rounded text-[10px] underline"
 									href={`/api/strava/authorize?playerId=${encodeURIComponent(p.id)}&lobbyId=${encodeURIComponent(lobby.id)}`}>
 									Connect Strava
 								</a>
 							) : (
-								<span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-[#6b2b2b] text-cream">OFFLINE</span>
+								<StatusBadge status="offline" className="ml-2" />
 							)}
 						</motion.div>
 					))}

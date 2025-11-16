@@ -326,6 +326,15 @@ create table if not exists lobby_punishments (
   locked boolean not null default false,
   created_at timestamptz default now()
 );
+
+-- Add unique constraint to prevent duplicate submissions per player/week
+-- First drop if exists to allow re-running
+drop index if exists lobby_punishments_unique_player_week;
+alter table lobby_punishments drop constraint if exists lobby_punishments_unique_player_week;
+-- Create unique constraint (not just index) so upsert works
+create unique index lobby_punishments_unique_player_week 
+  on lobby_punishments (lobby_id, week, created_by) 
+  where created_by is not null;
 alter table lobby_punishments enable row level security;
 drop policy if exists lobby_punishments_member_read on lobby_punishments;
 create policy lobby_punishments_member_read on lobby_punishments

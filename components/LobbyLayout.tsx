@@ -114,10 +114,24 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		// re-fetch after connect or error banners too
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobby.id, stravaConnected, stravaError]);
-	// periodic refresh to keep feed fresh - poll every 5 seconds for live updates
+	// periodic refresh to keep feed fresh - poll every 10 seconds for live updates
 	useEffect(() => {
-		const id = setInterval(() => { reloadLive(); }, 5 * 1000);
-		return () => clearInterval(id);
+		let cancelled = false;
+		function poll() {
+			if (cancelled || document.hidden) return;
+			reloadLive();
+		}
+		const id = setInterval(poll, 10 * 1000); // Poll every 10 seconds
+		// Pause when tab is hidden, resume when visible
+		const handleVisibilityChange = () => {
+			if (!document.hidden) reloadLive();
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () => {
+			cancelled = true;
+			clearInterval(id);
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobby.id]);
 	// Allow children to request refresh (e.g., after manual log)

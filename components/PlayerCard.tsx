@@ -8,6 +8,7 @@ import { QuipBubble } from "./QuipBubble";
 import { ManualActivityModal } from "./ManualActivityModal";
 import { useState } from "react";
 import { useAuth } from "./AuthProvider";
+import { StatusBadge } from "./StatusBadge";
 
 export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lobbyId?: string; mePlayerId?: string }) {
 	const avatar = player.avatarUrl || "";
@@ -56,9 +57,7 @@ export function PlayerCard({ player, lobbyId, mePlayerId }: { player: Player; lo
 					)}
 					{player.isStravaConnected ? (
 						<div className="flex items-center gap-2">
-							<span className="text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
-								CONNECTED
-							</span>
+							<StatusBadge status="connected" className="mr-2" />
 							{isMe && lobbyId && (
 								<button
 									onClick={async () => {

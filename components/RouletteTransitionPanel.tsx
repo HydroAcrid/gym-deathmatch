@@ -15,6 +15,8 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const [chosen, setChosen] = useState<string | null>(null);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [myText, setMyText] = useState<string>("");
+	const [mySubmission, setMySubmission] = useState<{ id: string; text: string; created_by?: string | null } | null>(null);
+	const justSubmittedRef = useRef<boolean>(false);
 	const [isOwner, setIsOwner] = useState<boolean>(false);
 	const [wheelAngle, setWheelAngle] = useState<number>(0);
 	const [spinIndex, setSpinIndex] = useState<number | null>(null);
@@ -35,22 +37,101 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
 			if (!res.ok) return;
 			const j = await res.json();
-			setItems(j.items || []);
-			setLocked(!!j.locked);
-			if (j.active?.text) setChosen(j.active.text);
+			const newItems = j.items || [];
+			// Create a hash of items to detect actual changes
+			const itemsHash = JSON.stringify(newItems.map((i: any) => ({ id: i.id, text: i.text, created_by: i.created_by })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
+			// Only update state if items actually changed
+			if (itemsHash !== itemsHashRef.current) {
+				itemsHashRef.current = itemsHash;
+				setItems(newItems);
+				setLocked(!!j.locked);
+				if (j.active?.text) setChosen(j.active.text);
+			}
 		} catch { /* ignore */ }
 	};
 
+	// Find current user's submission and pre-fill input
+	const prevMySubmissionRef = useRef<{ id: string; text: string } | null>(null);
+	useEffect(() => {
+		// Skip auto-fill if we just submitted (to avoid overwriting user's new text)
+		if (justSubmittedRef.current) {
+			return;
+		}
+		if (!user?.id && !localStorage.getItem("gymdm_playerId")) return;
+		let meId: string | null = null;
+		if (user?.id) {
+			const mine = players.find(p => (p as any).userId === user.id);
+			if (mine) meId = mine.id;
+		}
+		if (!meId) {
+			meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
+		}
+		if (meId) {
+			const mySub = items.find(i => {
+				const createdBy = i.created_by;
+				return createdBy === meId || createdBy === (players.find(p => p.id === meId) as any)?.userId;
+			});
+			const prevSub = prevMySubmissionRef.current;
+			setMySubmission(mySub || null);
+			// Pre-fill input only when:
+			// 1. We first find a submission (prevSub is null, mySub exists)
+			// 2. The submission text changed (prevSub exists but text is different)
+			// Don't overwrite if user is currently typing
+			if (mySub) {
+				if (!prevSub || prevSub.text !== mySub.text) {
+					// Only update if input is empty or matches the old submission
+					if (!myText || myText === prevSub?.text) {
+						setMyText(mySub.text);
+					}
+				}
+				prevMySubmissionRef.current = { id: mySub.id, text: mySub.text };
+			} else {
+				prevMySubmissionRef.current = null;
+			}
+		}
+	}, [items, players, user?.id]);
+
+	// Track items hash to detect changes
+	const itemsHashRef = useRef<string>("");
+	
 	useEffect(() => {
 		loadPunishments();
-		const id = setInterval(loadPunishments, 5 * 1000); // Poll every 5 seconds
-		return () => clearInterval(id);
+		let cancelled = false;
+		let pollTimeout: any;
+		
+		// Only poll when tab becomes visible (not on interval)
+		const handleVisibilityChange = () => {
+			if (!document.hidden && !cancelled) {
+				loadPunishments();
+			}
+		};
+		
+		// Very infrequent background check (every 60 seconds) only when visible
+		function scheduleNextPoll() {
+			if (cancelled || document.hidden) return;
+			pollTimeout = setTimeout(() => {
+				if (!cancelled && !document.hidden) {
+					loadPunishments();
+					scheduleNextPoll();
+				}
+			}, 60 * 1000); // 60 seconds
+		}
+		
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		scheduleNextPoll();
+		
+		return () => {
+			cancelled = true;
+			clearTimeout(pollTimeout);
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+		};
 	}, [lobby.id]);
 
-	// Enrich player list with userId and poll for updates
+	// Enrich player list with userId - only refresh when tab becomes visible
 	useEffect(() => {
 		let cancelled = false;
 		async function refresh() {
+			if (cancelled || document.hidden) return;
 			try {
 				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 				if (!res.ok) return;
@@ -61,8 +142,14 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			} catch { /* ignore */ }
 		}
 		refresh();
-		const id = setInterval(refresh, 5 * 1000); // Poll every 5 seconds
-		return () => { cancelled = true; clearInterval(id); };
+		const handleVisibilityChange = () => {
+			if (!document.hidden) refresh();
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () => {
+			cancelled = true;
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+		};
 	}, [lobby.id]);
 
 	// Build entries for roulette slices (one per player with a suggestion)
@@ -91,38 +178,131 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	}, [items, players]);
 	async function submitSuggestion() {
 		try {
+			console.log("[Submit] Starting submission...", { myText, playersCount: players.length });
 			setErrorMsg(null);
-			if (!myText.trim()) return;
-			// Find my playerId
-			let meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
-			if (!meId && user?.id) {
-				const mine = players.find(p => (p as any).userId === user.id);
-				if (mine) meId = mine.id;
-			}
-			if (!meId) {
-				setErrorMsg("Sign in as a player to submit");
+			const textToSubmit = myText.trim();
+			if (!textToSubmit) {
+				console.log("[Submit] No text to submit");
 				return;
 			}
+			// Find my playerId - prioritize matching by userId first, then localStorage
+			let meId: string | null = null;
+			if (user?.id) {
+				const mine = players.find(p => (p as any).userId === user.id);
+				if (mine) {
+					meId = mine.id;
+					console.log("[Submit] Found playerId from userId match:", meId, mine);
+				}
+			}
+			// Fallback to localStorage if no userId match
+			if (!meId) {
+				meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
+				console.log("[Submit] Using playerId from localStorage:", meId);
+				// Verify this playerId exists in the players array
+				if (meId && !players.find(p => p.id === meId)) {
+					console.warn("[Submit] localStorage playerId not found in players array, trying to find by userId");
+					meId = null;
+				}
+			}
+			// Also try to find by matching user email/name if playerId not found
+			if (!meId && user?.email) {
+				const emailName = user.email.split("@")[0].toLowerCase();
+				const mine = players.find(p => p.name.toLowerCase().includes(emailName) || emailName.includes(p.name.toLowerCase()));
+				if (mine) {
+					meId = mine.id;
+					console.log("[Submit] Found playerId from email match:", meId, mine);
+				}
+			}
+			if (!meId) {
+				console.error("[Submit] No playerId found!", { user, players: players.map(p => ({ id: p.id, name: p.name, userId: (p as any).userId })) });
+				setErrorMsg("Sign in as a player to submit. If you're already a player, try refreshing the page.");
+				return;
+			}
+			console.log("[Submit] Using playerId:", meId, "Text:", textToSubmit, "Updating existing:", !!mySubmission);
+			// Mark that we're submitting to prevent auto-fill from overwriting
+			justSubmittedRef.current = true;
+			// Optimistically update before API call
+			let tempId: string | null = null;
+			if (mySubmission) {
+				// Update existing submission
+				setItems(prev => prev.map(item => 
+					item.id === mySubmission.id 
+						? { ...item, text: textToSubmit }
+						: item
+				));
+			} else {
+				// Add new submission
+				tempId = `temp-${Date.now()}`;
+				console.log("[Submit] Adding optimistic update with tempId:", tempId);
+				setItems(prev => {
+					const newItems = [...prev, { id: tempId!, text: textToSubmit, created_by: meId as string }];
+					console.log("[Submit] Optimistic items:", newItems);
+					return newItems;
+				});
+			}
+			// Keep the text in the input so user can see what they submitted
+			
+			console.log("[Submit] Calling API...");
 			const r = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ text: myText, playerId: meId })
+				body: JSON.stringify({ text: textToSubmit, playerId: meId })
 			});
+			console.log("[Submit] API response status:", r.status, r.ok);
 			if (!r.ok) {
 				const j = await r.json().catch(() => ({}));
+				console.error("[Submit] API error:", j);
 				setErrorMsg(j?.error || "Submit failed");
+				// Remove optimistic update on error
+				if (mySubmission) {
+					// Revert the update
+					setItems(prev => prev.map(item => 
+						item.id === mySubmission.id 
+							? { ...item, text: mySubmission.text }
+							: item
+					));
+				} else if (tempId) {
+					// Remove the temp item
+					setItems(prev => prev.filter(item => item.id !== tempId));
+				}
+				justSubmittedRef.current = false;
 				return;
 			}
-			setMyText("");
-			// Optimistically update
-			setItems(prev => [...prev, { id: `temp-${Date.now()}`, text: myText, created_by: meId as string }]);
-			// reload list for authoritative state
+			// Reload list for authoritative state (with small delay to ensure DB commit)
+			console.log("[Submit] Waiting 200ms before reload...");
+			await new Promise(resolve => setTimeout(resolve, 200));
+			console.log("[Submit] Reloading from server...");
 			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
 			const j = await res.json();
-			setItems(j.items || []);
+			console.log("[Submit] Reloaded items:", j.items, "Locked:", j.locked);
+			const newItems = j.items || [];
+			// Update hash and state
+			const itemsHash = JSON.stringify(newItems.map((i: any) => ({ id: i.id, text: i.text, created_by: i.created_by })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
+			itemsHashRef.current = itemsHash;
+			setItems(newItems);
 			setLocked(!!j.locked);
-		} catch {
+			// Update mySubmission state so button changes to "Update"
+			const updatedSub = (j.items || []).find((i: any) => {
+				const createdBy = i.created_by;
+				return createdBy === meId || createdBy === (players.find(p => p.id === meId) as any)?.userId;
+			});
+			if (updatedSub) {
+				setMySubmission(updatedSub);
+				// Update the input text to match the server response (in case it was trimmed or changed)
+				if (updatedSub.text !== textToSubmit) {
+					setMyText(updatedSub.text);
+				}
+			}
+			// Clear the just-submitted flag after a short delay to allow the state to settle
+			setTimeout(() => {
+				justSubmittedRef.current = false;
+			}, 500);
+			console.log("[Submit] Submission complete!");
+		} catch (err) {
+			console.error("[Submit] Exception:", err);
 			setErrorMsg("Submit failed");
+			// Remove optimistic update on error
+			setItems(prev => prev.filter(item => !item.id?.startsWith("temp-")));
 		}
 	}
 
@@ -222,7 +402,14 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						<div className="text-xs text-deepBrown/70 mb-2">Submissions</div>
 						<ul className="space-y-2">
 							{players.map(p => {
-								const sub = items.find(i => i.created_by === p.id);
+								// Match submissions by player ID or userId (since created_by might be either)
+								const sub = items.find(i => {
+									const createdBy = i.created_by;
+									return createdBy === p.id || createdBy === (p as any).userId;
+								});
+								if (typeof window !== "undefined" && window.localStorage?.getItem("gymdm_debug") === "1") {
+									console.log("[Display] Player:", p.name, "ID:", p.id, "userId:", (p as any).userId, "Submission:", sub, "All items:", items);
+								}
 								return (
 									<li key={p.id} className="flex items-start gap-2">
 										<div className="h-8 w-8 rounded-full overflow-hidden bg-tan border border-deepBrown/30">
@@ -243,14 +430,19 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 							<div className="mt-3 flex gap-2">
 								<input
 									className="flex-1 px-3 py-2 rounded-md border border-deepBrown/30 bg-cream text-deepBrown"
-									placeholder="Suggest a punishment (max 50 chars)"
+									placeholder={mySubmission ? "Update your punishment (max 50 chars)" : "Suggest a punishment (max 50 chars)"}
 									value={myText}
 									maxLength={50}
 									onChange={e => setMyText(e.target.value)}
 								/>
 								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={submitSuggestion} disabled={!myText.trim()}>
-									Submit
+									{mySubmission ? "Update" : "Submit"}
 								</button>
+							</div>
+						)}
+						{locked && mySubmission && (
+							<div className="mt-3 text-xs text-deepBrown/70 italic">
+								List is locked. Your submission: "{mySubmission.text}"
 							</div>
 						)}
 					</div>
