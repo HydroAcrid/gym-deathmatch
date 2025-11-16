@@ -6,6 +6,7 @@ import { useToast } from "./ToastProvider";
 import { ChallengeSettingsCard } from "./ChallengeSettingsCard";
 import type { ChallengeSettings } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
+import { useAuth } from "./AuthProvider";
 
 export function OwnerSettingsModal({
 	lobbyId,
@@ -48,6 +49,7 @@ export function OwnerSettingsModal({
 	const [seasonEnd, setSeasonEnd] = useState<string>(initialEnd);
 	const [saving, setSaving] = useState(false);
 	const toast = useToast();
+	const { user } = useAuth();
 	const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
 	const [removeId, setRemoveId] = useState<string>("");
 	const [newOwnerId, setNewOwnerId] = useState<string>("");
@@ -163,7 +165,7 @@ export function OwnerSettingsModal({
 			: `/api/lobby/${encodeURIComponent(lobbyId)}`;
 		const body = isAdmin ? undefined : JSON.stringify({
 			ownerPlayerId: localStorage.getItem("gymdm_playerId") || "",
-			userId: (typeof window !== "undefined" && localStorage.getItem("gymdm_userId")) || undefined
+			userId: user?.id || undefined
 		});
 		const res = await fetch(url, { method: "DELETE", headers, body });
 		if (res.ok) {
