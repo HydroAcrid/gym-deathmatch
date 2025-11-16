@@ -152,7 +152,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 					<div className="flex items-center gap-2">
 						<button
 							aria-label="Share lobby"
-							className="p-1 text-xs"
+							className="p-1 text-xs text-main dark:text-cream"
 							onClick={async () => {
 								const shareUrl = `${window.location.origin}/onboard/${lobby.id}`;
 								const ownerName = lobby.players.find(p => p.id === lobby.ownerId)?.name || "Your friend";
@@ -167,7 +167,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 								alert("Invite link copied");
 							}}
 						>
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 								<path d="M10 13a5 5 0 0 0 7.07 0l3.54-3.54a5 5 0 0 0-7.07-7.07L11 4" />
 								<path d="M14 11a5 5 0 0 0-7.07 0L3.39 14.54a5 5 0 1 0 7.07 7.07L13 20" />
 							</svg>
