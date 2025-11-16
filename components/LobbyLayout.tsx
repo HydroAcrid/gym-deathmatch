@@ -114,9 +114,9 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		// re-fetch after connect or error banners too
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobby.id, stravaConnected, stravaError]);
-	// periodic refresh to keep feed fresh
+	// periodic refresh to keep feed fresh - poll every 5 seconds for live updates
 	useEffect(() => {
-		const id = setInterval(() => { reloadLive(); }, 12 * 60 * 1000);
+		const id = setInterval(() => { reloadLive(); }, 5 * 1000);
 		return () => clearInterval(id);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobby.id]);

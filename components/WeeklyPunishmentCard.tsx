@@ -56,7 +56,11 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     } catch { /* ignore */ }
   }
 
-  useEffect(() => { load(); }, [lobbyId]);
+  useEffect(() => { 
+    load(); 
+    const id = setInterval(load, 5 * 1000); // Poll every 5 seconds
+    return () => clearInterval(id);
+  }, [lobbyId]);
   // Poll readiness (lightweight via live route)
   useEffect(() => {
     let tm: any;

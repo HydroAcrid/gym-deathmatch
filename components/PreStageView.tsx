@@ -54,6 +54,21 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 	}
 	const [scheduleAt, setScheduleAt] = useState<string>(isoToLocalInput(lobby.scheduledStart ?? ""));
+	const [lobbyStatus, setLobbyStatus] = useState<string | undefined>(lobby.status);
+	const [scheduledStart, setScheduledStart] = useState<string | null | undefined>(lobby.scheduledStart);
+	
+	const reloadLobby = async () => {
+		try {
+			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
+			if (!res.ok) return;
+			const data = await res.json();
+			if (data?.lobby) {
+				setPlayers(data.lobby.players || []);
+				if (data.seasonStatus) setLobbyStatus(data.seasonStatus);
+			}
+		} catch { /* ignore */ }
+	};
+
 	const schedule = async () => {
 		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
 			method: "PATCH",
@@ -63,7 +78,9 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				scheduledStart: scheduleAt ? new Date(scheduleAt).toISOString() : null
 			})
 		});
-		router.refresh();
+		setLobbyStatus("scheduled");
+		setScheduledStart(scheduleAt ? new Date(scheduleAt).toISOString() : null);
+		await reloadLobby();
 	};
 	const startNow = async () => {
 		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
@@ -71,7 +88,8 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ startNow: true })
 		});
-		router.refresh();
+		// Status will change to active, which will cause LobbySwitcher to show LobbyLayout
+		setTimeout(() => router.refresh(), 500);
 	};
 	const cancelSchedule = async () => {
 		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
@@ -79,7 +97,9 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ status: "pending", scheduledStart: null })
 		});
-		router.refresh();
+		setLobbyStatus("pending");
+		setScheduledStart(null);
+		await reloadLobby();
 	};
 
 	// Load profile basics for quick-join
@@ -125,20 +145,24 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		router.refresh();
 	}
 
-	// Load live statuses (Strava connected, etc.)
+	// Load live statuses (Strava connected, etc.) and poll for updates
 	useEffect(() => {
 		let cancelled = false;
-		(async () => {
+		async function refresh() {
 			try {
 				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				if (!cancelled && data?.lobby?.players) {
-					setPlayers(data.lobby.players);
+					setPlayers(data.lobby.players || []);
+					if (data.seasonStatus) setLobbyStatus(data.seasonStatus);
+					if (data?.lobby?.scheduledStart !== undefined) setScheduledStart(data.lobby.scheduledStart);
 				}
 			} catch { /* ignore */ }
-		})();
-		return () => { cancelled = true; };
+		}
+		refresh();
+		const id = setInterval(refresh, 5 * 1000); // Poll every 5 seconds
+		return () => { cancelled = true; clearInterval(id); };
 	}, [lobby.id]);
 
 	return (
@@ -146,7 +170,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 			<motion.div className="paper-card paper-grain ink-edge px-4 py-3 border-b-4 mb-3 flex items-center justify-between" style={{ borderColor: "#E1542A" }}
 				initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
 				<div className="flex items-center gap-3">
-					<div className="poster-headline text-xl">DEATHMATCH STAGE · SEASON {lobby.seasonNumber} – WINTER GRIND</div>
+					<div className="poster-headline text-xl">DEATHMATCH STAGE · SEASON {lobby.seasonNumber} – {lobby.name.toUpperCase()}</div>
 				</div>
 				{isOwner && (
 					<div className="flex items-center gap-2">
@@ -187,18 +211,18 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 					defaultWeekly={lobby.weeklyTarget ?? 3}
 					defaultLives={lobby.initialLives ?? 3}
 					defaultSeasonEnd={lobby.seasonEnd}
-					onSaved={() => router.refresh()}
+					onSaved={() => { setEditOpen(false); reloadLobby(); }}
 					hideTrigger
 				/>
 			)}
 
 			{/* Hero Countdown */}
 			<div className="mb-6">
-				{lobby.status === "scheduled" && lobby.scheduledStart ? (
+				{lobbyStatus === "scheduled" && scheduledStart ? (
 					<CountdownHero
 						lobbyId={lobby.id}
-						targetIso={lobby.scheduledStart}
-						seasonLabel={`SEASON ${lobby.seasonNumber} – WINTER GRIND`}
+						targetIso={scheduledStart || undefined}
+						seasonLabel={`SEASON ${lobby.seasonNumber} – ${lobby.name.toUpperCase()}`}
 						hostName={players.find(p => p.id === lobby.ownerId)?.name}
 						numAthletes={players.length}
 					/>
@@ -228,7 +252,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 						<button onClick={schedule} className="btn-secondary px-4 py-3 rounded-md w-full md:w-auto md:flex-1">Schedule start</button>
 					</div>
 					<div className="mt-3 flex flex-col sm:flex-row gap-2">
-						{lobby.status === "scheduled" && (
+						{lobbyStatus === "scheduled" && (
 							<button onClick={cancelSchedule} className="px-3 py-2 rounded-md border border-strong text-xs flex-1">
 								Cancel scheduled start
 							</button>

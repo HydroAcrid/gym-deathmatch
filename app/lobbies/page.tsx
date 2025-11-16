@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { OwnerSettingsModal } from "@/components/OwnerSettingsModal";
 import { useAuth } from "@/components/AuthProvider";
@@ -21,10 +21,23 @@ export default function LobbiesPage() {
 		const me = localStorage.getItem("gymdm_playerId");
 		setPlayerId(me);
 	}, []);
-	useEffect(() => {
+	
+	const reloadLobbies = useCallback(async () => {
 		const url = filterMine && user?.id ? `/api/lobbies?userId=${encodeURIComponent(user.id)}` : "/api/lobbies";
 		fetch(url).then(r => r.json()).then(d => setLobbies(d.lobbies ?? [])).catch(() => {});
 	}, [filterMine, user?.id]);
+
+	useEffect(() => {
+		reloadLobbies();
+	}, [reloadLobbies]);
+
+	// Poll for lobby updates every 10 seconds
+	useEffect(() => {
+		const id = setInterval(() => {
+			reloadLobbies();
+		}, 10 * 1000);
+		return () => clearInterval(id);
+	}, [reloadLobbies]);
 
 	return (
 		<div className="mx-auto max-w-6xl">
@@ -67,8 +80,7 @@ export default function LobbiesPage() {
 												headers: { "Content-Type": "application/json" },
 												body: JSON.stringify({ userId: user.id })
 											});
-											const url = `/api/lobbies?userId=${encodeURIComponent(user.id)}`;
-											fetch(url).then(r => r.json()).then(d => setLobbies(d.lobbies ?? [])).catch(() => {});
+											reloadLobbies();
 										}}
 									>
 										Leave
@@ -101,7 +113,7 @@ export default function LobbiesPage() {
 					defaultSeasonEnd={editLobby.season_end ?? new Date().toISOString()}
 					autoOpen
 					hideTrigger
-					onSaved={() => { setEditLobby(null); fetch("/api/lobbies").then(r=>r.json()).then(d=>setLobbies(d.lobbies??[])); }}
+					onSaved={() => { setEditLobby(null); reloadLobbies(); }}
 					onClose={() => setEditLobby(null)}
 				/>
 			)}

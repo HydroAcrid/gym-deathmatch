@@ -30,23 +30,27 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		else setIsOwner(false);
 	}, [user?.id, lobby.ownerId, (lobby as any).ownerUserId]);
 
+	const loadPunishments = async () => {
+		try {
+			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+			if (!res.ok) return;
+			const j = await res.json();
+			setItems(j.items || []);
+			setLocked(!!j.locked);
+			if (j.active?.text) setChosen(j.active.text);
+		} catch { /* ignore */ }
+	};
+
 	useEffect(() => {
-		(async () => {
-			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
-				if (!res.ok) return;
-				const j = await res.json();
-				setItems(j.items || []);
-				setLocked(!!j.locked);
-				if (j.active?.text) setChosen(j.active.text);
-			} catch { /* ignore */ }
-		})();
+		loadPunishments();
+		const id = setInterval(loadPunishments, 5 * 1000); // Poll every 5 seconds
+		return () => clearInterval(id);
 	}, [lobby.id]);
 
-	// Enrich player list with userId by loading live once (to match logged-in user to a playerId)
+	// Enrich player list with userId and poll for updates
 	useEffect(() => {
 		let cancelled = false;
-		(async () => {
+		async function refresh() {
 			try {
 				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 				if (!res.ok) return;
@@ -55,8 +59,10 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 					setPlayers(data.lobby.players);
 				}
 			} catch { /* ignore */ }
-		})();
-		return () => { cancelled = true; };
+		}
+		refresh();
+		const id = setInterval(refresh, 5 * 1000); // Poll every 5 seconds
+		return () => { cancelled = true; clearInterval(id); };
 	}, [lobby.id]);
 
 	// Build entries for roulette slices (one per player with a suggestion)
