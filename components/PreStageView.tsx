@@ -84,13 +84,16 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		await reloadLobby();
 	};
 	const startNow = async () => {
-		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
+		const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ startNow: true })
 		});
-		// Status will change to active, which will cause LobbySwitcher to show LobbyLayout
-		setTimeout(() => router.refresh(), 500);
+		if (res.ok) {
+			// For roulette mode, status changes to transition_spin, so wait a bit longer for the update
+			// For other modes, status changes to active
+			setTimeout(() => router.refresh(), 1000);
+		}
 	};
 	const cancelSchedule = async () => {
 		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {

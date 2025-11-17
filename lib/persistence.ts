@@ -53,13 +53,14 @@ export async function upsertStravaTokens(playerId: string, tokens: StravaTokens)
 	return true;
 }
 
-export async function updateLobbyStage(lobbyId: string, updates: Partial<{ status: "pending"|"scheduled"|"transition_spin"|"active"|"completed"; scheduledStart: string | null; seasonStart: string | null }>): Promise<boolean> {
+export async function updateLobbyStage(lobbyId: string, updates: Partial<{ status: "pending"|"scheduled"|"transition_spin"|"active"|"completed"; scheduledStart: string | null; seasonStart: string | null; stage?: "PRE_STAGE"|"ACTIVE"|"COMPLETED" }>): Promise<boolean> {
 	const supabase = getServerSupabase();
 	if (!supabase) return false;
 	const payload: any = {};
 	if (updates.status !== undefined) payload.status = updates.status;
 	if (updates.scheduledStart !== undefined) payload.scheduled_start = updates.scheduledStart;
 	if (updates.seasonStart !== undefined) payload.season_start = updates.seasonStart;
+	if (updates.stage !== undefined) payload.stage = updates.stage;
 	const { error } = await supabase.from("lobby").update(payload).eq("id", lobbyId);
 	if (error) {
 		console.error("updateLobbyStage error", error);

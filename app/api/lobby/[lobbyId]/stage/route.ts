@@ -55,6 +55,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 							// Enter transition spin; do not set seasonStart yet
 							payload.status = "transition_spin";
 							payload.scheduledStart = null;
+							// Set stage to ACTIVE since we're starting the season
+							payload.stage = "ACTIVE";
 						}
 					} else {
 						payload.status = "active";
