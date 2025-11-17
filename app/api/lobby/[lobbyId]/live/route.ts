@@ -98,32 +98,45 @@ function generateSeasonSummary(
 			}));
 	}
 	
-	// Calculate highlights
-	const longestStreakPlayer = [...players].sort((a, b) => b.longestStreak - a.longestStreak)[0];
-	const mostWorkoutsPlayer = [...players].sort((a, b) => b.totalWorkouts - a.totalWorkouts)[0];
-	const mostConsistentPlayer = [...players].sort((a, b) => b.averageWorkoutsPerWeek - a.averageWorkoutsPerWeek)[0];
-	
+	// Calculate highlights (only if we have players with valid stats)
 	const highlights: SeasonSummary["highlights"] = {};
-	if (longestStreakPlayer && longestStreakPlayer.longestStreak > 0) {
-		highlights.longestStreak = {
-			playerId: longestStreakPlayer.id,
-			playerName: longestStreakPlayer.name,
-			streak: longestStreakPlayer.longestStreak
-		};
-	}
-	if (mostWorkoutsPlayer && mostWorkoutsPlayer.totalWorkouts > 0) {
-		highlights.mostWorkouts = {
-			playerId: mostWorkoutsPlayer.id,
-			playerName: mostWorkoutsPlayer.name,
-			count: mostWorkoutsPlayer.totalWorkouts
-		};
-	}
-	if (mostConsistentPlayer && mostConsistentPlayer.averageWorkoutsPerWeek > 0) {
-		highlights.mostConsistent = {
-			playerId: mostConsistentPlayer.id,
-			playerName: mostConsistentPlayer.name,
-			avgPerWeek: mostConsistentPlayer.averageWorkoutsPerWeek
-		};
+	
+	if (players.length > 0) {
+		// Longest streak
+		const longestStreakPlayer = [...players]
+			.filter(p => typeof p.longestStreak === "number" && !isNaN(p.longestStreak) && p.longestStreak > 0)
+			.sort((a, b) => b.longestStreak - a.longestStreak)[0];
+		if (longestStreakPlayer) {
+			highlights.longestStreak = {
+				playerId: longestStreakPlayer.id,
+				playerName: longestStreakPlayer.name,
+				streak: longestStreakPlayer.longestStreak
+			};
+		}
+		
+		// Most workouts
+		const mostWorkoutsPlayer = [...players]
+			.filter(p => typeof p.totalWorkouts === "number" && !isNaN(p.totalWorkouts) && p.totalWorkouts > 0)
+			.sort((a, b) => b.totalWorkouts - a.totalWorkouts)[0];
+		if (mostWorkoutsPlayer) {
+			highlights.mostWorkouts = {
+				playerId: mostWorkoutsPlayer.id,
+				playerName: mostWorkoutsPlayer.name,
+				count: mostWorkoutsPlayer.totalWorkouts
+			};
+		}
+		
+		// Most consistent (highest average workouts per week)
+		const mostConsistentPlayer = [...players]
+			.filter(p => typeof p.averageWorkoutsPerWeek === "number" && !isNaN(p.averageWorkoutsPerWeek) && p.averageWorkoutsPerWeek > 0)
+			.sort((a, b) => b.averageWorkoutsPerWeek - a.averageWorkoutsPerWeek)[0];
+		if (mostConsistentPlayer) {
+			highlights.mostConsistent = {
+				playerId: mostConsistentPlayer.id,
+				playerName: mostConsistentPlayer.name,
+				avgPerWeek: mostConsistentPlayer.averageWorkoutsPerWeek
+			};
+		}
 	}
 	
 	return {
