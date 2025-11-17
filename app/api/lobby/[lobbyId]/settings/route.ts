@@ -10,7 +10,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 		const patch: any = {};
 		if (typeof body.weeklyTarget === "number") patch.weekly_target = body.weeklyTarget;
 		if (typeof body.initialLives === "number") patch.initial_lives = body.initialLives;
-		if (typeof body.seasonStart === "string") patch.season_start = body.seasonStart;
+		if (typeof body.seasonStart === "string") {
+			patch.season_start = body.seasonStart;
+			// Sync scheduled_start with season_start for consistent UI display
+			// This ensures the countdown in PreStageView matches the season start date
+			patch.scheduled_start = body.seasonStart;
+		}
+		if (typeof body.scheduledStart === "string") {
+			patch.scheduled_start = body.scheduledStart;
+			// Sync season_start with scheduled_start for bidirectional consistency
+			// This ensures the season start date matches the scheduled countdown
+			patch.season_start = body.scheduledStart;
+		}
 		if (typeof body.seasonEnd === "string") patch.season_end = body.seasonEnd;
 		// Pot settings (owner only UI)
 		if (typeof body.initialPot === "number") patch.initial_pot = body.initialPot;
