@@ -26,7 +26,12 @@ export async function POST(req: Request) {
 			if (prof.location !== null && prof.location !== undefined) updates.location = prof.location;
 			if (prof.quip !== null && prof.quip !== undefined) updates.quip = prof.quip;
 			if (Object.keys(updates).length) {
+				// Update all player rows for this user
 				await supabase.from("player").update(updates).eq("user_id", userId);
+				// Also update the specific playerId if provided (in case user_id wasn't set yet)
+				if (playerId) {
+					await supabase.from("player").update(updates).eq("id", playerId);
+				}
 			}
 		} else {
 			// Conservative sync (default): fix obvious placeholders and fill missing fields

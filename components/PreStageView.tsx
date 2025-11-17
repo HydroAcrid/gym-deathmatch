@@ -171,7 +171,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				} catch { /* ignore */ }
 			}
 		})();
-	}, [user?.id, players.length]); // Sync when user or player count changes
+	}, [user?.id, players.length, lobby.id]); // Sync when user, player count, or lobby changes
 
 	// Load live statuses (Strava connected, etc.) and poll for updates
 	useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { Lobby, Player } from "@/types/game";
 import { motion } from "framer-motion";
 import { Scoreboard } from "./Scoreboard";
@@ -157,6 +157,33 @@ export function LobbyLayout({
 			clearInterval(id);
 		};
 	}, [lobby.id, (lobby as any).mode]);
+
+	// Sync current user's player data from profile when component loads or players change
+	const syncedRef = useRef<string | null>(null);
+	useEffect(() => {
+		(async () => {
+			if (!user?.id || !players.length) return;
+			// Find current user's player in this lobby
+			const myPlayer = players.find(p => (p as any).userId === user.id);
+			if (myPlayer && syncedRef.current !== myPlayer.id) {
+				syncedRef.current = myPlayer.id;
+				// Sync this player's data from user_profile and refresh
+				try {
+					await fetch("/api/user/sync", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							userId: user.id,
+							playerId: myPlayer.id,
+							overwriteAll: true // Always sync from profile to ensure quip/location are current
+						})
+					});
+					// Refresh players list to show updated data
+					await reloadLive();
+				} catch { /* ignore */ }
+			}
+		})();
+	}, [user?.id, players.length, lobby.id]); // Sync when user, players, or lobby changes
 
 	useEffect(() => {
 		let ignore = false;
