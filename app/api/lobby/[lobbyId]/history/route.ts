@@ -16,9 +16,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		const limitParam = Number(new URL(req.url).searchParams.get("limit") || "50");
 		const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 50;
 
-		const [{ data: activities }, { data: events }, { data: players }, { data: lobby }] = await Promise.all([
+		const [{ data: activities }, { data: events }, { data: comments }, { data: players }, { data: lobby }] = await Promise.all([
 			supabase.from("manual_activities").select("*").eq("lobby_id", lobbyId).order("created_at", { ascending: false }).limit(limit),
 			supabase.from("history_events").select("*").eq("lobby_id", lobbyId).order("created_at", { ascending: false }).limit(limit),
+			supabase.from("comments").select("id,type,rendered,created_at,primary_player_id").eq("lobby_id", lobbyId).in("visibility", ["history", "both"] as any).order("created_at", { ascending: false }).limit(limit),
 			supabase.from("player").select("id,name,avatar_url").eq("lobby_id", lobbyId),
 			supabase.from("lobby").select("id,name").eq("id", lobbyId).maybeSingle()
 		]);
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		return NextResponse.json({
 			activities: activities ?? [],
 			events: events ?? [],
+			comments: comments ?? [],
 			players: players ?? [],
 			lobby: lobby ?? null
 		}, { status: 200 });

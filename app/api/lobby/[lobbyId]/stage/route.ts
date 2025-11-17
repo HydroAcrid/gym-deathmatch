@@ -55,7 +55,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 										type: "SUMMARY",
 										rendered: "The arena opens. Fight!",
 										payload: { type: "START" },
-										visibility: "feed"
+										visibility: "both" // Show in both feed and history
 									});
 								}
 							} catch (e) {
@@ -91,7 +91,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 									type: "SUMMARY",
 									rendered: "The arena opens. Fight!",
 									payload: { type: "START" },
-									visibility: "feed"
+									visibility: "both" // Show in both feed and history
 								});
 							}
 						} catch (e) {

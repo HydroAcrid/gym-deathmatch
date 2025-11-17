@@ -57,10 +57,23 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 			const acts = (j?.activities ?? []) as ActivityRow[];
 			const prows = (j?.players ?? []) as PlayerLite[];
 			const lrow = j?.lobby as any;
+			const comms = (j?.comments ?? []) as Array<{ id: string; type: string; rendered: string; created_at: string; primary_player_id?: string | null }>;
 			setLobbyName(lrow?.name || lid);
 			setPlayers(prows as any);
 			setActivities(acts as any);
-			setHistoryEvents((j?.events ?? []) as any);
+			// Convert comments to history events format for display
+			const commentEvents = comms.map(c => ({
+				id: c.id,
+				lobby_id: lid,
+				actor_player_id: c.primary_player_id || null,
+				target_player_id: null,
+				type: "COMMENT",
+				payload: { rendered: c.rendered, commentType: c.type },
+				created_at: c.created_at
+			}));
+			// Merge regular events with comment events
+			const allEvents = [...(j?.events ?? []), ...commentEvents];
+			setHistoryEvents(allEvents as any);
 			// derive owner and my player id
 			if (user?.id) {
 				const mine = (prows ?? []).find((p: any) => (p as any).user_id === user.id);
@@ -341,6 +354,10 @@ function renderEventLine(ev: EventRow, players: PlayerLite[]) {
 		const d = Number(ev.payload?.delta || 0);
 		const sign = d > 0 ? "+" : "";
 		return `${actor} adjusted hearts for ${target}: ${sign}${d}${ev.payload?.reason ? ` — ${ev.payload.reason}` : ""}`;
+	}
+	if (ev.type === "COMMENT") {
+		// Render comment text directly (e.g., "The arena opens. Fight!")
+		return ev.payload?.rendered || "Comment";
 	}
 	return `${actor || "System"}: ${ev.type}`;
 }
