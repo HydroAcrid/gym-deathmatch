@@ -65,6 +65,22 @@ export function OwnerSettingsModal({
 		setOpen(openProp);
 	}, [openProp]);
 
+	// Reset form values when modal opens or defaults change
+	useEffect(() => {
+		if (open) {
+			setWeekly(defaultWeekly);
+			setLives(defaultLives);
+			setInitialPot(String(defaultInitialPot ?? 0));
+			setWeeklyAnte(String(defaultWeeklyAnte ?? 10));
+			setScalingEnabled(!!defaultScalingEnabled);
+			setPerPlayerBoost(String(defaultPerPlayerBoost ?? 0));
+			if (defaultSeasonEnd) {
+				const initialEnd = defaultSeasonEnd.slice(0, 16).replace("Z", "");
+				setSeasonEnd(initialEnd);
+			}
+		}
+	}, [open, defaultWeekly, defaultLives, defaultInitialPot, defaultWeeklyAnte, defaultScalingEnabled, defaultPerPlayerBoost, defaultSeasonEnd]);
+
 	const [mode, setMode] = useState<"MONEY_SURVIVAL"|"MONEY_LAST_MAN"|"CHALLENGE_ROULETTE"|"CHALLENGE_CUMULATIVE">("MONEY_SURVIVAL");
 	const [suddenDeath, setSuddenDeath] = useState<boolean>(false);
 
