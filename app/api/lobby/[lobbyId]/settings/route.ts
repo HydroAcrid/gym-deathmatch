@@ -17,10 +17,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 		if (typeof body.weeklyAnte === "number") patch.weekly_ante = body.weeklyAnte;
 		if (typeof body.scalingEnabled === "boolean") patch.scaling_enabled = body.scalingEnabled;
 		if (typeof body.perPlayerBoost === "number") patch.per_player_boost = body.perPlayerBoost;
-		// Challenge settings
-		if (typeof body.challengeAllowSuggestions === "boolean") patch.challenge_allow_suggestions = body.challengeAllowSuggestions;
-		if (typeof body.challengeRequireLock === "boolean") patch.challenge_require_lock = body.challengeRequireLock;
-		if (typeof body.challengeAutoSpin === "boolean") patch.challenge_auto_spin = body.challengeAutoSpin;
+		// Challenge settings (JSONB)
+		if (body.challengeSettings !== undefined) patch.challenge_settings = body.challengeSettings;
 		// Mode settings
 		if (typeof body.mode === "string") patch.mode = body.mode;
 		if (typeof body.suddenDeathEnabled === "boolean") patch.sudden_death_enabled = body.suddenDeathEnabled;

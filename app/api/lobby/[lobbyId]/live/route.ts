@@ -6,13 +6,134 @@ import type { LiveLobbyResponse } from "@/types/api";
 import { setTokensForPlayer } from "@/lib/stravaStore";
 import { computeWeeklyHearts } from "@/lib/rules";
 import { getServerSupabase } from "@/lib/supabaseClient";
-import type { Lobby, Player } from "@/types/game";
+import type { Lobby, Player, SeasonSummary, GameMode, LobbyStage } from "@/types/game";
 import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 import { getDailyTaunts } from "@/lib/funFacts";
 import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 import { onHeartsChanged, onKO, onPotChanged, onWeeklyReset, onAllReady } from "@/lib/commentary";
 import { logError } from "@/lib/logger";
+
+// Generate season summary when season completes
+function generateSeasonSummary(
+	players: Player[],
+	mode: GameMode,
+	finalPot: number,
+	seasonNumber: number
+): SeasonSummary {
+	// Determine winners and losers based on mode
+	let winners: SeasonSummary["winners"] = [];
+	let losers: SeasonSummary["losers"] = [];
+	
+	if (mode === "MONEY_SURVIVAL") {
+		// Winners: all players with hearts > 0
+		// Losers: players with 0 hearts
+		winners = players
+			.filter(p => p.livesRemaining > 0)
+			.map(p => ({
+				id: p.id,
+				name: p.name,
+				avatarUrl: p.avatarUrl,
+				hearts: p.livesRemaining,
+				totalWorkouts: p.totalWorkouts
+			}));
+		losers = players
+			.filter(p => p.livesRemaining === 0)
+			.map(p => ({
+				id: p.id,
+				name: p.name,
+				avatarUrl: p.avatarUrl,
+				hearts: p.livesRemaining,
+				totalWorkouts: p.totalWorkouts
+			}));
+	} else if (mode === "MONEY_LAST_MAN") {
+		// Winner: player with most hearts (or highest totalWorkouts if tie)
+		const sorted = [...players].sort((a, b) => {
+			if (b.livesRemaining !== a.livesRemaining) return b.livesRemaining - a.livesRemaining;
+			return b.totalWorkouts - a.totalWorkouts;
+		});
+		const winner = sorted[0];
+		if (winner && winner.livesRemaining > 0) {
+			winners = [{
+				id: winner.id,
+				name: winner.name,
+				avatarUrl: winner.avatarUrl,
+				hearts: winner.livesRemaining,
+				totalWorkouts: winner.totalWorkouts
+			}];
+		}
+		losers = players
+			.filter(p => p.id !== winner?.id || p.livesRemaining === 0)
+			.map(p => ({
+				id: p.id,
+				name: p.name,
+				avatarUrl: p.avatarUrl,
+				hearts: p.livesRemaining,
+				totalWorkouts: p.totalWorkouts
+			}));
+	} else {
+		// Challenge modes: winners = most hearts, losers = least hearts
+		const sorted = [...players].sort((a, b) => {
+			if (b.livesRemaining !== a.livesRemaining) return b.livesRemaining - a.livesRemaining;
+			return b.totalWorkouts - a.totalWorkouts;
+		});
+		const maxHearts = sorted[0]?.livesRemaining ?? 0;
+		winners = sorted
+			.filter(p => p.livesRemaining === maxHearts)
+			.map(p => ({
+				id: p.id,
+				name: p.name,
+				avatarUrl: p.avatarUrl,
+				hearts: p.livesRemaining,
+				totalWorkouts: p.totalWorkouts
+			}));
+		losers = sorted
+			.filter(p => p.livesRemaining < maxHearts)
+			.map(p => ({
+				id: p.id,
+				name: p.name,
+				avatarUrl: p.avatarUrl,
+				hearts: p.livesRemaining,
+				totalWorkouts: p.totalWorkouts
+			}));
+	}
+	
+	// Calculate highlights
+	const longestStreakPlayer = [...players].sort((a, b) => b.longestStreak - a.longestStreak)[0];
+	const mostWorkoutsPlayer = [...players].sort((a, b) => b.totalWorkouts - a.totalWorkouts)[0];
+	const mostConsistentPlayer = [...players].sort((a, b) => b.averageWorkoutsPerWeek - a.averageWorkoutsPerWeek)[0];
+	
+	const highlights: SeasonSummary["highlights"] = {};
+	if (longestStreakPlayer && longestStreakPlayer.longestStreak > 0) {
+		highlights.longestStreak = {
+			playerId: longestStreakPlayer.id,
+			playerName: longestStreakPlayer.name,
+			streak: longestStreakPlayer.longestStreak
+		};
+	}
+	if (mostWorkoutsPlayer && mostWorkoutsPlayer.totalWorkouts > 0) {
+		highlights.mostWorkouts = {
+			playerId: mostWorkoutsPlayer.id,
+			playerName: mostWorkoutsPlayer.name,
+			count: mostWorkoutsPlayer.totalWorkouts
+		};
+	}
+	if (mostConsistentPlayer && mostConsistentPlayer.averageWorkoutsPerWeek > 0) {
+		highlights.mostConsistent = {
+			playerId: mostConsistentPlayer.id,
+			playerName: mostConsistentPlayer.name,
+			avgPerWeek: mostConsistentPlayer.averageWorkoutsPerWeek
+		};
+	}
+	
+	return {
+		seasonNumber,
+		winners,
+		losers,
+		finalPot,
+		highlights
+	};
+}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	// Optional debug mode: /live?debug=1 will include extra details and server logs
@@ -25,6 +146,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const { lobbyId } = await params;
 	let lobby: Lobby | null = null;
 	let rawStatus: "pending" | "scheduled" | "transition_spin" | "active" | "completed" | undefined;
+	let rawStage: LobbyStage | null = null;
 	let rawSeasonNumber = 1;
 	let potConfig = { initialPot: 0, weeklyAnte: 10, scalingEnabled: false, perPlayerBoost: 0 };
 	let userIdByPlayer: Record<string, string | null> = {};
@@ -35,6 +157,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			const { data: lrow } = await supabase.from("lobby").select("*").eq("id", lobbyId).single();
 			if (lrow) {
 				rawStatus = lrow.status ?? "active";
+				rawStage = (lrow.stage as LobbyStage) || null;
 				rawSeasonNumber = lrow.season_number ?? 1;
 				potConfig = {
 					initialPot: (lrow.initial_pot as number) ?? 0,
@@ -95,7 +218,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					initialLives: lrow.initial_lives ?? 3,
 					ownerId: lrow.owner_id ?? undefined,
 					mode: (lrow.mode as any) || "MONEY_SURVIVAL",
-					suddenDeathEnabled: !!lrow.sudden_death_enabled
+					suddenDeathEnabled: !!lrow.sudden_death_enabled,
+					stage: rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE"),
+					seasonSummary: lrow.season_summary ? (lrow.season_summary as any) : null
 				} as Lobby;
 				// Build user map and overlay DB fields on mock lobby players as well
 				const { data: prows2 } = await supabase.from("player").select("id,user_id,avatar_url,location,quip").eq("lobby_id", lobbyId);
@@ -147,14 +272,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const weeklyTarget = lobby.weeklyTarget ?? 3;
 	const initialLives = lobby.initialLives ?? 3;
 
-	// If season end has passed, mark as completed (idempotent)
+	// If season end has passed and stage is ACTIVE, mark as COMPLETED and generate summary
+	let seasonSummary: SeasonSummary | null = null;
 	try {
 		const now = Date.now();
-		if (rawStatus !== "completed" && new Date(seasonEnd).getTime() <= now) {
+		const seasonEndTime = new Date(seasonEnd).getTime();
+		const currentStage = rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE");
+		
+		if (currentStage === "ACTIVE" && seasonEndTime <= now) {
 			const supabase = getServerSupabase();
 			if (supabase) {
-				await supabase.from("lobby").update({ status: "completed" }).eq("id", lobby.id);
+				// Generate season summary before updating (we need current player stats)
+				// We'll generate it after player stats are computed, so we'll handle this later
+				// For now, just mark the stage
+				await supabase.from("lobby").update({ 
+					status: "completed",
+					stage: "COMPLETED"
+				}).eq("id", lobby.id);
 				rawStatus = "completed";
+				rawStage = "COMPLETED";
 			}
 		}
 	} catch { /* ignore */ }
@@ -619,11 +755,57 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		logError({ route: "GET /api/lobby/[id]/live", code: "ALL_READY_QUIP_FAILED", err: e, lobbyId: lobby.id });
 	}
 
+	// Check if season end has passed and stage is ACTIVE - transition to COMPLETED
+	// This must happen AFTER player stats are computed so we can generate accurate summary
+	const now = Date.now();
+	const seasonEndTime = new Date(seasonEnd).getTime();
+	let currentStage = rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE");
+	
+	if (currentStage === "ACTIVE" && seasonEndTime <= now) {
+		// Transition to COMPLETED
+		try {
+			const supabase = getServerSupabase();
+			if (supabase) {
+				await supabase.from("lobby").update({ 
+					status: "completed",
+					stage: "COMPLETED"
+				}).eq("id", lobby.id);
+				rawStatus = "completed";
+				rawStage = "COMPLETED";
+				currentStage = "COMPLETED";
+			}
+		} catch (e) {
+			logError({ route: "GET /api/lobby/[id]/live", code: "STAGE_TRANSITION_FAILED", err: e, lobbyId });
+		}
+	}
+
+	// Generate season summary if stage is COMPLETED and we don't have one yet
+	if (currentStage === "COMPLETED" && !lobby.seasonSummary) {
+		// Generate summary with current player stats
+		seasonSummary = generateSeasonSummary(updatedPlayers, mode as GameMode, currentPot, lobby.seasonNumber);
+		// Save to database
+		try {
+			const supabase = getServerSupabase();
+			if (supabase) {
+				await supabase.from("lobby").update({ 
+					season_summary: seasonSummary as any
+				}).eq("id", lobby.id);
+			}
+		} catch (e) {
+			logError({ route: "GET /api/lobby/[id]/live", code: "SEASON_SUMMARY_SAVE_FAILED", err: e, lobbyId });
+		}
+	} else if (lobby.seasonSummary) {
+		// Use existing summary from DB
+		seasonSummary = lobby.seasonSummary;
+	}
+
 	const live: LiveLobbyResponse = {
-		lobby: { ...lobby, players: updatedPlayers, cashPool: currentPot },
+		lobby: { ...lobby, players: updatedPlayers, cashPool: currentPot, stage: currentStage, seasonSummary },
 		fetchedAt: new Date().toISOString(),
 		errors: errors.length ? errors : undefined,
 		seasonStatus: rawStatus,
+		stage: currentStage,
+		seasonSummary,
 		koEvent
 	};
 	if (debugMode) {

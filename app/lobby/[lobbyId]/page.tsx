@@ -43,6 +43,8 @@ export default async function LobbyPage({
 			ownerId: lrow.owner_id ?? undefined,
 			ownerUserId: lrow.owner_user_id ?? undefined,
 			status: lrow.status ?? "active",
+			stage: (lrow.stage as any) || (lrow.status === "completed" ? "COMPLETED" : lrow.status === "active" || lrow.status === "transition_spin" ? "ACTIVE" : "PRE_STAGE"),
+			seasonSummary: lrow.season_summary ? (lrow.season_summary as any) : null,
 			scheduledStart: lrow.scheduled_start ?? null,
 			mode: (lrow.mode as any) || "MONEY_SURVIVAL",
 			suddenDeathEnabled: !!lrow.sudden_death_enabled

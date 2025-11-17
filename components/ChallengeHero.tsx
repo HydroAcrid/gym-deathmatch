@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Countdown } from "./Countdown";
 import type { ChallengeSettings, GameMode } from "@/types/game";
 
@@ -30,6 +31,7 @@ export function ChallengeHero({
 	seasonStart?: string;
 	seasonEnd?: string;
 }) {
+	const router = useRouter();
 	const [punishmentText, setPunishmentText] = useState<string | null>(null);
 	const [week, setWeek] = useState<number | null>(null);
 	const [nextSpinIso, setNextSpinIso] = useState<string | null>(null);
@@ -114,6 +116,36 @@ export function ChallengeHero({
 	const isShowingSeasonEnd = nextSpinIso && seasonEnd && nextSpinIso === seasonEnd;
 	const countdownLabel = (spinFrequency === "SEASON_ONLY" || isShowingSeasonEnd) ? "SEASON ENDS IN" : "NEXT SPIN IN";
 
+	// Handle countdown reaching zero
+	const handleCountdownZero = async () => {
+		if (isShowingSeasonEnd || spinFrequency === "SEASON_ONLY") {
+			// Season ended - refresh to show completed status
+			setTimeout(() => router.refresh(), 1000);
+		} else if (countdownLabel === "NEXT SPIN IN" && mode === "CHALLENGE_ROULETTE") {
+			// Next spin time reached - transition to transition_spin
+			try {
+				await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ status: "transition_spin" })
+				});
+				// If autoSpinAtWeekStart is enabled, automatically spin
+				if (challengeSettings?.autoSpinAtWeekStart) {
+					// Wait a moment for the status to update, then spin
+					setTimeout(async () => {
+						try {
+							await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/spin`, {
+								method: "POST"
+							});
+						} catch { /* ignore */ }
+					}, 500);
+				}
+				// Refresh to show transition_spin panel
+				setTimeout(() => router.refresh(), 1000);
+			} catch { /* ignore */ }
+		}
+	};
+
 	// If no active punishment yet, show placeholder
 	const displayText = punishmentText || "No punishment selected yet";
 
@@ -128,7 +160,7 @@ export function ChallengeHero({
 				</div>
 				{nextSpinIso && (
 					<div className="countdown-wrap">
-						<Countdown endIso={nextSpinIso} label={countdownLabel} />
+						<Countdown endIso={nextSpinIso} label={countdownLabel} onReachedZero={handleCountdownZero} />
 					</div>
 				)}
 			</div>

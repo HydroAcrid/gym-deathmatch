@@ -101,6 +101,24 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	// Track items hash to detect changes
 	const itemsHashRef = useRef<string>("");
 	
+	// Clear all form state when switching to a different lobby
+	useEffect(() => {
+		// Reset all form state when lobby changes
+		setItems([]);
+		setMyText("");
+		setMySubmission(null);
+		setChosen(null);
+		setLocked(false);
+		setErrorMsg(null);
+		setSpinning(false);
+		setSpinIndex(null);
+		setSpinNonce(0);
+		pendingChosenRef.current = null;
+		justSubmittedRef.current = false;
+		prevMySubmissionRef.current = null;
+		itemsHashRef.current = "";
+	}, [lobby.id]);
+	
 	useEffect(() => {
 		loadPunishments();
 		let cancelled = false;

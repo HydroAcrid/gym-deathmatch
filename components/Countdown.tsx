@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 function getRemaining(end: Date) {
@@ -12,14 +12,38 @@ function getRemaining(end: Date) {
 	return { days, hours, minutes, seconds, total };
 }
 
-export function Countdown({ endIso, label = "SEASON ENDS IN" }: { endIso: string; label?: string }) {
+export function Countdown({ 
+	endIso, 
+	label = "SEASON ENDS IN",
+	onReachedZero 
+}: { 
+	endIso: string; 
+	label?: string;
+	onReachedZero?: () => void;
+}) {
 	const end = useMemo(() => new Date(endIso), [endIso]);
 	const [remaining, setRemaining] = useState(() => getRemaining(end));
 	const prefersReduced = useReducedMotion();
+	const hasFiredRef = useRef<boolean>(false);
+	
 	useEffect(() => {
-		const t = setInterval(() => setRemaining(getRemaining(end)), 1000);
-		return () => clearInterval(t);
+		// Reset the fired flag when the end time changes
+		hasFiredRef.current = false;
+		setRemaining(getRemaining(end));
 	}, [end]);
+	
+	useEffect(() => {
+		const t = setInterval(() => {
+			const newRemaining = getRemaining(end);
+			setRemaining(newRemaining);
+			// Trigger callback once when countdown reaches zero
+			if (newRemaining.total === 0 && !hasFiredRef.current && onReachedZero) {
+				hasFiredRef.current = true;
+				onReachedZero();
+			}
+		}, 1000);
+		return () => clearInterval(t);
+	}, [end, onReachedZero]);
 	const numVariants = {
 		initial: prefersReduced ? {} : { opacity: 0, rotateX: -90, y: -6 },
 		animate: prefersReduced ? {} : { opacity: 1, rotateX: 0, y: 0, transition: { duration: 0.4, ease: "easeOut" } },

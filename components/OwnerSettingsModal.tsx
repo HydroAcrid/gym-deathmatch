@@ -21,7 +21,8 @@ export function OwnerSettingsModal({
 	autoOpen,
 	hideTrigger,
 	onClose,
-	open: openProp
+	open: openProp,
+	isNextSeason
 }: {
 	lobbyId: string;
 	defaultWeekly: number;
@@ -31,11 +32,12 @@ export function OwnerSettingsModal({
 	defaultWeeklyAnte?: number;
 	defaultScalingEnabled?: boolean;
 	defaultPerPlayerBoost?: number;
-	onSaved: () => void;
+	onSaved: (newSeasonEnd?: string) => void | Promise<void>;
 	autoOpen?: boolean;
 	hideTrigger?: boolean;
 	onClose?: () => void;
 	open?: boolean;
+	isNextSeason?: boolean; // If true, will call /season/next instead of /settings
 }) {
 	const [open, setOpen] = useState<boolean>(!!autoOpen);
 	const [weekly, setWeekly] = useState<number>(defaultWeekly);
@@ -83,6 +85,52 @@ export function OwnerSettingsModal({
 	async function save() {
 		setSaving(true);
 		try {
+			// If this is for next season, call the next season endpoint
+			if (isNextSeason) {
+				const newSeasonStart = seasonStart ? new Date(seasonStart).toISOString() : new Date().toISOString();
+				const newSeasonEnd = new Date(seasonEnd).toISOString();
+				
+				// First update settings, then start next season
+				await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						weeklyTarget: Number(weekly),
+						initialLives: Number(lives),
+						seasonEnd: newSeasonEnd,
+						initialPot: Number(initialPot || 0),
+						weeklyAnte: Number(weeklyAnte || 0),
+						scalingEnabled: Boolean(scalingEnabled),
+						perPlayerBoost: Number(perPlayerBoost || 0),
+						mode,
+						suddenDeathEnabled: suddenDeath,
+						challengeSettings: challengeSettings
+					})
+				});
+				
+				// Then start next season
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/season/next`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						seasonStart: newSeasonStart,
+						seasonEnd: newSeasonEnd
+					})
+				});
+				
+				if (!res.ok) {
+					const j = await res.json().catch(() => ({}));
+					toast.push(j?.error || "Failed to start next season");
+					return;
+				}
+				
+				await onSaved(newSeasonEnd);
+				setOpen(false);
+				if (onClose) onClose();
+				return;
+			}
+			
+			// Normal settings update
 			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
@@ -101,7 +149,7 @@ export function OwnerSettingsModal({
 			});
 			if (res.ok) {
 				toast.push("Settings saved");
-				onSaved();
+				await onSaved();
 				setOpen(false);
 				onClose?.();
 			} else {

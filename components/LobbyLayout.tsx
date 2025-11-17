@@ -19,10 +19,20 @@ import { WeeklyPunishmentCard } from "./WeeklyPunishmentCard";
 import { ChallengeHero } from "./ChallengeHero";
 import { WeekSetup } from "./WeekSetup";
 
-export function LobbyLayout({ lobby }: { lobby: Lobby }) {
+export function LobbyLayout({ 
+	lobby, 
+	onStageChange,
+	onOwnerChange
+}: { 
+	lobby: Lobby;
+	onStageChange?: (stage: Lobby["stage"], summary: Lobby["seasonSummary"]) => void;
+	onOwnerChange?: (isOwner: boolean) => void;
+}) {
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
 	const [currentPot, setCurrentPot] = useState<number>(lobby.cashPool);
 	const [seasonStatus, setSeasonStatus] = useState<"pending" | "scheduled" | "transition_spin" | "active" | "completed" | undefined>(lobby.status);
+	const [stage, setStage] = useState<Lobby["stage"]>(lobby.stage);
+	const [seasonSummary, setSeasonSummary] = useState(lobby.seasonSummary);
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
 	const [activePunishment, setActivePunishment] = useState<{ text: string; week: number } | null>(null);
 	const [koEvent, setKoEvent] = useState<any>(null);
@@ -38,6 +48,13 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 		if (user?.id && ownerPlayer?.userId) return ownerPlayer.userId === user.id;
 		return !!(lobby.ownerId && me && lobby.ownerId === me);
 	}, [user?.id, (lobby as any).ownerUserId, lobby.ownerId, me, players]);
+	
+	// Notify parent of owner status
+	useEffect(() => {
+		if (onOwnerChange) {
+			onOwnerChange(isOwner);
+		}
+	}, [isOwner, onOwnerChange]);
 	const search = useSearchParams();
 	const stravaConnected = search.get("stravaConnected");
 	const connectedPlayerId = search.get("playerId");
@@ -83,6 +100,16 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 			}
 			if ((data?.lobby as any)?.mode) setMode((data.lobby as any).mode);
 			setSeasonStatus(data.seasonStatus);
+			if (data.stage) {
+				setStage(data.stage);
+			}
+			if (data.seasonSummary !== undefined) {
+				setSeasonSummary(data.seasonSummary);
+			}
+			// Notify parent of stage changes
+			if (onStageChange && (data.stage || data.seasonSummary !== undefined)) {
+				onStageChange(data.stage || stage, data.seasonSummary !== undefined ? data.seasonSummary : seasonSummary);
+			}
 			if (data.koEvent) {
 				setKoEvent(data.koEvent);
 				if (data.koEvent.winnerPlayerId) {
@@ -257,21 +284,25 @@ export function LobbyLayout({ lobby }: { lobby: Lobby }) {
 				</>
 			) : (
 				<>
-					{/* Money vs Challenge header blocks */}
-					{String((lobby as any).mode || "").startsWith("MONEY_") ? (
-						<div className="mb-4">
-							<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
-						</div>
-					) : (
-						<div className="mb-4">
-							<ChallengeHero
-								lobbyId={lobby.id}
-								mode={(lobby as any).mode as any}
-								challengeSettings={lobby.challengeSettings || null}
-								seasonStart={lobby.seasonStart}
-								seasonEnd={lobby.seasonEnd}
-							/>
-						</div>
+					{/* Money vs Challenge header blocks - hide countdown when completed */}
+					{stage !== "COMPLETED" && (
+						<>
+							{String((lobby as any).mode || "").startsWith("MONEY_") ? (
+								<div className="mb-4">
+									<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
+								</div>
+							) : (
+								<div className="mb-4">
+									<ChallengeHero
+										lobbyId={lobby.id}
+										mode={(lobby as any).mode as any}
+										challengeSettings={lobby.challengeSettings || null}
+										seasonStart={lobby.seasonStart}
+										seasonEnd={lobby.seasonEnd}
+									/>
+								</div>
+							)}
+						</>
 					)}
 					{/* Arena feed directly under pot */}
 					<div className="mb-6">

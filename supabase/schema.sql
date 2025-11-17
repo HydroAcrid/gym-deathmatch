@@ -114,6 +114,31 @@ begin
   end if;
 end $$;
 
+-- Stage machine: PRE_STAGE, ACTIVE, COMPLETED
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='stage') then
+    alter table lobby add column stage text check (stage in ('PRE_STAGE','ACTIVE','COMPLETED'));
+    -- Initialize stage based on status
+    update lobby set stage = case
+      when status in ('pending','scheduled') then 'PRE_STAGE'
+      when status in ('active','transition_spin') then 'ACTIVE'
+      when status = 'completed' then 'COMPLETED'
+      else 'PRE_STAGE'
+    end;
+    -- Set default for new rows
+    alter table lobby alter column stage set default 'PRE_STAGE';
+  end if;
+end $$;
+
+-- Season summary storage (JSONB for flexibility)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='season_summary') then
+    alter table lobby add column season_summary jsonb null;
+  end if;
+end $$;
+
 -- Manual activities: allow logging workouts without Strava
 create table if not exists manual_activities (
   id uuid primary key default gen_random_uuid(),

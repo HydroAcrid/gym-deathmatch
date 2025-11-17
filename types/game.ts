@@ -44,6 +44,34 @@ export interface Player {
 	ready?: boolean;
 }
 
+export type LobbyStage = "PRE_STAGE" | "ACTIVE" | "COMPLETED";
+
+export interface SeasonSummary {
+	seasonNumber: number;
+	winners: Array<{
+		id: PlayerId;
+		name: string;
+		avatarUrl: string;
+		hearts: number;
+		totalWorkouts: number;
+	}>;
+	losers: Array<{
+		id: PlayerId;
+		name: string;
+		avatarUrl: string;
+		hearts: number;
+		totalWorkouts: number;
+	}>;
+	finalPot: number;
+	highlights: {
+		longestStreak?: { playerId: PlayerId; playerName: string; streak: number };
+		mostWorkouts?: { playerId: PlayerId; playerName: string; count: number };
+		mostConsistent?: { playerId: PlayerId; playerName: string; avgPerWeek: number };
+	};
+	// For money modes: debt tracking
+	debts?: Array<{ from: PlayerId; fromName: string; to: PlayerId; toName: string; amount: number }>;
+}
+
 export interface Lobby {
 	id: LobbyId;
 	name: string;
@@ -61,10 +89,12 @@ export interface Lobby {
 	ownerId?: PlayerId;
 	ownerUserId?: string; // Supabase auth user id of lobby owner
 	status?: "pending" | "scheduled" | "transition_spin" | "active" | "completed";
+	stage?: LobbyStage; // Primary stage machine state
 	scheduledStart?: string | null; // ISO when status === 'scheduled'
 	mode?: GameMode;
 	suddenDeathEnabled?: boolean;
 	challengeSettings?: ChallengeSettings | null;
+	seasonSummary?: SeasonSummary | null; // Populated when stage === "COMPLETED"
 }
 
 export interface ActivitySummary {
