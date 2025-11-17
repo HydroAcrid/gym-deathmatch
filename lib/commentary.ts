@@ -222,6 +222,31 @@ export async function onStreakMilestone(lobbyId: string, playerId: string, strea
 	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { streak }, primaryPlayerId: playerId, visibility: "both" }]);
 }
 
+export async function onDailyReminder(lobbyId: string, playerId: string, playerName: string): Promise<void> {
+	// Check if we've already sent a reminder today (within last 24 hours)
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+	const rendered = `{name} hasn't logged an activity today — time to move 💪`;
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("primary_player_id", playerId)
+		.eq("type", "SUMMARY")
+		.gte("created_at", since)
+		.eq("rendered", rendered)
+		.limit(1);
+	if (exists && exists.length) return;
+	await insertQuips(lobbyId, [{ 
+		type: "SUMMARY", 
+		rendered: rendered.replace("{name}", playerName), 
+		payload: { reminder: true }, 
+		primaryPlayerId: playerId, 
+		visibility: "both" 
+	}]);
+}
+
 export async function onStreakPR(lobbyId: string, playerId: string, streak: number): Promise<void> {
 	const supabase = getServerSupabase();
 	if (!supabase) return;

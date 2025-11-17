@@ -109,9 +109,15 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 		// Disable voting for very small lobbies (<=2 players)
 		if ((players?.length || 0) <= 2) return false;
 		if (!myPlayerId || a.player_id === myPlayerId) return false;
-		if (a.status !== "pending") return false;
-		if (a.vote_deadline && new Date(a.vote_deadline).getTime() < Date.now()) return false;
-		return true;
+		// Allow voting on pending activities (if deadline hasn't passed)
+		if (a.status === "pending") {
+			if (a.vote_deadline && new Date(a.vote_deadline).getTime() < Date.now()) return false;
+			return true;
+		}
+		// Allow voting on approved activities (to challenge them)
+		if (a.status === "approved") return true;
+		// Can't vote on rejected activities
+		return false;
 	}
 	function timeLeft(a: ActivityRow) {
 		if (!a.vote_deadline) return "";
@@ -277,14 +283,27 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 							</div>
 							<div className="flex items-center justify-between text-[12px]">
 								<div>{pending ? "Pending vote · " : a.status === "approved" ? "Approved · " : "Rejected · "}{v.legit} legit · {v.sus} sus {pending && a.vote_deadline ? `· ${timeLeft(a)} left` : ""}</div>
-								{pending && canVote(a) ? (
+								{canVote(a) ? (
 									<div className="flex gap-2">
-										<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "legit" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "legit")}>
-											Count it ✅
-										</button>
-										<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "sus" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "sus")}>
-											Feels sus 🚩
-										</button>
+										{a.status === "approved" ? (
+											<>
+												<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "legit" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "legit")}>
+													Looks good ✅
+												</button>
+												<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "sus" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "sus")}>
+													Challenge 🚩
+												</button>
+											</>
+										) : (
+											<>
+												<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "legit" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "legit")}>
+													Count it ✅
+												</button>
+												<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "sus" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "sus")}>
+													Feels sus 🚩
+												</button>
+											</>
+										)}
 									</div>
 								) : null}
 							</div>

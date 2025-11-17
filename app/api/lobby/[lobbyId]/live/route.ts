@@ -801,6 +801,57 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		}
 	}
 
+	// Daily reminder check: at 8pm (20:00), check if any player hasn't logged an activity today
+	try {
+		const nowDate = new Date();
+		const hour = nowDate.getHours();
+		const minute = nowDate.getMinutes();
+		// Check once per day at 8pm (20:00) with a 10-minute window
+		if (hour === 20 && minute < 10 && currentStage === "ACTIVE") {
+			const { onDailyReminder } = await import("@/lib/commentary");
+			const today = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+			const todayStart = today.toISOString();
+			const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
+			
+			for (const p of updatedPlayers) {
+				// Check if player has any activity today (manual or Strava)
+				const supabase = getServerSupabase();
+				if (!supabase) continue;
+				
+				// Check manual activities
+				const { data: manualToday } = await supabase
+					.from("manual_activities")
+					.select("id")
+					.eq("lobby_id", lobby.id)
+					.eq("player_id", p.id)
+					.gte("date", todayStart)
+					.lt("date", todayEnd)
+					.limit(1);
+				
+				// Check Strava activities (if connected)
+				let stravaToday = false;
+				if ((p as any).isStravaConnected) {
+					const { data: stravaActs } = await supabase
+						.from("strava_activities")
+						.select("id")
+						.eq("lobby_id", lobby.id)
+						.eq("player_id", p.id)
+						.gte("start_date", todayStart)
+						.lt("start_date", todayEnd)
+						.limit(1);
+					stravaToday = !!(stravaActs && stravaActs.length > 0);
+				}
+				
+				// If no activity today, send reminder
+				if (!manualToday?.length && !stravaToday) {
+					await onDailyReminder(lobby.id, p.id, p.name);
+				}
+			}
+		}
+	} catch (e) {
+		logError({ route: "GET /api/lobby/[id]/live", code: "DAILY_REMINDER_FAILED", err: e, lobbyId: lobby.id });
+	}
+
 	// Generate season summary if stage is COMPLETED and we don't have one yet
 	if (currentStage === "COMPLETED" && !lobby.seasonSummary) {
 		// Generate summary with current player stats
