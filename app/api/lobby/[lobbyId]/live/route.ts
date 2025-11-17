@@ -261,10 +261,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						if (sched <= now) {
 							const mode = (lrow.mode as string) || "MONEY_SURVIVAL";
 							if (String(mode).startsWith("CHALLENGE_ROULETTE")) {
-								await supabase.from("lobby").update({ status: "transition_spin", scheduled_start: null }).eq("id", lobbyId);
+								await supabase.from("lobby").update({ 
+									status: "transition_spin", 
+									scheduled_start: null,
+									stage: "ACTIVE" // Set stage when transitioning from scheduled
+								}).eq("id", lobbyId);
 								rawStatus = "transition_spin";
 							} else {
-								await supabase.from("lobby").update({ status: "active", scheduled_start: null, season_start: new Date().toISOString() }).eq("id", lobbyId);
+								await supabase.from("lobby").update({ 
+									status: "active", 
+									scheduled_start: null, 
+									season_start: new Date().toISOString(),
+									stage: "ACTIVE" // Set stage when transitioning from scheduled
+								}).eq("id", lobbyId);
 								rawStatus = "active";
 							}
 						}

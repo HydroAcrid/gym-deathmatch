@@ -10,7 +10,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 		const decoded = decodeURIComponent(lobbyId);
 		const body = await req.json();
 		const payload: any = {};
-		if (body.status) payload.status = body.status;
+		if (body.status) {
+			payload.status = body.status;
+			// When setting status to "scheduled", ensure stage stays PRE_STAGE
+			if (body.status === "scheduled") {
+				payload.stage = "PRE_STAGE";
+			}
+			// When setting status to "pending", ensure stage is PRE_STAGE
+			if (body.status === "pending") {
+				payload.stage = "PRE_STAGE";
+			}
+		}
 		if (body.scheduledStart !== undefined) {
 			payload.scheduledStart = body.scheduledStart;
 			// Keep Season start in sync with the scheduled time for consistent UI display
@@ -59,9 +69,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 							payload.stage = "ACTIVE";
 						}
 					} else {
+						// Money modes: go directly to active
 						payload.status = "active";
 						payload.seasonStart = new Date().toISOString();
 						payload.scheduledStart = null;
+						payload.stage = "ACTIVE"; // Set stage to ACTIVE for money modes
 						// Quip: match started
 						try {
 							// dedupe start comment in last hour
