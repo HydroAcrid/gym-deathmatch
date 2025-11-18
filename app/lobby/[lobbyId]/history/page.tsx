@@ -129,15 +129,26 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	}
 
 	async function vote(activityId: string, choice: "legit" | "sus") {
-		if (!myPlayerId) return;
+		if (!myPlayerId) {
+			alert("Unable to vote: player ID not found. Please refresh the page.");
+			return;
+		}
 		setBusy(true);
 		try {
-			await fetch(`/api/activities/${encodeURIComponent(activityId)}/vote`, {
+			const res = await fetch(`/api/activities/${encodeURIComponent(activityId)}/vote`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ voterPlayerId: myPlayerId, choice })
 			});
+			if (!res.ok) {
+				const error = await res.json().catch(() => ({ error: "Unknown error" }));
+				alert(`Failed to vote: ${error.error || "Unknown error"}`);
+				return;
+			}
 			await reloadActivities();
+		} catch (e) {
+			console.error("Vote error", e);
+			alert("Failed to vote. Please try again.");
 		} finally { setBusy(false); }
 	}
 
@@ -305,6 +316,12 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 											</>
 										)}
 									</div>
+								) : a.player_id === myPlayerId ? (
+									<div className="text-[11px] text-deepBrown/50 italic">You can't vote on your own activity</div>
+								) : !myPlayerId ? (
+									<div className="text-[11px] text-deepBrown/50 italic">Sign in to vote</div>
+								) : (players?.length || 0) <= 2 ? (
+									<div className="text-[11px] text-deepBrown/50 italic">Voting requires 3+ players</div>
 								) : null}
 							</div>
 							{isOwner && pending ? (

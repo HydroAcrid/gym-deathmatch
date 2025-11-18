@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			supabase.from("manual_activities").select("*").eq("lobby_id", lobbyId).order("created_at", { ascending: false }).limit(limit),
 			supabase.from("history_events").select("*").eq("lobby_id", lobbyId).order("created_at", { ascending: false }).limit(limit),
 			supabase.from("comments").select("id,type,rendered,created_at,primary_player_id").eq("lobby_id", lobbyId).in("visibility", ["history", "both"] as any).order("created_at", { ascending: false }).limit(limit),
-			supabase.from("player").select("id,name,avatar_url").eq("lobby_id", lobbyId),
+			supabase.from("player").select("id,name,avatar_url,user_id").eq("lobby_id", lobbyId),
 			supabase.from("lobby").select("id,name").eq("id", lobbyId).maybeSingle()
 		]);
 

@@ -95,7 +95,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		console.error("vote error", e);
-		return NextResponse.json({ error: "Bad request" }, { status: 400 });
+		const errorMessage = e instanceof Error ? e.message : "Bad request";
+		return NextResponse.json({ error: errorMessage }, { status: 400 });
 	}
 }
 
