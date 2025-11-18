@@ -38,14 +38,22 @@ export function calculateAverageWorkoutsPerWeek(activities: Activity[], seasonSt
 
 export function calculateStreakFromActivities(activities: Activity[], seasonStart?: string, seasonEnd?: string): number {
 	// Current-day streak based on consecutive calendar days with at least one workout.
+	// Normalize all dates to UTC midnight for consistent comparison
 	const list = onlySeason(activities, seasonStart, seasonEnd)
 		.map((a) => toDate(a))
 		.filter((d): d is Date => !!d)
-		.map((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
+		.map((d) => {
+			// Convert to UTC date components to avoid timezone issues
+			const utcYear = d.getUTCFullYear();
+			const utcMonth = d.getUTCMonth();
+			const utcDate = d.getUTCDate();
+			return new Date(Date.UTC(utcYear, utcMonth, utcDate)).getTime();
+		});
 	const uniqueDays = Array.from(new Set(list)).sort((a, b) => b - a);
 	if (uniqueDays.length === 0) return 0;
+	// Use UTC for "today" to match activity date normalization
 	const today = new Date();
-	const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+	const todayMid = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())).getTime();
 	let streak = 0;
 	let expected = todayMid;
 	for (const day of uniqueDays) {

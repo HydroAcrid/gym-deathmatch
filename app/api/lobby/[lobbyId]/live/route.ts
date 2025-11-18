@@ -669,16 +669,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			const supabase = getServerSupabase();
 			if (supabase && weeks > 0) {
 				const weekStarts: string[] = [];
-				const start = new Date(lobby.seasonStart);
+				// Normalize season start to midnight (start of day) for consistent week calculations
+				// This ensures weeks are calculated from the start of the day, not a specific time
+				const startDate = new Date(lobby.seasonStart);
+				const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
 				for (let i = 0; i < weeks; i++) {
+					// Calculate each week start as 7 days from season start (not calendar weeks)
 					const d = new Date(start.getTime() + i * 7 * 24 * 60 * 60 * 1000);
 					weekStarts.push(d.toISOString());
 				}
 				const { data: existing } = await supabase.from("weekly_pot_contributions").select("week_start").eq("lobby_id", lobby.id);
-				const existingSet = new Set((existing ?? []).map((r: any) => new Date(r.week_start).toISOString().slice(0,10)));
+				// Compare by date only (YYYY-MM-DD) to handle any time component differences
+				const existingSet = new Set((existing ?? []).map((r: any) => {
+					const d = new Date(r.week_start);
+					return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+				}));
 				const survivors = updatedPlayers.filter(p => p.livesRemaining > 0).length;
 				for (const ws of weekStarts) {
-					const key = ws.slice(0,10);
+					const wsDate = new Date(ws);
+					const key = `${wsDate.getFullYear()}-${String(wsDate.getMonth() + 1).padStart(2, '0')}-${String(wsDate.getDate()).padStart(2, '0')}`;
 					if (!existingSet.has(key)) {
 						const amt = effectiveAnte * Math.max(survivors, 0);
 						await supabase.from("weekly_pot_contributions").insert({

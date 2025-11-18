@@ -352,7 +352,6 @@ export function LobbyLayout({
 							<PlayerCard player={p} lobbyId={lobby.id} mePlayerId={me ?? undefined as any} showReady={false} />
 						</motion.div>
 					))}
-					{/* Invite flow is now handled via share/onboarding; manual add card removed */}
 				</div>
 			)}
 			{/* Strava reconnect banner removed – Strava is optional now */}
