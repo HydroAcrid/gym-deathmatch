@@ -83,7 +83,17 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 				currentMyPlayerId = mine?.id ?? null;
 				setMyPlayerId(currentMyPlayerId);
 			}
-			// owner: we don't return owner_user_id here; leave owner tools unchanged (we keep previous logic)
+			// Set owner player ID from API response
+			const ownerPlayerIdFromApi = j?.ownerPlayerId as string | null | undefined;
+			if (ownerPlayerIdFromApi) {
+				setOwnerPlayerId(ownerPlayerIdFromApi);
+			} else if (j?.ownerUserId && user?.id && j.ownerUserId === user.id) {
+				// Fallback: if owner_user_id matches current user, find their player ID
+				const ownerPlayer = (prows ?? []).find((p: any) => (p as any).user_id === user.id);
+				if (ownerPlayer) {
+					setOwnerPlayerId(ownerPlayer.id);
+				}
+			}
 			// fetch votes client-side for convenience
 			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
 			if (supabase && acts.length) {
@@ -244,39 +254,39 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	}
 
 	return (
-		<div className="mx-auto max-w-4xl">
-			<div className="paper-card paper-grain ink-edge p-5 mb-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-				<div className="poster-headline text-lg">HISTORY</div>
-				<div className="text-deepBrown/70 text-xs">Manual posts and decisions • Lobby: {lobbyName || lobbyId}</div>
+		<div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-8">
+			<div className="paper-card paper-grain ink-edge p-5 sm:p-6 mb-6 sm:mb-8 border-b-4" style={{ borderColor: "#E1542A" }}>
+				<div className="poster-headline text-lg sm:text-xl mb-2">HISTORY</div>
+				<div className="text-deepBrown/70 text-xs sm:text-sm">Manual posts and decisions • Lobby: {lobbyName || lobbyId}</div>
 			</div>
 
 			{isOwner ? (
-				<div className="paper-card paper-grain ink-edge p-4 mb-6">
-					<div className="poster-headline text-base mb-2">Owner tools</div>
-					<div className="flex flex-col sm:flex-row gap-2 items-start">
-						<select value={adjustTarget} onChange={e => setAdjustTarget(e.target.value)} className="px-2 py-2 rounded-md border border-deepBrown/40 bg-cream">
+				<div className="paper-card paper-grain ink-edge p-4 sm:p-5 mb-6 sm:mb-8">
+					<div className="poster-headline text-base sm:text-lg mb-3 sm:mb-4">Owner tools</div>
+					<div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
+						<select value={adjustTarget} onChange={e => setAdjustTarget(e.target.value)} className="w-full sm:w-auto px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-sm">
 							<option value="">Select athlete</option>
 							{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
 						</select>
-						<div className="flex gap-2">
-							<button className="btn-secondary px-3 py-2 rounded-md" disabled={!adjustTarget || busy} onClick={() => adjustHearts(1)}>+1 heart</button>
-							<button className="px-3 py-2 rounded-md border border-deepBrown/30" disabled={!adjustTarget || busy} onClick={() => adjustHearts(-1)}>-1 heart</button>
+						<div className="flex gap-2 w-full sm:w-auto">
+							<button className="btn-secondary px-4 py-2 rounded-md text-sm flex-1 sm:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(1)}>+1 heart</button>
+							<button className="px-4 py-2 rounded-md border border-deepBrown/30 text-sm flex-1 sm:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(-1)}>-1 heart</button>
 						</div>
-						<div className="text-[11px] text-deepBrown/70">Logged publicly in history.</div>
+						<div className="text-[11px] sm:text-xs text-deepBrown/70 w-full sm:w-auto">Logged publicly in history.</div>
 					</div>
 				</div>
 			) : null}
 
-			<div className="flex flex-col gap-4">
+			<div className="flex flex-col gap-4 sm:gap-6">
 				{items.map(item => {
 					if (item.kind === "event") {
 						const ev = item.e as EventRow;
 						return (
-							<div key={`ev-${ev.id}`} className="paper-card paper-grain ink-edge p-4 flex items-start gap-3">
-								<div className="text-lg">📜</div>
-								<div className="flex-1">
-									<div className="text-[11px] text-deepBrown/70">{new Date(ev.created_at).toLocaleString()}</div>
-									<div className="text-sm">{renderEventLine(ev, players)}</div>
+							<div key={`ev-${ev.id}`} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
+								<div className="text-lg sm:text-xl flex-shrink-0">📜</div>
+								<div className="flex-1 min-w-0">
+									<div className="text-[11px] sm:text-xs text-deepBrown/70 mb-1">{new Date(ev.created_at).toLocaleString()}</div>
+									<div className="text-sm sm:text-base leading-relaxed">{renderEventLine(ev, players)}</div>
 								</div>
 							</div>
 						);
@@ -286,7 +296,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 					const v = votesByAct[a.id] || { legit: 0, sus: 0 };
 					const pending = a.status === "pending";
 					return (
-						<div key={a.id} className="paper-card paper-grain ink-edge p-4 flex flex-col gap-3">
+						<div key={a.id} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex flex-col gap-4 sm:gap-5">
 							<div className="flex items-center gap-3">
 								<div className="h-10 w-10 rounded-full overflow-hidden bg-tan border border-deepBrown/20 flex items-center justify-center">
 									{p?.avatar_url ? <img src={p.avatar_url} alt={p?.name || "athlete"} className="h-full w-full object-cover" /> : <span className="text-xl">🏋️‍♂️</span>}
@@ -392,32 +402,34 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 								) : null}
 							</div>
 							{isOwner ? (
-								<div className="flex items-center gap-2 pt-1 border-t border-deepBrown/10">
-									<span className="text-[11px] text-deepBrown/70">Owner override:</span>
-									<button 
-										className={`px-3 py-1.5 rounded-md text-xs transition-all duration-200 ${
-											a.status === "approved" 
-												? "btn-vintage" 
-												: "border border-deepBrown/30"
-										}`} 
-										disabled={busy} 
-										onClick={() => overrideActivity(a.id, "approved")}
-										title={a.status === "approved" ? "Currently approved" : "Override to approve"}
-									>
-										Approve ✅
-									</button>
-									<button 
-										className={`px-3 py-1.5 rounded-md text-xs transition-all duration-200 ${
-											a.status === "rejected" 
-												? "btn-vintage" 
-												: "border border-deepBrown/30"
-										}`} 
-										disabled={busy} 
-										onClick={() => overrideActivity(a.id, "rejected")}
-										title={a.status === "rejected" ? "Currently rejected" : "Override to reject"}
-									>
-										Reject 🚩
-									</button>
+								<div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-deepBrown/10">
+									<span className="text-[11px] sm:text-xs text-deepBrown/70 font-medium">Owner override:</span>
+									<div className="flex gap-2 w-full sm:w-auto">
+										<button 
+											className={`px-4 py-2 rounded-md text-xs sm:text-sm transition-all duration-200 flex-1 sm:flex-none ${
+												a.status === "approved" 
+													? "btn-vintage" 
+													: "border border-deepBrown/30"
+											}`} 
+											disabled={busy} 
+											onClick={() => overrideActivity(a.id, "approved")}
+											title={a.status === "approved" ? "Currently approved" : "Override to approve"}
+										>
+											Approve ✅
+										</button>
+										<button 
+											className={`px-4 py-2 rounded-md text-xs sm:text-sm transition-all duration-200 flex-1 sm:flex-none ${
+												a.status === "rejected" 
+													? "btn-vintage" 
+													: "border border-deepBrown/30"
+											}`} 
+											disabled={busy} 
+											onClick={() => overrideActivity(a.id, "rejected")}
+											title={a.status === "rejected" ? "Currently rejected" : "Override to reject"}
+										>
+											Reject 🚩
+										</button>
+									</div>
 								</div>
 							) : null}
 							<ActivityComments activityId={a.id} />

@@ -67,7 +67,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			supabase.from("history_events").select("*").eq("lobby_id", lobbyId).order("created_at", { ascending: false }).limit(limit),
 			supabase.from("comments").select("id,type,rendered,created_at,primary_player_id").eq("lobby_id", lobbyId).in("visibility", ["history", "both"] as any).order("created_at", { ascending: false }).limit(limit),
 			supabase.from("player").select("id,name,avatar_url,user_id").eq("lobby_id", lobbyId),
-			supabase.from("lobby").select("id,name").eq("id", lobbyId).maybeSingle()
+			supabase.from("lobby").select("id,name,owner_id,owner_user_id").eq("id", lobbyId).maybeSingle()
 		]);
 
 		return NextResponse.json({
@@ -75,7 +75,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			events: events ?? [],
 			comments: comments ?? [],
 			players: players ?? [],
-			lobby: lobby ?? null
+			lobby: lobby ?? null,
+			ownerPlayerId: lobby?.owner_id ?? null,
+			ownerUserId: lobby?.owner_user_id ?? null
 		}, { status: 200 });
 	} catch (e) {
 		console.error("history GET error", e);

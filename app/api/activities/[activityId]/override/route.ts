@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
+import { onVoteResolved } from "@/lib/commentary";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ activityId: string }> }) {
 	const { activityId } = await params;
@@ -29,6 +30,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 			type: "OWNER_OVERRIDE_ACTIVITY",
 			payload: { activityId, previousStatus: act.status, newStatus, reason }
 		});
+		// Generate commentary (like voting does)
+		try {
+			const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
+			await onVoteResolved(act.lobby_id as any, activity as any, newStatus as "approved" | "rejected");
+		} catch { /* ignore */ }
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		console.error("override error", e);
