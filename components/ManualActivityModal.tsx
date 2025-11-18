@@ -17,7 +17,6 @@ export function ManualActivityModal({
 	playerId: string;
 	onSaved?: () => void;
 }) {
-	const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 16));
 	const [type, setType] = useState<string>("gym");
 	const [duration, setDuration] = useState<string>("");
 	const [distance, setDistance] = useState<string>("");
@@ -74,7 +73,7 @@ export function ManualActivityModal({
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					playerId,
-					date,
+					// Date is automatically set to current time on the server
 					type,
 					durationMinutes: duration ? Number(duration) : null,
 					distanceKm: distance ? Number(distance) : null,
@@ -110,19 +109,9 @@ export function ManualActivityModal({
 					transition={{ duration: 0.2 }}
 					onClick={(e) => e.stopPropagation()}
 				>
-						<div className="poster-headline text-xl sm:text-2xl mb-3">Log workout manually</div>
-						<div className="grid gap-3">
-							<label className="text-xs">
-								<span className="block mb-1">Date & time</span>
-								<input
-									type="datetime-local"
-									value={date}
-									onChange={(e) => setDate(e.target.value)}
-									className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-									style={{ colorScheme: "dark" }}
-								/>
-							</label>
-							<label className="text-xs">
+					<div className="poster-headline text-xl sm:text-2xl mb-3">Log workout manually</div>
+					<div className="grid gap-3">
+						<label className="text-xs">
 								<span className="block mb-1">Type</span>
 								<select
 									value={type}

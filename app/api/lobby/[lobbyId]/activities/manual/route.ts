@@ -10,7 +10,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		const body = await req.json();
 		const playerId = String(body.playerId || "");
 		if (!playerId) return NextResponse.json({ error: "Missing playerId" }, { status: 400 });
-		const dateIso = body.date ? new Date(body.date).toISOString() : new Date().toISOString();
+		// Always use current time when submitting - prevents date manipulation and timezone issues
+		const dateIso = new Date().toISOString();
 		const type = String(body.type || "other").toLowerCase();
 		const durationMinutes = body.durationMinutes != null ? Number(body.durationMinutes) : null;
 		const distanceKm = body.distanceKm != null ? Number(body.distanceKm) : null;
