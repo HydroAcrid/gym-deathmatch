@@ -317,7 +317,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		}
 	} catch { /* ignore */ }
 
-	// Prefetch approved manual activities for the whole lobby and index by player_id
+	// Prefetch approved and pending manual activities for the whole lobby and index by player_id
+	// Pending activities still count toward streaks (they're being challenged but not rejected yet)
 	let manualByPlayer: Record<string, ManualActivityRow[]> = {};
 	try {
 		const supabase = getServerSupabase();
@@ -326,7 +327,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				.from("manual_activities")
 				.select("*")
 				.eq("lobby_id", lobby.id)
-				.eq("status", "approved")
+				.in("status", ["approved", "pending"])
 				.order("date", { ascending: false })
 				.limit(500);
 			for (const m of (data ?? []) as any[]) {
