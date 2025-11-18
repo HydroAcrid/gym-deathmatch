@@ -4,14 +4,32 @@ import { onVoteResolved } from "@/lib/commentary";
 
 async function resolveActivityVotes(supabase: any, activityId: string) {
 	// load activity and votes
-	const { data: act } = await supabase.from("manual_activities").select("id,lobby_id,player_id,status,vote_deadline,decided_at").eq("id", activityId).maybeSingle();
+	const { data: act, error: actErr } = await supabase.from("manual_activities").select("id,lobby_id,player_id,status,vote_deadline,decided_at").eq("id", activityId).maybeSingle();
+	if (actErr) {
+		console.error("resolveActivityVotes: failed to load activity", actErr);
+		return;
+	}
 	if (!act) return;
 	const now = new Date();
-	const { data: votes } = await supabase.from("activity_votes").select("*").eq("activity_id", activityId);
-	const { data: players } = await supabase.from("player").select("id").eq("lobby_id", act.lobby_id);
+	const { data: votes, error: votesErr } = await supabase.from("activity_votes").select("*").eq("activity_id", activityId);
+	if (votesErr) {
+		console.error("resolveActivityVotes: failed to load votes", votesErr);
+		return;
+	}
+	const { data: players, error: playersErr } = await supabase.from("player").select("id").eq("lobby_id", act.lobby_id);
+	if (playersErr) {
+		console.error("resolveActivityVotes: failed to load players", playersErr);
+		return;
+	}
 	
 	// Calculate eligible voters: all players except the activity author
 	const totalEligibleVoters = Math.max(0, (players?.length || 0) - 1);
+	
+	// Early return if no eligible voters
+	if (totalEligibleVoters === 0) {
+		return; // nothing meaningful to resolve
+	}
+	
 	const legit = (votes || []).filter((v: any) => v.choice === "legit").length;
 	const sus = (votes || []).filter((v: any) => v.choice === "sus").length;
 	const totalVotes = legit + sus;
@@ -45,28 +63,91 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 	
 	// Timeout rule: if deadline passed, approve by default
 	if (act.vote_deadline && new Date(act.vote_deadline).getTime() <= now.getTime()) {
-		await supabase.from("manual_activities").update({ 
+		const { error: updateErr } = await supabase.from("manual_activities").update({ 
 			status: "approved", 
 			decided_at: now.toISOString() 
 		}).eq("id", activityId);
+		if (updateErr) {
+			console.error("resolveActivityVotes: failed to update timeout", updateErr);
+			return;
+		}
 		await supabase.from("history_events").insert({
 			lobby_id: act.lobby_id, type: "VOTE_RESULT",
 			payload: { activityId, result: "approved_timeout", legit, sus, totalEligibleVoters }
 		});
+		// Generate commentary for final verdict
+		try {
+			const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
+			await onVoteResolved(act.lobby_id as any, activity as any, "approved");
+		} catch { /* ignore */ }
+		return;
+	}
+	
+	// Early reject: if 75%+ of eligible voters vote sus (only if we have at least 2 eligible voters)
+	// Check this BEFORE majority rule so it fires when applicable
+	if (totalEligibleVoters >= 2 && totalVotes > 0) {
+		const susRatio = sus / totalEligibleVoters;
+		if (susRatio >= 0.75) {
+			const { error: updateErr } = await supabase.from("manual_activities").update({ 
+				status: "rejected", 
+				decided_at: now.toISOString() 
+			}).eq("id", activityId);
+			if (updateErr) {
+				console.error("resolveActivityVotes: failed to update 75% threshold", updateErr);
+				return;
+			}
+			await supabase.from("history_events").insert({
+				lobby_id: act.lobby_id, type: "VOTE_RESULT",
+				payload: { activityId, result: "rejected_threshold", legit, sus, totalEligibleVoters }
+			});
+			// Generate commentary for final verdict
+			try {
+				const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
+				await onVoteResolved(act.lobby_id as any, activity as any, "rejected");
+			} catch { /* ignore */ }
+			return;
+		}
+	}
+	
+	// Small lobby: unanimous sus among all eligible voters
+	// Check this BEFORE majority rule so it fires when applicable
+	if (totalEligibleVoters > 0 && sus === totalEligibleVoters && sus > 0) {
+		const { error: updateErr } = await supabase.from("manual_activities").update({ 
+			status: "rejected", 
+			decided_at: now.toISOString() 
+		}).eq("id", activityId);
+		if (updateErr) {
+			console.error("resolveActivityVotes: failed to update unanimous", updateErr);
+			return;
+		}
+		await supabase.from("history_events").insert({
+			lobby_id: act.lobby_id, type: "VOTE_RESULT",
+			payload: { activityId, result: "rejected_unanimous", legit, sus, totalEligibleVoters }
+		});
+		// Generate commentary for final verdict
+		try {
+			const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
+			await onVoteResolved(act.lobby_id as any, activity as any, "rejected");
+		} catch { /* ignore */ }
 		return;
 	}
 	
 	// Majority rule: more than 50% of eligible voters have voted
+	// This runs AFTER the special cases above
 	const hasMajority = totalVotes > (totalEligibleVoters / 2);
 	
 	if (hasMajority) {
 		// Determine winner: whichever side has more votes (ties default to legit)
 		const winner = legit > sus ? "approved" : legit < sus ? "rejected" : "approved";
 		
-		await supabase.from("manual_activities").update({ 
+		const { error: updateErr } = await supabase.from("manual_activities").update({ 
 			status: winner, 
 			decided_at: now.toISOString() 
 		}).eq("id", activityId);
+		if (updateErr) {
+			console.error("resolveActivityVotes: failed to update majority", updateErr);
+			return;
+		}
 		
 		await supabase.from("history_events").insert({
 			lobby_id: act.lobby_id, type: "VOTE_RESULT",
@@ -79,35 +160,11 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 				totalVotes
 			}
 		});
-		return;
-	}
-	
-	// Early reject: if 75%+ of eligible voters vote sus (only if we have at least 2 eligible voters)
-	if (totalEligibleVoters >= 2 && totalVotes > 0) {
-		const susRatio = sus / totalEligibleVoters;
-		if (susRatio >= 0.75) {
-			await supabase.from("manual_activities").update({ 
-				status: "rejected", 
-				decided_at: now.toISOString() 
-			}).eq("id", activityId);
-			await supabase.from("history_events").insert({
-				lobby_id: act.lobby_id, type: "VOTE_RESULT",
-				payload: { activityId, result: "rejected_threshold", legit, sus, totalEligibleVoters }
-			});
-			return;
-		}
-	}
-	
-	// Small lobby: unanimous sus among all eligible voters
-	if (totalEligibleVoters > 0 && sus === totalEligibleVoters && sus > 0) {
-		await supabase.from("manual_activities").update({ 
-			status: "rejected", 
-			decided_at: now.toISOString() 
-		}).eq("id", activityId);
-		await supabase.from("history_events").insert({
-			lobby_id: act.lobby_id, type: "VOTE_RESULT",
-			payload: { activityId, result: "rejected_unanimous", legit, sus, totalEligibleVoters }
-		});
+		// Generate commentary for final verdict
+		try {
+			const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
+			await onVoteResolved(act.lobby_id as any, activity as any, winner as "approved" | "rejected");
+		} catch { /* ignore */ }
 		return;
 	}
 }
@@ -159,12 +216,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 			throw error;
 		}
 		// Always resolve votes after any vote change
+		// Commentary will be generated inside resolveActivityVotes when a final verdict is reached
 		await resolveActivityVotes(supabase, activityId);
-		try {
-			// Commentary quip (fire-and-forget)
-			const activity = { id: activityId, playerId: actRow.player_id, lobbyId: actRow.lobby_id } as any;
-			await onVoteResolved(actRow.lobby_id as any, activity as any, choice === "legit" ? "approved" : "rejected");
-		} catch { /* ignore */ }
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		console.error("vote error", e);
