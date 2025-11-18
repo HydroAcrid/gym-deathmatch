@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 
 type PlayerLite = { id: string; name: string; avatar_url?: string | null; user_id?: string | null };
 type ActivityRow = {
@@ -25,6 +26,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 	const [historyEvents, setHistoryEvents] = useState<EventRow[]>([]);
 	const [lobbyName, setLobbyName] = useState<string>("");
+	const toast = useToast();
 
 	useEffect(() => {
 		(async () => {
@@ -48,7 +50,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 		if (!lid) return;
 		// Prefer server API (validates membership with service key) to avoid client RLS pitfalls
 		const me = user?.id || "";
-		const res = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history`, {
+		const res = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history?t=${Date.now()}`, {
 			headers: me ? { "x-user-id": me } as any : undefined,
 			cache: "no-store"
 		});
@@ -75,9 +77,11 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 			const allEvents = [...(j?.events ?? []), ...commentEvents];
 			setHistoryEvents(allEvents as any);
 			// derive owner and my player id
+			let currentMyPlayerId: string | null = null;
 			if (user?.id) {
 				const mine = (prows ?? []).find((p: any) => (p as any).user_id === user.id);
-				setMyPlayerId(mine?.id ?? null);
+				currentMyPlayerId = mine?.id ?? null;
+				setMyPlayerId(currentMyPlayerId);
 			}
 			// owner: we don't return owner_user_id here; leave owner tools unchanged (we keep previous logic)
 			// fetch votes client-side for convenience
@@ -91,7 +95,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 					if (!map[v.activity_id]) map[v.activity_id] = { legit: 0, sus: 0 };
 					if (v.choice === "legit") map[v.activity_id].legit++;
 					if (v.choice === "sus") map[v.activity_id].sus++;
-					if (v.voter_player_id === myPlayerId) map[v.activity_id].mine = v.choice;
+					// Use the current myPlayerId from this fetch, not the stale closure value
+					if (v.voter_player_id === currentMyPlayerId) map[v.activity_id].mine = v.choice;
 				}
 				setVotesByAct(map);
 				return;
@@ -130,7 +135,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 
 	async function vote(activityId: string, choice: "legit" | "sus") {
 		if (!myPlayerId) {
-			alert("Unable to vote: player ID not found. Please refresh the page.");
+			toast?.push?.("Unable to vote: player ID not found. Please refresh the page.");
 			return;
 		}
 		setBusy(true);
@@ -138,17 +143,29 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 			const res = await fetch(`/api/activities/${encodeURIComponent(activityId)}/vote`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ voterPlayerId: myPlayerId, choice })
+				body: JSON.stringify({ voterPlayerId: myPlayerId, choice }),
+				cache: "no-store"
 			});
 			if (!res.ok) {
 				const error = await res.json().catch(() => ({ error: "Unknown error" }));
-				alert(`Failed to vote: ${error.error || "Unknown error"}`);
+				toast?.push?.(`Failed to vote: ${error.error || "Unknown error"}`);
 				return;
 			}
+			// Show success message based on choice
+			const activity = activities.find(a => a.id === activityId);
+			const isChangingVote = votesByAct[activityId]?.mine && votesByAct[activityId].mine !== choice;
+			if (choice === "legit") {
+				toast?.push?.(isChangingVote ? "Changed vote to ✅ Looks good" : "Voted ✅ Looks good");
+			} else {
+				toast?.push?.(isChangingVote ? "Changed vote to 🚩 Challenge" : "Voted 🚩 Challenge");
+			}
+			// Force a fresh reload with cache busting
 			await reloadActivities();
+			// Also trigger a small delay to ensure UI updates
+			setTimeout(() => reloadActivities(), 100);
 		} catch (e) {
 			console.error("Vote error", e);
-			alert("Failed to vote. Please try again.");
+			toast?.push?.("Failed to vote. Please try again.");
 		} finally { setBusy(false); }
 	}
 
@@ -298,19 +315,55 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 									<div className="flex gap-2">
 										{a.status === "approved" ? (
 											<>
-												<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "legit" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "legit")}>
+												<button 
+													className={`px-3 py-1.5 rounded-md text-xs ${
+														v.mine === "legit" 
+															? "btn-vintage" 
+															: "border border-deepBrown/30"
+													}`} 
+													disabled={busy} 
+													onClick={() => vote(a.id, "legit")}
+													title={v.mine === "legit" ? "You voted 'Looks good'. Click to change." : "Vote 'Looks good'"}
+												>
 													Looks good ✅
 												</button>
-												<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "sus" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "sus")}>
+												<button 
+													className={`px-3 py-1.5 rounded-md text-xs ${
+														v.mine === "sus" 
+															? "btn-vintage" 
+															: "border border-deepBrown/30"
+													}`} 
+													disabled={busy} 
+													onClick={() => vote(a.id, "sus")}
+													title={v.mine === "sus" ? "You voted 'Challenge'. Click to change." : "Vote 'Challenge'"}
+												>
 													Challenge 🚩
 												</button>
 											</>
 										) : (
 											<>
-												<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "legit" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "legit")}>
+												<button 
+													className={`px-3 py-1.5 rounded-md text-xs ${
+														v.mine === "legit" 
+															? "btn-vintage" 
+															: "border border-deepBrown/30"
+													}`} 
+													disabled={busy} 
+													onClick={() => vote(a.id, "legit")}
+													title={v.mine === "legit" ? "You voted 'Count it'. Click to change." : "Vote 'Count it'"}
+												>
 													Count it ✅
 												</button>
-												<button className={`px-3 py-1.5 rounded-md text-xs ${v.mine === "sus" ? "btn-vintage" : "border border-deepBrown/30"}`} disabled={busy} onClick={() => vote(a.id, "sus")}>
+												<button 
+													className={`px-3 py-1.5 rounded-md text-xs ${
+														v.mine === "sus" 
+															? "btn-vintage" 
+															: "border border-deepBrown/30"
+													}`} 
+													disabled={busy} 
+													onClick={() => vote(a.id, "sus")}
+													title={v.mine === "sus" ? "You voted 'Feels sus'. Click to change." : "Vote 'Feels sus'"}
+												>
 													Feels sus 🚩
 												</button>
 											</>

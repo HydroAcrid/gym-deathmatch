@@ -12,7 +12,35 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 	const totalVoters = Math.max(0, (players?.length || 0) - 1); // minus the owner
 	const legit = (votes || []).filter((v: any) => v.choice === "legit").length;
 	const sus = (votes || []).filter((v: any) => v.choice === "sus").length;
-	if (act.status === "approved" || act.status === "rejected") return;
+	const totalVotes = legit + sus;
+	
+	// If no votes remain and status is pending, revert to approved
+	if (totalVotes === 0 && act.status === "pending") {
+		await supabase.from("manual_activities").update({ 
+			status: "approved", 
+			vote_deadline: null,
+			decided_at: null
+		}).eq("id", activityId);
+		return;
+	}
+	
+	// If status is rejected, don't change it (already decided)
+	if (act.status === "rejected") {
+		return;
+	}
+	
+	// If status is approved but has votes, it should be pending (this handles edge cases)
+	if (act.status === "approved" && totalVotes > 0) {
+		const deadline = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+		await supabase.from("manual_activities").update({ status: "pending", vote_deadline: deadline }).eq("id", activityId);
+		// Continue to check rejection rules below (don't return)
+	}
+	
+	// If status is approved and no votes, keep it approved (nothing to do)
+	if (act.status === "approved" && totalVotes === 0) {
+		return;
+	}
+	
 	// timeout rule
 	if (act.vote_deadline && new Date(act.vote_deadline).getTime() <= now.getTime()) {
 		await supabase.from("manual_activities").update({ status: "approved", decided_at: now.toISOString() }).eq("id", activityId);
@@ -80,12 +108,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 			if (actRow.status === "rejected") return NextResponse.json({ error: "Voting closed" }, { status: 400 });
 			if (actRow.vote_deadline && new Date(actRow.vote_deadline).getTime() < Date.now()) return NextResponse.json({ error: "Voting closed" }, { status: 400 });
 		}
-		// Upsert vote
+		// Upsert vote (update choice if player already voted, insert if new)
 		const { error } = await supabase.from("activity_votes").upsert({
 			activity_id: activityId, voter_player_id: voterPlayerId, choice
+		}, {
+			onConflict: "activity_id,voter_player_id"
 		});
-		if (error) throw error;
-		// Try resolve
+		if (error) {
+			console.error("Vote upsert error:", error);
+			throw error;
+		}
+		// Always resolve votes after any vote change
 		await resolveActivityVotes(supabase, activityId);
 		try {
 			// Commentary quip (fire-and-forget)

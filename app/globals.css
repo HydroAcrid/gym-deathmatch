@@ -206,6 +206,14 @@ body {
 .btn-vintage-teal:hover { background: #436055; }
 .btn-vintage:active { transform: translateY(2px); filter: brightness(0.95); transition-duration: 20ms; }
 
+/* Global hover effect for bordered buttons (like vote buttons) */
+button.border:not(.btn-vintage):hover {
+	border-color: var(--accent-primary);
+	background-color: rgba(253, 245, 236, 0.1);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	transition: all 0.2s ease-in-out;
+}
+
 /* Reduced motion: disable decorative loops */
 @media (prefers-reduced-motion: reduce) {
   .flicker, .blinking-colon { animation: none !important; }
