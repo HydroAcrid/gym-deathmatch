@@ -383,6 +383,27 @@ button.border:not(.btn-vintage):hover {
   appearance: none;
 }
 
+/* StyledSelect dropdown options styling for both light and dark modes */
+select option {
+  background: #fff9f3;
+  color: #2a1b0c;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Dark mode option styling */
+.dark select option {
+  background: #1A120D;
+  color: #fdf3e4;
+}
+
+/* Hover/selected state for options (works in some browsers) */
+select option:hover,
+select option:checked,
+select option:focus {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
 /* Invert calendar/time pickers in dark mode for visibility */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator,

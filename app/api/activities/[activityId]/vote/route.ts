@@ -4,15 +4,22 @@ import { onVoteResolved } from "@/lib/commentary";
 
 async function resolveActivityVotes(supabase: any, activityId: string) {
 	// load activity and votes
-	const { data: act } = await supabase.from("manual_activities").select("id,lobby_id,player_id,status,vote_deadline").eq("id", activityId).maybeSingle();
+	const { data: act } = await supabase.from("manual_activities").select("id,lobby_id,player_id,status,vote_deadline,decided_at").eq("id", activityId).maybeSingle();
 	if (!act) return;
 	const now = new Date();
 	const { data: votes } = await supabase.from("activity_votes").select("*").eq("activity_id", activityId);
 	const { data: players } = await supabase.from("player").select("id").eq("lobby_id", act.lobby_id);
-	const totalVoters = Math.max(0, (players?.length || 0) - 1); // minus the owner
+	
+	// Calculate eligible voters: all players except the activity author
+	const totalEligibleVoters = Math.max(0, (players?.length || 0) - 1);
 	const legit = (votes || []).filter((v: any) => v.choice === "legit").length;
 	const sus = (votes || []).filter((v: any) => v.choice === "sus").length;
 	const totalVotes = legit + sus;
+	
+	// If already decided (has decided_at timestamp), don't change it (unless owner override)
+	if (act.decided_at && act.status !== "pending") {
+		return;
+	}
 	
 	// If no votes remain and status is pending, revert to approved
 	if (totalVotes === 0 && act.status === "pending") {
@@ -24,16 +31,11 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 		return;
 	}
 	
-	// If status is rejected, don't change it (already decided)
-	if (act.status === "rejected") {
-		return;
-	}
-	
 	// If status is approved but has votes, it should be pending (this handles edge cases)
-	if (act.status === "approved" && totalVotes > 0) {
+	if (act.status === "approved" && totalVotes > 0 && !act.decided_at) {
 		const deadline = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 		await supabase.from("manual_activities").update({ status: "pending", vote_deadline: deadline }).eq("id", activityId);
-		// Continue to check rejection rules below (don't return)
+		// Continue to check majority rules below (don't return)
 	}
 	
 	// If status is approved and no votes, keep it approved (nothing to do)
@@ -41,34 +43,72 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 		return;
 	}
 	
-	// timeout rule
+	// Timeout rule: if deadline passed, approve by default
 	if (act.vote_deadline && new Date(act.vote_deadline).getTime() <= now.getTime()) {
-		await supabase.from("manual_activities").update({ status: "approved", decided_at: now.toISOString() }).eq("id", activityId);
+		await supabase.from("manual_activities").update({ 
+			status: "approved", 
+			decided_at: now.toISOString() 
+		}).eq("id", activityId);
 		await supabase.from("history_events").insert({
 			lobby_id: act.lobby_id, type: "VOTE_RESULT",
-			payload: { activityId, result: "approved_timeout", legit, sus, totalVoters }
+			payload: { activityId, result: "approved_timeout", legit, sus, totalEligibleVoters }
 		});
 		return;
 	}
-	// early reject rules
-	if (totalVoters >= 2) {
-		const ratio = totalVoters ? sus / totalVoters : 0;
-		if (ratio >= 0.75) {
-			await supabase.from("manual_activities").update({ status: "rejected", decided_at: now.toISOString() }).eq("id", activityId);
+	
+	// Majority rule: more than 50% of eligible voters have voted
+	const hasMajority = totalVotes > (totalEligibleVoters / 2);
+	
+	if (hasMajority) {
+		// Determine winner: whichever side has more votes (ties default to legit)
+		const winner = legit > sus ? "approved" : legit < sus ? "rejected" : "approved";
+		
+		await supabase.from("manual_activities").update({ 
+			status: winner, 
+			decided_at: now.toISOString() 
+		}).eq("id", activityId);
+		
+		await supabase.from("history_events").insert({
+			lobby_id: act.lobby_id, type: "VOTE_RESULT",
+			payload: { 
+				activityId, 
+				result: winner === "approved" ? "approved_majority" : "rejected_majority", 
+				legit, 
+				sus, 
+				totalEligibleVoters,
+				totalVotes
+			}
+		});
+		return;
+	}
+	
+	// Early reject: if 75%+ of eligible voters vote sus (only if we have at least 2 eligible voters)
+	if (totalEligibleVoters >= 2 && totalVotes > 0) {
+		const susRatio = sus / totalEligibleVoters;
+		if (susRatio >= 0.75) {
+			await supabase.from("manual_activities").update({ 
+				status: "rejected", 
+				decided_at: now.toISOString() 
+			}).eq("id", activityId);
 			await supabase.from("history_events").insert({
 				lobby_id: act.lobby_id, type: "VOTE_RESULT",
-				payload: { activityId, result: "rejected_threshold", legit, sus, totalVoters }
+				payload: { activityId, result: "rejected_threshold", legit, sus, totalEligibleVoters }
 			});
 			return;
 		}
 	}
-	// very small lobby: unanimous sus among other players
-	if (totalVoters > 0 && sus === totalVoters) {
-		await supabase.from("manual_activities").update({ status: "rejected", decided_at: now.toISOString() }).eq("id", activityId);
+	
+	// Small lobby: unanimous sus among all eligible voters
+	if (totalEligibleVoters > 0 && sus === totalEligibleVoters && sus > 0) {
+		await supabase.from("manual_activities").update({ 
+			status: "rejected", 
+			decided_at: now.toISOString() 
+		}).eq("id", activityId);
 		await supabase.from("history_events").insert({
 			lobby_id: act.lobby_id, type: "VOTE_RESULT",
-			payload: { activityId, result: "rejected_unanimous_small", legit, sus, totalVoters }
+			payload: { activityId, result: "rejected_unanimous", legit, sus, totalEligibleVoters }
 		});
+		return;
 	}
 }
 

@@ -2,6 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { Button } from "@/components/ui/Button";
+import { StatusPill } from "@/components/ui/StatusPill";
+import { StyledSelect } from "@/components/ui/StyledSelect";
 
 type PlayerLite = { id: string; name: string; avatar_url?: string | null; user_id?: string | null };
 type ActivityRow = {
@@ -121,6 +124,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 
 	function playerById(id: string) { return players.find(p => p.id === id); }
 	function canVote(a: ActivityRow) {
+		// Can't vote if already decided (has decided_at timestamp)
+		if (a.decided_at) return false;
 		// Disable voting for very small lobbies (<=2 players)
 		if ((players?.length || 0) <= 2) return false;
 		if (!myPlayerId || a.player_id === myPlayerId) return false;
@@ -129,8 +134,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 			if (a.vote_deadline && new Date(a.vote_deadline).getTime() < Date.now()) return false;
 			return true;
 		}
-		// Allow voting on approved activities (to challenge them)
-		if (a.status === "approved") return true;
+		// Allow voting on approved activities (to challenge them) if not decided
+		if (a.status === "approved" && !a.decided_at) return true;
 		// Can't vote on rejected activities
 		return false;
 	}
@@ -263,16 +268,22 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 			{isOwner ? (
 				<div className="paper-card paper-grain ink-edge p-4 sm:p-5 mb-6 sm:mb-8">
 					<div className="poster-headline text-base sm:text-lg mb-3 sm:mb-4">Owner tools</div>
-					<div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
-						<select value={adjustTarget} onChange={e => setAdjustTarget(e.target.value)} className="w-full sm:w-auto px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-sm">
-							<option value="">Select athlete</option>
-							{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-						</select>
-						<div className="flex gap-2 w-full sm:w-auto">
-							<button className="btn-secondary px-4 py-2 rounded-md text-sm flex-1 sm:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(1)}>+1 heart</button>
-							<button className="px-4 py-2 rounded-md border border-deepBrown/30 text-sm flex-1 sm:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(-1)}>-1 heart</button>
+					<div className="flex flex-col md:flex-row gap-2 md:gap-3 items-start md:items-center md:justify-start flex-wrap">
+						<div className="w-full md:w-auto">
+							<StyledSelect value={adjustTarget} onChange={e => setAdjustTarget(e.target.value)} className="w-full md:w-auto text-sm">
+								<option value="">Select athlete</option>
+								{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+							</StyledSelect>
 						</div>
-						<div className="text-[11px] sm:text-xs text-deepBrown/70 w-full sm:w-auto">Logged publicly in history.</div>
+						<div className="flex gap-2 w-full md:w-auto">
+							<Button variant="secondary" size="md" className="flex-1 md:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(1)}>
+								+1 HEART
+							</Button>
+							<Button variant="secondary" size="md" className="flex-1 md:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(-1)}>
+								-1 HEART
+							</Button>
+						</div>
+						<div className="text-[11px] sm:text-xs text-deepBrown/70 w-full md:w-auto">Logged publicly in history.</div>
 					</div>
 				</div>
 			) : null}
@@ -305,7 +316,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 									<div className="poster-headline text-base leading-5">{(p?.name || "Unknown athlete").toUpperCase()}</div>
 									<div className="text-[11px] text-deepBrown/70">{new Date(a.date).toLocaleString()}</div>
 								</div>
-								<StatusBadge status={a.status as any} />
+								<StatusPill status={a.status as "pending" | "approved" | "rejected"} />
 							</div>
 							{a.caption ? <div className="text-sm">{a.caption}</div> : null}
 							{a.photo_url ? (
@@ -327,72 +338,64 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 									</div>
 								</button>
 							) : null}
-							<div className="text-[12px] text-deepBrown/80 border-t border-deepBrown/10 pt-2 flex items-center justify-between">
-								<div>
-									<strong className="mr-2">{titleCase(a.type)}</strong>
-									{a.duration_minutes ? `${a.duration_minutes} min` : ""}{a.duration_minutes && a.distance_km ? " · " : ""}{a.distance_km ? `${a.distance_km} km` : ""}
+							<div className="text-xs sm:text-sm text-deepBrown/80 border-t border-deepBrown/10 pt-3 sm:pt-4">
+								<div className="flex flex-wrap items-center gap-1.5">
+									<strong className="font-medium">{titleCase(a.type)}</strong>
+									{a.duration_minutes && <span>{a.duration_minutes} min</span>}
+									{a.duration_minutes && a.distance_km && <span>·</span>}
+									{a.distance_km && <span>{a.distance_km} km</span>}
 								</div>
 							</div>
-							<div className="flex items-center justify-between text-[12px]">
-								<div>{pending ? "Pending vote · " : a.status === "approved" ? "Approved · " : "Rejected · "}{v.legit} legit · {v.sus} sus {pending && a.vote_deadline ? `· ${timeLeft(a)} left` : ""}</div>
-								{canVote(a) ? (
+							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 text-xs sm:text-sm">
+								<div className="flex flex-wrap items-center gap-1.5 text-deepBrown/80">
+									{a.status === "approved" && (
+										<>
+											<span className="font-medium">Approved:</span>
+											<span>{v.legit} legit</span>
+											{v.sus > 0 && <span>· {v.sus} sus</span>}
+										</>
+									)}
+									{a.status === "rejected" && (
+										<>
+											<span className="font-medium">Rejected:</span>
+											<span>{v.sus} sus</span>
+											{v.legit > 0 && <span>· {v.legit} legit</span>}
+										</>
+									)}
+									{pending && (
+										<>
+											<span className="font-medium">Pending vote:</span>
+											<span>{v.legit} legit</span>
+											<span>· {v.sus} sus</span>
+											{a.vote_deadline && <span className="text-deepBrown/60">· {timeLeft(a)} left</span>}
+										</>
+									)}
+								</div>
+								{canVote(a) && !a.decided_at ? (
 									<div className="flex gap-2">
-										{a.status === "approved" ? (
-											<>
-												<button 
-													className={`px-3 py-1.5 rounded-md text-xs ${
-														v.mine === "legit" 
-															? "btn-vintage" 
-															: "border border-deepBrown/30"
-													}`} 
-													disabled={busy} 
-													onClick={() => vote(a.id, "legit")}
-													title={v.mine === "legit" ? "You voted 'Looks good'. Click to change." : "Vote 'Looks good'"}
-												>
-													Looks good ✅
-												</button>
-												<button 
-													className={`px-3 py-1.5 rounded-md text-xs ${
-														v.mine === "sus" 
-															? "btn-vintage" 
-															: "border border-deepBrown/30"
-													}`} 
-													disabled={busy} 
-													onClick={() => vote(a.id, "sus")}
-													title={v.mine === "sus" ? "You voted 'Challenge'. Click to change." : "Vote 'Challenge'"}
-												>
-													Challenge 🚩
-												</button>
-											</>
-										) : (
-											<>
-												<button 
-													className={`px-3 py-1.5 rounded-md text-xs ${
-														v.mine === "legit" 
-															? "btn-vintage" 
-															: "border border-deepBrown/30"
-													}`} 
-													disabled={busy} 
-													onClick={() => vote(a.id, "legit")}
-													title={v.mine === "legit" ? "You voted 'Count it'. Click to change." : "Vote 'Count it'"}
-												>
-													Count it ✅
-												</button>
-												<button 
-													className={`px-3 py-1.5 rounded-md text-xs ${
-														v.mine === "sus" 
-															? "btn-vintage" 
-															: "border border-deepBrown/30"
-													}`} 
-													disabled={busy} 
-													onClick={() => vote(a.id, "sus")}
-													title={v.mine === "sus" ? "You voted 'Feels sus'. Click to change." : "Vote 'Feels sus'"}
-												>
-													Feels sus 🚩
-												</button>
-											</>
-										)}
+										<Button
+											variant={v.mine === "legit" ? "primary" : "secondary"}
+											size="sm"
+											disabled={busy}
+											onClick={() => vote(a.id, "legit")}
+											title={v.mine === "legit" ? `You voted '${a.status === "approved" ? "Looks good" : "Count it"}'. Click to change.` : `Vote '${a.status === "approved" ? "Looks good" : "Count it"}'`}
+											className="normal-case"
+										>
+											{a.status === "approved" ? "Looks good ✅" : "Count it ✅"}
+										</Button>
+										<Button
+											variant={v.mine === "sus" ? "primary" : "secondary"}
+											size="sm"
+											disabled={busy}
+											onClick={() => vote(a.id, "sus")}
+											title={v.mine === "sus" ? `You voted '${a.status === "approved" ? "Challenge" : "Feels sus"}'. Click to change.` : `Vote '${a.status === "approved" ? "Challenge" : "Feels sus"}'`}
+											className="normal-case"
+										>
+											{a.status === "approved" ? "Challenge 🚩" : "Feels sus 🚩"}
+										</Button>
 									</div>
+								) : a.decided_at ? (
+									<div className="text-[11px] text-deepBrown/50 italic">Voting closed</div>
 								) : a.player_id === myPlayerId ? (
 									<div className="text-[11px] text-deepBrown/50 italic">You can't vote on your own activity</div>
 								) : !myPlayerId ? (
@@ -402,33 +405,29 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 								) : null}
 							</div>
 							{isOwner ? (
-								<div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-deepBrown/10">
-									<span className="text-[11px] sm:text-xs text-deepBrown/70 font-medium">Owner override:</span>
+								<div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-deepBrown/10">
+									<span className="text-[11px] sm:text-xs text-deepBrown/70 font-medium uppercase tracking-wide whitespace-nowrap">Owner override:</span>
 									<div className="flex gap-2 w-full sm:w-auto">
-										<button 
-											className={`px-4 py-2 rounded-md text-xs sm:text-sm transition-all duration-200 flex-1 sm:flex-none ${
-												a.status === "approved" 
-													? "btn-vintage" 
-													: "border border-deepBrown/30"
-											}`} 
-											disabled={busy} 
+										<Button
+											variant="secondary"
+											size="sm"
+											disabled={busy}
 											onClick={() => overrideActivity(a.id, "approved")}
+											className={`flex-1 sm:flex-none ${a.status === "approved" ? "bg-accent-primary/20 border-accent-primary" : ""}`}
 											title={a.status === "approved" ? "Currently approved" : "Override to approve"}
 										>
-											Approve ✅
-										</button>
-										<button 
-											className={`px-4 py-2 rounded-md text-xs sm:text-sm transition-all duration-200 flex-1 sm:flex-none ${
-												a.status === "rejected" 
-													? "btn-vintage" 
-													: "border border-deepBrown/30"
-											}`} 
-											disabled={busy} 
+											APPROVE
+										</Button>
+										<Button
+											variant="secondary"
+											size="sm"
+											disabled={busy}
 											onClick={() => overrideActivity(a.id, "rejected")}
+											className={`flex-1 sm:flex-none ${a.status === "rejected" ? "bg-accent-primary/20 border-accent-primary" : ""}`}
 											title={a.status === "rejected" ? "Currently rejected" : "Override to reject"}
 										>
-											Reject 🚩
-										</button>
+											REJECT
+										</Button>
 									</div>
 								</div>
 							) : null}
@@ -468,11 +467,6 @@ function ActivityComments({ activityId }: { activityId: string }) {
 	);
 }
 
-function StatusBadge({ status }: { status: "pending" | "approved" | "rejected" }) {
-	if (status === "approved") return <span className="px-2 py-1 rounded-md text-[10px] bg-[#2b6b2b] text-cream">Approved ✅</span>;
-	if (status === "rejected") return <span className="px-2 py-1 rounded-md text-[10px] bg-[#6b2b2b] text-cream">Rejected 🚫</span>;
-	return <span className="px-2 py-1 rounded-md text-[10px] border border-deepBrown/30">Pending vote</span>;
-}
 
 function titleCase(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 

@@ -21,8 +21,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		if (!lobby) return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
 		// allow if this player is the owner row in this lobby
 		if (lobby.owner_id !== ownerPlayerId) return NextResponse.json({ error: "Not owner" }, { status: 403 });
-		// update
-		await supabase.from("manual_activities").update({ status: newStatus, decided_at: new Date().toISOString() }).eq("id", activityId);
+		// update - owner override closes voting permanently
+		await supabase.from("manual_activities").update({ 
+			status: newStatus, 
+			decided_at: new Date().toISOString(),
+			vote_deadline: null // Clear deadline since owner decided
+		}).eq("id", activityId);
 		await supabase.from("history_events").insert({
 			lobby_id: act.lobby_id,
 			actor_player_id: ownerPlayerId,
