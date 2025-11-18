@@ -170,15 +170,29 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	}
 
 	async function overrideActivity(activityId: string, newStatus: "approved" | "rejected") {
-		if (!ownerPlayerId) return;
+		if (!ownerPlayerId) {
+			toast?.push?.("Unable to override: owner ID not found.");
+			return;
+		}
 		setBusy(true);
 		try {
-			await fetch(`/api/activities/${encodeURIComponent(activityId)}/override`, {
+			const res = await fetch(`/api/activities/${encodeURIComponent(activityId)}/override`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ownerPlayerId, newStatus })
+				body: JSON.stringify({ ownerPlayerId, newStatus }),
+				cache: "no-store"
 			});
+			if (!res.ok) {
+				const error = await res.json().catch(() => ({ error: "Unknown error" }));
+				toast?.push?.(`Failed to override: ${error.error || "Unknown error"}`);
+				return;
+			}
+			toast?.push?.(newStatus === "approved" ? "Activity approved ✅" : "Activity rejected 🚩");
 			await reloadActivities();
+			setTimeout(() => reloadActivities(), 100);
+		} catch (e) {
+			console.error("Override error", e);
+			toast?.push?.("Failed to override. Please try again.");
 		} finally { setBusy(false); }
 	}
 
@@ -377,11 +391,33 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 									<div className="text-[11px] text-deepBrown/50 italic">Voting requires 3+ players</div>
 								) : null}
 							</div>
-							{isOwner && pending ? (
-								<div className="flex items-center gap-2 pt-1">
+							{isOwner ? (
+								<div className="flex items-center gap-2 pt-1 border-t border-deepBrown/10">
 									<span className="text-[11px] text-deepBrown/70">Owner override:</span>
-									<button className="px-3 py-1.5 rounded-md border border-deepBrown/30 text-xs" disabled={busy} onClick={() => overrideActivity(a.id, "approved")}>Approve</button>
-									<button className="px-3 py-1.5 rounded-md border border-deepBrown/30 text-xs" disabled={busy} onClick={() => overrideActivity(a.id, "rejected")}>Reject</button>
+									<button 
+										className={`px-3 py-1.5 rounded-md text-xs transition-all duration-200 ${
+											a.status === "approved" 
+												? "btn-vintage" 
+												: "border border-deepBrown/30"
+										}`} 
+										disabled={busy} 
+										onClick={() => overrideActivity(a.id, "approved")}
+										title={a.status === "approved" ? "Currently approved" : "Override to approve"}
+									>
+										Approve ✅
+									</button>
+									<button 
+										className={`px-3 py-1.5 rounded-md text-xs transition-all duration-200 ${
+											a.status === "rejected" 
+												? "btn-vintage" 
+												: "border border-deepBrown/30"
+										}`} 
+										disabled={busy} 
+										onClick={() => overrideActivity(a.id, "rejected")}
+										title={a.status === "rejected" ? "Currently rejected" : "Override to reject"}
+									>
+										Reject 🚩
+									</button>
 								</div>
 							) : null}
 							<ActivityComments activityId={a.id} />
