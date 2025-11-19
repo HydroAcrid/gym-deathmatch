@@ -7,14 +7,14 @@ import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 type AuthContextValue = {
 	user: User | null;
 	isHydrated: boolean; // true once we've checked auth state (even if user is null)
-	signInMagic: (email?: string) => Promise<void>;
+	signInWithGoogle: () => Promise<void>;
 	signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue>({
 	user: null,
 	isHydrated: false,
-	signInMagic: async () => {},
+	signInWithGoogle: async () => {},
 	signOut: async () => {}
 });
 
@@ -50,28 +50,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		};
 	}, [supabase]);
 
-	async function signInMagic(email?: string) {
+	async function signInWithGoogle() {
 		if (!supabase) {
 			alert("Auth not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
 			return;
 		}
-		const e = email || window.prompt("Enter your email for a magic sign-in link") || "";
-		if (!e) return;
-		// Use window.location.origin to ensure magic link returns to the exact origin the user is on
-		// This prevents domain mismatch issues (e.g., NEXT_PUBLIC_BASE_URL pointing to vercel.app
-		// while PWA is installed from a different domain)
-		const origin = window.location.origin;
-		// If user is on an onboarding or join route, return them to the same page after magic link
-		// Otherwise, redirect to "/" which will handle routing based on localStorage
+
+		const fromEnv = process.env.NEXT_PUBLIC_BASE_URL;
+		const base = (
+			fromEnv && fromEnv.startsWith("http")
+				? fromEnv
+				: (typeof window !== "undefined" ? window.location.origin : "")
+		).replace(/\/$/, "");
+
 		let nextPath = "/";
 		try {
-			const path = window.location.pathname || "";
-			if (path.startsWith("/onboard/") || path.startsWith("/join/")) {
+			if (typeof window !== "undefined") {
+				const path = window.location.pathname || "/";
 				nextPath = path;
 			}
-		} catch { /* ignore */ }
-		await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: origin + nextPath } });
-		alert("Check your email for the sign-in link.");
+		} catch {
+			// ignore
+		}
+
+		const redirectTo = `${base}${nextPath}`;
+
+		await supabase.auth.signInWithOAuth({
+			provider: "google",
+			options: {
+				redirectTo
+			}
+		});
 	}
 
 	async function signOut() {
@@ -79,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		await supabase.auth.signOut();
 	}
 
-	return <AuthContext.Provider value={{ user, isHydrated, signInMagic, signOut }}>{children}</AuthContext.Provider>;
+	return <AuthContext.Provider value={{ user, isHydrated, signInWithGoogle, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

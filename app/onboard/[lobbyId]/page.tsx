@@ -29,7 +29,7 @@ export default function OnboardPage({ params }: { params: Promise<{ lobbyId: str
 		})();
 		return () => { mounted = false; };
 	}, [params]);
-	const { user, signInMagic } = useAuth();
+	const { user, signInWithGoogle } = useAuth();
 	const [displayName, setDisplayName] = useState("");
 	const [location, setLocation] = useState("");
 	const [quip, setQuip] = useState("");
@@ -115,7 +115,7 @@ export default function OnboardPage({ params }: { params: Promise<{ lobbyId: str
 				<div className="paper-card paper-grain ink-edge p-6 border-b-4" style={{ borderColor: "#E1542A" }}>
 					<div className="poster-headline text-xl mb-2">Welcome to Gym Deathmatch</div>
 					<div className="text-sm mb-3">You were invited to a lobby. Sign in to get started.</div>
-					<button className="btn-vintage px-4 py-2 rounded-md" onClick={() => signInMagic()}>Sign in with magic link</button>
+					<button className="btn-vintage px-4 py-2 rounded-md" onClick={signInWithGoogle}>Continue with Google</button>
 				</div>
 			</div>
 		);
