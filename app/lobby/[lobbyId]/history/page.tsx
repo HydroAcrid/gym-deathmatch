@@ -251,10 +251,17 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 				toast?.push?.(`Failed to ${choice === "remove" ? "remove vote" : "vote"}: ${error.error || "Unknown error"}`);
 				return;
 			}
-			// Show success message based on choice
-			const activity = activities.find(a => a.id === activityId);
+			
+			// Parse response to check if challenge was reverted
+			const data = await res.json().catch(() => ({ ok: true }));
+			
+			// Show success message based on choice and response
 			if (choice === "remove") {
-				toast?.push?.("Vote removed. Activity reverted to approved.");
+				if (data.reverted === true) {
+					toast?.push?.("Challenge cancelled. Activity reverted to approved ✅");
+				} else {
+					toast?.push?.("Your vote was removed.");
+				}
 			} else {
 				const isChangingVote = votesByAct[activityId]?.mine && votesByAct[activityId].mine !== choice;
 				if (choice === "legit") {
@@ -263,6 +270,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 					toast?.push?.(isChangingVote ? "Changed vote to 🚩 Challenge" : "Voted 🚩 Challenge");
 				}
 			}
+			
 			// Force a fresh reload with cache busting
 			// Clear votes state first to force re-fetch
 			setVotesByAct({});
