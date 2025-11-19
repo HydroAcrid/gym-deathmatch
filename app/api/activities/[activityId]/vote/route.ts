@@ -177,6 +177,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		const body = await req.json();
 		const voterPlayerId = String(body.voterPlayerId || "");
 		const choice = String(body.choice || "");
+		// Allow "remove" to delete a vote and revert activity to approved if no votes remain
+		if (choice === "remove") {
+			const { data: actRow } = await supabase.from("manual_activities").select("*").eq("id", activityId).maybeSingle();
+			if (!actRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
+			// Check if voter is member of lobby
+			const { data: voter } = await supabase.from("player").select("*").eq("id", voterPlayerId).maybeSingle();
+			if (!voter || voter.lobby_id !== actRow.lobby_id) return NextResponse.json({ error: "Not in lobby" }, { status: 400 });
+			// Delete the vote
+			const { error: delErr } = await supabase.from("activity_votes").delete().eq("activity_id", activityId).eq("voter_player_id", voterPlayerId);
+			if (delErr) {
+				console.error("Vote delete error:", delErr);
+				throw delErr;
+			}
+			// Re-resolve votes (will revert to approved if no votes remain)
+			await resolveActivityVotes(supabase, activityId);
+			return NextResponse.json({ ok: true, removed: true });
+		}
 		if (!["legit", "sus"].includes(choice)) return NextResponse.json({ error: "Invalid choice" }, { status: 400 });
 		// Activity
 		const { data: actRow } = await supabase.from("manual_activities").select("*").eq("id", activityId).maybeSingle();

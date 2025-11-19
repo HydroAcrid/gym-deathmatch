@@ -101,9 +101,18 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
 			if (supabase && acts.length) {
 				const ids = acts.map((a: any) => a.id);
-				const { data: allVotes } = await supabase.from("activity_votes").select("*").in("activity_id", ids);
+				// Use cache: "no-store" equivalent by adding timestamp to force fresh fetch
+				const { data: allVotes, error: votesError } = await supabase
+					.from("activity_votes")
+					.select("*")
+					.in("activity_id", ids);
+				if (votesError) {
+					console.error("Failed to fetch votes:", votesError);
+				}
 				const map: Record<string, { legit: number; sus: number; mine?: "legit" | "sus" }> = {};
+				// Initialize all activities with zero votes
 				for (const id of ids) map[id] = { legit: 0, sus: 0 };
+				// Count votes
 				for (const v of (allVotes ?? [])) {
 					if (!map[v.activity_id]) map[v.activity_id] = { legit: 0, sus: 0 };
 					if (v.choice === "legit") map[v.activity_id].legit++;
@@ -148,7 +157,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 		return `${h}h ${m}m`;
 	}
 
-	async function vote(activityId: string, choice: "legit" | "sus") {
+	async function vote(activityId: string, choice: "legit" | "sus" | "remove") {
 		if (!myPlayerId) {
 			toast?.push?.("Unable to vote: player ID not found. Please refresh the page.");
 			return;
@@ -163,24 +172,33 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 			});
 			if (!res.ok) {
 				const error = await res.json().catch(() => ({ error: "Unknown error" }));
-				toast?.push?.(`Failed to vote: ${error.error || "Unknown error"}`);
+				toast?.push?.(`Failed to ${choice === "remove" ? "remove vote" : "vote"}: ${error.error || "Unknown error"}`);
 				return;
 			}
 			// Show success message based on choice
 			const activity = activities.find(a => a.id === activityId);
-			const isChangingVote = votesByAct[activityId]?.mine && votesByAct[activityId].mine !== choice;
-			if (choice === "legit") {
-				toast?.push?.(isChangingVote ? "Changed vote to ✅ Looks good" : "Voted ✅ Looks good");
+			if (choice === "remove") {
+				toast?.push?.("Vote removed. Activity reverted to approved.");
 			} else {
-				toast?.push?.(isChangingVote ? "Changed vote to 🚩 Challenge" : "Voted 🚩 Challenge");
+				const isChangingVote = votesByAct[activityId]?.mine && votesByAct[activityId].mine !== choice;
+				if (choice === "legit") {
+					toast?.push?.(isChangingVote ? "Changed vote to ✅ Looks good" : "Voted ✅ Looks good");
+				} else {
+					toast?.push?.(isChangingVote ? "Changed vote to 🚩 Challenge" : "Voted 🚩 Challenge");
+				}
 			}
 			// Force a fresh reload with cache busting
+			// Clear votes state first to force re-fetch
+			setVotesByAct({});
 			await reloadActivities();
-			// Also trigger a small delay to ensure UI updates
-			setTimeout(() => reloadActivities(), 100);
+			// Also trigger a small delay to ensure UI updates (give DB time to commit)
+			setTimeout(() => {
+				setVotesByAct({});
+				reloadActivities();
+			}, 300);
 		} catch (e) {
 			console.error("Vote error", e);
-			toast?.push?.("Failed to vote. Please try again.");
+			toast?.push?.(`Failed to ${choice === "remove" ? "remove vote" : "vote"}. Please try again.`);
 		} finally { setBusy(false); }
 	}
 
@@ -203,8 +221,13 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 				return;
 			}
 			toast?.push?.(newStatus === "approved" ? "Activity approved ✅" : "Activity rejected 🚩");
+			// Clear votes state to force re-fetch
+			setVotesByAct({});
 			await reloadActivities();
-			setTimeout(() => reloadActivities(), 100);
+			setTimeout(() => {
+				setVotesByAct({});
+				reloadActivities();
+			}, 300);
 		} catch (e) {
 			console.error("Override error", e);
 			toast?.push?.("Failed to override. Please try again.");
@@ -373,26 +396,57 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 								</div>
 								{canVote(a) && !a.decided_at ? (
 									<div className="flex gap-2">
-										<Button
-											variant={v.mine === "legit" ? "primary" : "secondary"}
-											size="sm"
-											disabled={busy}
-											onClick={() => vote(a.id, "legit")}
-											title={v.mine === "legit" ? `You voted '${a.status === "approved" ? "Looks good" : "Count it"}'. Click to change.` : `Vote '${a.status === "approved" ? "Looks good" : "Count it"}'`}
-											className="normal-case"
-										>
-											{a.status === "approved" ? "Looks good ✅" : "Count it ✅"}
-										</Button>
-										<Button
-											variant={v.mine === "sus" ? "primary" : "secondary"}
-											size="sm"
-											disabled={busy}
-											onClick={() => vote(a.id, "sus")}
-											title={v.mine === "sus" ? `You voted '${a.status === "approved" ? "Challenge" : "Feels sus"}'. Click to change.` : `Vote '${a.status === "approved" ? "Challenge" : "Feels sus"}'`}
-											className="normal-case"
-										>
-											{a.status === "approved" ? "Challenge 🚩" : "Feels sus 🚩"}
-										</Button>
+										{/* For approved activities, only show "Feels sus" initially. Once challenged (pending), show both buttons */}
+										{a.status === "approved" && !v.mine ? (
+											// Approved activity with no vote yet - only show "Feels sus" button
+											<Button
+												variant="secondary"
+												size="sm"
+												disabled={busy}
+												onClick={() => vote(a.id, "sus")}
+												title="Challenge this activity"
+												className="normal-case"
+											>
+												Feels sus 🚩
+											</Button>
+										) : (
+											// Pending activity or user has already voted - show both buttons
+											<>
+												<Button
+													variant={v.mine === "legit" ? "primary" : "secondary"}
+													size="sm"
+													disabled={busy}
+													onClick={() => vote(a.id, "legit")}
+													title={v.mine === "legit" ? `You voted 'Count it'. Click to change.` : `Vote 'Count it'`}
+													className="normal-case"
+												>
+													Count it ✅
+												</Button>
+												<Button
+													variant={v.mine === "sus" ? "primary" : "secondary"}
+													size="sm"
+													disabled={busy}
+													onClick={() => vote(a.id, "sus")}
+													title={v.mine === "sus" ? `You voted 'Feels sus'. Click to change.` : `Vote 'Feels sus'`}
+													className="normal-case"
+												>
+													Feels sus 🚩
+												</Button>
+											</>
+										)}
+										{/* Show "Remove vote" button if user has voted and activity is pending (challenged) */}
+										{v.mine && a.status === "pending" && (
+											<Button
+												variant="secondary"
+												size="sm"
+												disabled={busy}
+												onClick={() => vote(a.id, "remove")}
+												title="Remove your vote to revert activity to approved"
+												className="normal-case text-xs"
+											>
+												Remove vote
+											</Button>
+										)}
 									</div>
 								) : a.decided_at ? (
 									<div className="text-[11px] text-deepBrown/50 italic">Voting closed</div>
