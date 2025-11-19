@@ -387,28 +387,50 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				if (!combined || (combined as any).error) {
 					// noop: fetchRecentActivities returns [] on error; below logic handles via thrown error path
 				}
-				// Prevent day-1 KO: if no activity yet and seasonStart is far in past, soft-clamp calculation start to "now"
-				const hasAny = (combined as any[]).length > 0;
-				const seasonStartDate = new Date(seasonStart);
-				const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-				const startForCalc = (!hasAny && (Date.now() - seasonStartDate.getTime() > twoDaysMs))
-					? new Date()
-					: seasonStartDate;
+				// In PRE_STAGE, seasonStart is null - use initial hearts and don't calculate from activities
+				// Only calculate hearts when season has actually started
+				let weekly: any;
+				let total = 0;
+				let currentStreak = 0;
+				let longestStreak = 0;
+				let avg = 0;
+				
+				if (!seasonStart || currentStage === "PRE_STAGE") {
+					// PRE_STAGE: Use initial hearts, no activity-based calculation
+					weekly = {
+						heartsRemaining: lobby.initialLives ?? 3,
+						weeksEvaluated: 0,
+						events: []
+					};
+					total = (combined as any[]).length;
+					currentStreak = calculateStreakFromActivities(combined as any[]);
+					longestStreak = calculateLongestStreak(combined as any[]);
+					avg = 0; // No average until season starts
+				} else {
+					// ACTIVE or COMPLETED: Calculate hearts from activities
+					// Prevent day-1 KO: if no activity yet and seasonStart is far in past, soft-clamp calculation start to "now"
+					const hasAny = (combined as any[]).length > 0;
+					const seasonStartDate = new Date(seasonStart);
+					const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+					const startForCalc = (!hasAny && (Date.now() - seasonStartDate.getTime() > twoDaysMs))
+						? new Date()
+						: seasonStartDate;
 
-				// Be robust: count all combined entries as total workouts (season bounds rarely matter for "now" views)
-				const total = (combined as any[]).length;
-				// For streaks, be forgiving and consider all combined activities (season-bound streaks are often confusing around start/end)
-				const currentStreak = calculateStreakFromActivities(combined as any[]);
-				const longestStreak = calculateLongestStreak(combined as any[]);
-				const avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc.toISOString(), seasonEnd);
-				// Evaluate hearts up to "now" (not full season) so players aren't penalized for future weeks
-				const weekly = computeWeeklyHearts(combined as any[], startForCalc, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+					// Be robust: count all combined entries as total workouts (season bounds rarely matter for "now" views)
+					total = (combined as any[]).length;
+					// For streaks, be forgiving and consider all combined activities (season-bound streaks are often confusing around start/end)
+					currentStreak = calculateStreakFromActivities(combined as any[]);
+					longestStreak = calculateLongestStreak(combined as any[]);
+					avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc.toISOString(), seasonEnd);
+					// Evaluate hearts up to "now" (not full season) so players aren't penalized for future weeks
+					weekly = computeWeeklyHearts(combined as any[], startForCalc, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+				}
 				// Back-compat feed events (met/count) derived from weekly events
 				const nowTs = Date.now();
-				const events = weekly.events
+				const events = (weekly.events || [])
 					// Only include fully completed weeks (avoid premature "missed" on current week)
-					.filter(e => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs)
-					.map((e) => ({
+					.filter((e: any) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs)
+					.map((e: any) => ({
 						weekStart: e.weekStart,
 						met: e.workouts >= weeklyTarget,
 						count: e.workouts
@@ -416,7 +438,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					.slice(-4); // keep recent few weeks to avoid noisy long histories
 				// Commentary: heart change for the most recent completed week (if any)
 				try {
-					const completed = weekly.events.filter(e => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs);
+					const completed = (weekly.events || []).filter((e: any) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs);
 					if (completed.length) {
 						const last = completed[completed.length - 1];
 						if (last.heartsLost > 0) {
@@ -565,27 +587,46 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							const tb = new Date(b.start_date || b.start_date_local || 0).getTime();
 							return tb - ta;
 						});
-						const seasonStartDate2 = new Date(seasonStart);
-						const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-						const startForCalc2 = ((combined as any[]).length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
-							? new Date()
-							: seasonStartDate2;
-						const total = (combined as any[]).length;
-						const currentStreak = calculateStreakFromActivities(combined as any[]);
-						const longestStreak = calculateLongestStreak(combined as any[]);
-						const avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc2.toISOString(), seasonEnd);
-						const weekly = computeWeeklyHearts(combined as any[], startForCalc2, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+						// In PRE_STAGE, use initial hearts (same logic as above)
+						let weekly: any;
+						let total = 0;
+						let currentStreak = 0;
+						let longestStreak = 0;
+						let avg = 0;
+						
+						if (!seasonStart || currentStage === "PRE_STAGE") {
+							weekly = {
+								heartsRemaining: lobby.initialLives ?? 3,
+								weeksEvaluated: 0,
+								events: []
+							};
+							total = (combined as any[]).length;
+							currentStreak = calculateStreakFromActivities(combined as any[]);
+							longestStreak = calculateLongestStreak(combined as any[]);
+							avg = 0;
+						} else {
+							const seasonStartDate2 = new Date(seasonStart);
+							const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+							const startForCalc2 = ((combined as any[]).length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
+								? new Date()
+								: seasonStartDate2;
+							total = (combined as any[]).length;
+							currentStreak = calculateStreakFromActivities(combined as any[]);
+							longestStreak = calculateLongestStreak(combined as any[]);
+							avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc2.toISOString(), seasonEnd);
+							weekly = computeWeeklyHearts(combined as any[], startForCalc2, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+						}
 						const nowTs2 = Date.now();
-						const events = weekly.events
-							.filter(e => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs2)
-							.map((e) => ({
+						const events = (weekly.events || [])
+							.filter((e: any) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs2)
+							.map((e: any) => ({
 								weekStart: e.weekStart,
 								met: e.workouts >= weeklyTarget,
 								count: e.workouts
 							}))
 							.slice(-4);
 						try {
-							const completed = weekly.events.filter(e => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs2);
+							const completed = (weekly.events || []).filter((e: any) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs2);
 							if (completed.length) {
 								const last = completed[completed.length - 1];
 								if (last.heartsLost > 0) {
@@ -812,49 +853,67 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	}
 
 	// Daily reminder check: at 8pm (20:00), check if any player hasn't logged an activity today
+	// Use a database flag to prevent duplicate sends across concurrent requests
 	try {
 		const nowDate = new Date();
 		const hour = nowDate.getHours();
 		const minute = nowDate.getMinutes();
 		// Check once per day at 8pm (20:00) with a 10-minute window
 		if (hour === 20 && minute < 10 && currentStage === "ACTIVE") {
-			const { onDailyReminder } = await import("@/lib/commentary");
-			const today = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
-			const todayStart = today.toISOString();
-			const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
-			
-			for (const p of updatedPlayers) {
-				// Check if player has any activity today (manual or Strava)
-				const supabase = getServerSupabase();
-				if (!supabase) continue;
+			const supabase = getServerSupabase();
+			if (supabase) {
+				// Check if we've already processed reminders today for this lobby
+				const today = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+				const todayStart = today.toISOString();
+				const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
 				
-				// Check manual activities
-				const { data: manualToday } = await supabase
-					.from("manual_activities")
-					.select("id")
+				// Check if any reminder was sent today (within the last 24 hours)
+				const { data: recentReminders } = await supabase
+					.from("comments")
+					.select("primary_player_id")
 					.eq("lobby_id", lobby.id)
-					.eq("player_id", p.id)
-					.gte("date", todayStart)
-					.lt("date", todayEnd)
+					.eq("type", "SUMMARY")
+					.gte("created_at", todayStart)
+					.lt("created_at", todayEnd)
+					.like("rendered", "%hasn't logged an activity today%")
 					.limit(1);
 				
-				// Check Strava activities (if connected)
-				let stravaToday = false;
-				if ((p as any).isStravaConnected) {
-					const { data: stravaActs } = await supabase
-						.from("strava_activities")
-						.select("id")
-						.eq("lobby_id", lobby.id)
-						.eq("player_id", p.id)
-						.gte("start_date", todayStart)
-						.lt("start_date", todayEnd)
-						.limit(1);
-					stravaToday = !!(stravaActs && stravaActs.length > 0);
-				}
-				
-				// If no activity today, send reminder
-				if (!manualToday?.length && !stravaToday) {
-					await onDailyReminder(lobby.id, p.id, p.name);
+				// Only process if no reminders were sent today yet
+				if (!recentReminders || recentReminders.length === 0) {
+					const { onDailyReminder } = await import("@/lib/commentary");
+					
+					for (const p of updatedPlayers) {
+						// Check if player has any activity today (manual or Strava)
+						
+						// Check manual activities
+						const { data: manualToday } = await supabase
+							.from("manual_activities")
+							.select("id")
+							.eq("lobby_id", lobby.id)
+							.eq("player_id", p.id)
+							.gte("date", todayStart)
+							.lt("date", todayEnd)
+							.limit(1);
+						
+						// Check Strava activities (if connected)
+						let stravaToday = false;
+						if ((p as any).isStravaConnected) {
+							const { data: stravaActs } = await supabase
+								.from("strava_activities")
+								.select("id")
+								.eq("lobby_id", lobby.id)
+								.eq("player_id", p.id)
+								.gte("start_date", todayStart)
+								.lt("start_date", todayEnd)
+								.limit(1);
+							stravaToday = !!(stravaActs && stravaActs.length > 0);
+						}
+						
+						// If no activity today, send reminder (onDailyReminder has its own deduplication)
+						if (!manualToday?.length && !stravaToday) {
+							await onDailyReminder(lobby.id, p.id, p.name);
+						}
+					}
 				}
 			}
 		}

@@ -11,6 +11,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	try {
 		const body = await req.json();
 		// Prevent duplicate player for the same user in this lobby
+		// If user already has a player in this lobby, use that player's ID instead of creating a new one
+		let playerId = body.id as string;
 		if (body.userId) {
 			const { data: existing } = await supabase
 				.from("player")
@@ -19,7 +21,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				.eq("user_id", body.userId)
 				.maybeSingle();
 			if (existing?.id) {
-				return NextResponse.json({ ok: true, alreadyJoined: true });
+				// User already has a player - use the existing player ID
+				playerId = existing.id;
+				// Update the existing player with any new profile data
+				const updateData: any = {};
+				if (body.name) updateData.name = body.name;
+				if (body.avatarUrl !== undefined) updateData.avatar_url = body.avatarUrl;
+				if (body.location !== undefined) updateData.location = body.location;
+				if (body.quip !== undefined) updateData.quip = body.quip;
+				if (Object.keys(updateData).length > 0) {
+					await supabase.from("player").update(updateData).eq("id", playerId);
+				}
+				return NextResponse.json({ ok: true, alreadyJoined: true, playerId });
 			}
 		}
 		let name = body.name as string;
@@ -37,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			} catch { /* ignore */ }
 		}
 		const p: PlayerRow = {
-			id: body.id,
+			id: playerId,
 			lobby_id: lobbyId,
 			name,
 			avatar_url: avatarUrl,
@@ -52,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			console.error("invite insert error", error);
 			return NextResponse.json({ error: "Failed to insert" }, { status: 500 });
 		}
-		return NextResponse.json({ ok: true });
+		return NextResponse.json({ ok: true, playerId });
 	} catch (e) {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
