@@ -177,20 +177,66 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		const body = await req.json();
 		const voterPlayerId = String(body.voterPlayerId || "");
 		const choice = String(body.choice || "");
-		// Allow "remove" to delete a vote and revert activity to approved if no votes remain
+		// Allow "remove" to delete a vote and revert activity to approved if appropriate
 		if (choice === "remove") {
 			const { data: actRow } = await supabase.from("manual_activities").select("*").eq("id", activityId).maybeSingle();
 			if (!actRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 			// Check if voter is member of lobby
 			const { data: voter } = await supabase.from("player").select("*").eq("id", voterPlayerId).maybeSingle();
 			if (!voter || voter.lobby_id !== actRow.lobby_id) return NextResponse.json({ error: "Not in lobby" }, { status: 400 });
+			
+			// Check if this voter was the first challenger (the one who started the vote)
+			// We can determine this by checking if there's a VOTE_STARTED event for this activity with this voter
+			const { data: voteStartedEvent } = await supabase
+				.from("history_events")
+				.select("actor_player_id")
+				.eq("lobby_id", actRow.lobby_id)
+				.eq("type", "VOTE_STARTED")
+				.eq("payload->>activityId", activityId)
+				.order("created_at", { ascending: true })
+				.limit(1)
+				.maybeSingle();
+			
+			const wasFirstChallenger = voteStartedEvent?.actor_player_id === voterPlayerId;
+			
+			// Get current vote count before deletion
+			const { data: allVotes } = await supabase
+				.from("activity_votes")
+				.select("voter_player_id")
+				.eq("activity_id", activityId);
+			const currentVoteCount = (allVotes || []).length;
+			
 			// Delete the vote
-			const { error: delErr } = await supabase.from("activity_votes").delete().eq("activity_id", activityId).eq("voter_player_id", voterPlayerId);
+			const { error: delErr } = await supabase
+				.from("activity_votes")
+				.delete()
+				.eq("activity_id", activityId)
+				.eq("voter_player_id", voterPlayerId);
 			if (delErr) {
 				console.error("Vote delete error:", delErr);
 				throw delErr;
 			}
-			// Re-resolve votes (will revert to approved if no votes remain)
+			
+			// If the person removing their vote was the first challenger, revert to approved
+			// This allows the challenger to "undo" their challenge even if others have voted
+			if (wasFirstChallenger && actRow.status === "pending" && !actRow.decided_at) {
+				await supabase
+					.from("manual_activities")
+					.update({
+						status: "approved",
+						vote_deadline: null,
+						decided_at: null
+					})
+					.eq("id", activityId);
+				// Delete all remaining votes since we're reverting the challenge
+				await supabase
+					.from("activity_votes")
+					.delete()
+					.eq("activity_id", activityId);
+				return NextResponse.json({ ok: true, removed: true, reverted: true });
+			}
+			
+			// Otherwise, just re-resolve votes (will revert to approved if no votes remain)
 			await resolveActivityVotes(supabase, activityId);
 			return NextResponse.json({ ok: true, removed: true });
 		}

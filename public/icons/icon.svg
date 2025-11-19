@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark background -->
+  <rect width="512" height="512" fill="#140b07"/>
+  
+  <!-- Dumbbell body (horizontal bar) -->
+  <rect x="120" y="240" width="272" height="32" rx="16" fill="#f26b2a"/>
+  
+  <!-- Left weight -->
+  <rect x="60" y="200" width="80" height="112" rx="12" fill="#f26b2a"/>
+  <rect x="70" y="210" width="60" height="92" rx="8" fill="#140b07"/>
+  
+  <!-- Right weight -->
+  <rect x="372" y="200" width="80" height="112" rx="12" fill="#f26b2a"/>
+  <rect x="382" y="210" width="60" height="92" rx="8" fill="#140b07"/>
+  
+  <!-- Center grip detail -->
+  <rect x="200" y="244" width="112" height="24" rx="4" fill="#140b07"/>
+</svg>

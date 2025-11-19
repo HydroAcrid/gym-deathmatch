@@ -49,6 +49,82 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobbyId]);
 
+	// Supabase Realtime subscription for live vote updates across all devices
+	useEffect(() => {
+		if (!lobbyId) return;
+		
+		let votesChannel: any = null;
+		let activitiesChannel: any = null;
+		let isSubscribed = true;
+		
+		(async () => {
+			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+			if (!supabase || !isSubscribed) return;
+
+			// Subscribe to activity_votes changes
+			// Note: Supabase Realtime doesn't support complex filters like `in.()`, so we subscribe to all
+			// and filter client-side by checking if the activity belongs to this lobby
+			// We'll reload on any vote change - the reload function already filters by lobby
+			votesChannel = supabase
+				.channel(`activity-votes-${lobbyId}-${Date.now()}`)
+				.on(
+					'postgres_changes',
+					{
+						event: '*', // INSERT, UPDATE, DELETE
+						schema: 'public',
+						table: 'activity_votes'
+					},
+					(payload: any) => {
+						if (!isSubscribed) return;
+						// Check if this vote is for an activity we care about
+						// We check by reloading and letting the server filter, but we can optimize
+						// by checking if we have this activity in our current state
+						const activityId = payload.new?.activity_id || payload.old?.activity_id;
+						// Reload activities - the server will only return activities for this lobby
+						// This ensures we get updates even for newly added activities
+						reloadActivities();
+					}
+				)
+				.subscribe();
+
+			// Subscribe to manual_activities status changes for this lobby
+			activitiesChannel = supabase
+				.channel(`manual-activities-${lobbyId}-${Date.now()}`)
+				.on(
+					'postgres_changes',
+					{
+						event: 'UPDATE', // Only status/decided_at changes
+						schema: 'public',
+						table: 'manual_activities',
+						filter: `lobby_id=eq.${lobbyId}`
+					},
+					() => {
+						if (!isSubscribed) return;
+						// Reload activities when status changes
+						reloadActivities();
+					}
+				)
+				.subscribe();
+		})();
+
+		// Cleanup function
+		return () => {
+			isSubscribed = false;
+			(async () => {
+				const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+				if (supabase) {
+					if (votesChannel) {
+						await supabase.removeChannel(votesChannel);
+					}
+					if (activitiesChannel) {
+						await supabase.removeChannel(activitiesChannel);
+					}
+				}
+			})();
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [lobbyId]); // Only depend on lobbyId to avoid re-subscribing on every activity change
+
 	async function reloadActivities(lid: string = lobbyId) {
 		if (!lid) return;
 		// Prefer server API (validates membership with service key) to avoid client RLS pitfalls

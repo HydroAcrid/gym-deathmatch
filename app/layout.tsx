@@ -6,10 +6,22 @@ import { ToastProvider } from "@/components/ToastProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Analytics } from "@vercel/analytics/react";
 import { DebugFooter } from "@/components/DebugFooter";
+import { PWARegister } from "@/components/PWARegister";
+import { PWAMeta } from "@/components/PWAMeta";
 
 export const metadata: Metadata = {
 	title: "Gym Deathmatch",
 	description: "A whimsical scrapbook gym challenge",
+	manifest: "/manifest.webmanifest",
+	themeColor: "#140b07",
+	appleWebApp: {
+		capable: true,
+		statusBarStyle: "black-translucent",
+		title: "Arena",
+	},
+	icons: {
+		apple: "/icons/icon-192.png",
+	},
 };
 
 export default function RootLayout({
@@ -32,6 +44,8 @@ export default function RootLayout({
 				</AuthProvider>
 				<Analytics />
 				<DebugFooter />
+				<PWARegister />
+				<PWAMeta />
 			</body>
 		</html>
 	);

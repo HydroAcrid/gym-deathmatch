@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Icon Generator</title>
+</head>
+<body>
+	<canvas id="canvas192" width="192" height="192"></canvas>
+	<canvas id="canvas512" width="512" height="512"></canvas>
+	<script>
+		// Dumbbell icon, dark theme compatible
+		function drawIcon(canvas, size) {
+			const ctx = canvas.getContext('2d');
+			const scale = size / 512;
+			
+			// Dark background
+			ctx.fillStyle = '#140b07';
+			ctx.fillRect(0, 0, size, size);
+			
+			// Orange accent color
+			ctx.fillStyle = '#f26b2a';
+			
+			// Draw dumbbell body (horizontal bar)
+			const barX = 120 * scale;
+			const barY = 240 * scale;
+			const barW = 272 * scale;
+			const barH = 32 * scale;
+			ctx.beginPath();
+			ctx.roundRect(barX, barY, barW, barH, 16 * scale);
+			ctx.fill();
+			
+			// Left weight
+			const leftX = 60 * scale;
+			const leftY = 200 * scale;
+			const leftW = 80 * scale;
+			const leftH = 112 * scale;
+			ctx.beginPath();
+			ctx.roundRect(leftX, leftY, leftW, leftH, 12 * scale);
+			ctx.fill();
+			
+			// Left weight inner (dark)
+			ctx.fillStyle = '#140b07';
+			ctx.beginPath();
+			ctx.roundRect(leftX + 10 * scale, leftY + 10 * scale, 60 * scale, 92 * scale, 8 * scale);
+			ctx.fill();
+			
+			// Right weight
+			ctx.fillStyle = '#f26b2a';
+			const rightX = 372 * scale;
+			const rightY = 200 * scale;
+			const rightW = 80 * scale;
+			const rightH = 112 * scale;
+			ctx.beginPath();
+			ctx.roundRect(rightX, rightY, rightW, rightH, 12 * scale);
+			ctx.fill();
+			
+			// Right weight inner (dark)
+			ctx.fillStyle = '#140b07';
+			ctx.beginPath();
+			ctx.roundRect(rightX + 10 * scale, rightY + 10 * scale, 60 * scale, 92 * scale, 8 * scale);
+			ctx.fill();
+			
+			// Center grip detail
+			ctx.beginPath();
+			ctx.roundRect(200 * scale, 244 * scale, 112 * scale, 24 * scale, 4 * scale);
+			ctx.fill();
+		}
+		
+		// Polyfill for roundRect if not available
+		if (!CanvasRenderingContext2D.prototype.roundRect) {
+			CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+				if (w < 2 * r) r = w / 2;
+				if (h < 2 * r) r = h / 2;
+				this.beginPath();
+				this.moveTo(x + r, y);
+				this.arcTo(x + w, y, x + w, y + h, r);
+				this.arcTo(x + w, y + h, x, y + h, r);
+				this.arcTo(x, y + h, x, y, r);
+				this.arcTo(x, y, x + w, y, r);
+				this.closePath();
+			};
+		}
+		
+		function downloadCanvas(canvas, filename) {
+			canvas.toBlob((blob) => {
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = filename;
+				a.click();
+				URL.revokeObjectURL(url);
+			}, 'image/png');
+		}
+		
+		// Generate icons
+		drawIcon(document.getElementById('canvas192'), 192);
+		drawIcon(document.getElementById('canvas512'), 512);
+		
+		// Auto-download after a moment
+		setTimeout(() => {
+			downloadCanvas(document.getElementById('canvas192'), 'icon-192.png');
+			setTimeout(() => {
+				downloadCanvas(document.getElementById('canvas512'), 'icon-512.png');
+				document.body.innerHTML += '<p>Icons generated! Check your downloads folder.</p>';
+			}, 500);
+		}, 500);
+	</script>
+</body>
+</html>
+
