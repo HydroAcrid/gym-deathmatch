@@ -162,7 +162,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	let rawStage: LobbyStage | null = null;
 	let rawSeasonNumber = 1;
 	let potConfig = { initialPot: 0, weeklyAnte: 10, scalingEnabled: false, perPlayerBoost: 0 };
-	let userIdByPlayer: Record<string, string | null> = {};
+	// Initialize userIdByPlayer outside try block to ensure it's always available
+	const userIdByPlayer: Record<string, string | null> = {};
 	const debugRecords: any[] = [];
 	try {
 		const supabase = getServerSupabase();
