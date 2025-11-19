@@ -5,6 +5,7 @@ import { useToast } from "@/components/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { StyledSelect } from "@/components/ui/StyledSelect";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 type PlayerLite = { id: string; name: string; avatar_url?: string | null; user_id?: string | null };
 type ActivityRow = {
@@ -48,6 +49,15 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobbyId]);
+
+	// Auto-refresh every 30 seconds while tab is visible
+	useAutoRefresh(
+		() => {
+			reloadActivities(lobbyId);
+		},
+		30000, // 30s refresh for history
+		[lobbyId]
+	);
 
 	// Supabase Realtime subscription for live vote updates across all devices
 	useEffect(() => {

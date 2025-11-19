@@ -9,6 +9,7 @@ import { PlayerCard } from "./PlayerCard";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useToast } from "./ToastProvider";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { RecentFeed } from "./RecentFeed";
 import { oneLinerFromActivity } from "@/lib/messages";
 import { KoOverlay } from "./KoOverlay";
@@ -197,26 +198,14 @@ export function LobbyLayout({
 		// re-fetch after connect or error banners too
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [lobby.id, stravaConnected, stravaError]);
-	// periodic refresh to keep feed fresh - poll every 10 seconds for live updates
-	useEffect(() => {
-		let cancelled = false;
-		function poll() {
-			if (cancelled || document.hidden) return;
+	// Auto-refresh every 15 seconds while tab is visible
+	useAutoRefresh(
+		() => {
 			reloadLive();
-		}
-		const id = setInterval(poll, 10 * 1000); // Poll every 10 seconds
-		// Pause when tab is hidden, resume when visible
-		const handleVisibilityChange = () => {
-			if (!document.hidden) reloadLive();
-		};
-		document.addEventListener("visibilitychange", handleVisibilityChange);
-		return () => {
-			cancelled = true;
-			clearInterval(id);
-			document.removeEventListener("visibilitychange", handleVisibilityChange);
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [lobby.id]);
+		},
+		15000, // 15s refresh for live lobby
+		[lobby.id]
+	);
 	// Allow children to request refresh (e.g., after manual log)
 	useEffect(() => {
 		function handler() { reloadLive(); }
