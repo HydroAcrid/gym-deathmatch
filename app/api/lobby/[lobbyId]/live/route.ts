@@ -295,12 +295,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const weeklyTarget = lobby.weeklyTarget ?? 3;
 	const initialLives = lobby.initialLives ?? 3;
 
-	// If season end has passed and stage is ACTIVE, mark as COMPLETED and generate summary
+	// Initialize currentStage once at the top level, before Promise.all
+	// This ensures it's available throughout the function and avoids TDZ issues
+	let currentStage: LobbyStage = rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE");
+
+	// If season end has passed and stage is ACTIVE, mark as COMPLETED (but we'll generate summary later after player stats)
 	let seasonSummary: SeasonSummary | null = null;
 	try {
 		const now = Date.now();
 		const seasonEndTime = new Date(seasonEnd).getTime();
-		const currentStage = rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE");
 		
 		if (currentStage === "ACTIVE" && seasonEndTime <= now) {
 			const supabase = getServerSupabase();
@@ -314,6 +317,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				}).eq("id", lobby.id);
 				rawStatus = "completed";
 				rawStage = "COMPLETED";
+				currentStage = "COMPLETED"; // Update the variable so rest of code sees the new value
 			}
 		}
 	} catch { /* ignore */ }
@@ -831,9 +835,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 
 	// Check if season end has passed and stage is ACTIVE - transition to COMPLETED
 	// This must happen AFTER player stats are computed so we can generate accurate summary
+	// Note: We already checked this earlier, but we check again here in case the transition didn't happen
+	// (e.g., if the earlier check failed or if we're in a different code path)
 	const now = Date.now();
 	const seasonEndTime = new Date(seasonEnd).getTime();
-	let currentStage = rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE");
 	
 	if (currentStage === "ACTIVE" && seasonEndTime <= now) {
 		// Transition to COMPLETED
@@ -846,7 +851,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				}).eq("id", lobby.id);
 				rawStatus = "completed";
 				rawStage = "COMPLETED";
-				currentStage = "COMPLETED";
+				currentStage = "COMPLETED"; // Update the variable
 			}
 		} catch (e) {
 			logError({ route: "GET /api/lobby/[id]/live", code: "STAGE_TRANSITION_FAILED", err: e, lobbyId });
