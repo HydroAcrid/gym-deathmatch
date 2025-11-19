@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { PageMotion } from "@/components/PageMotion";
@@ -13,7 +13,6 @@ export const metadata: Metadata = {
 	title: "Gym Deathmatch",
 	description: "A whimsical scrapbook gym challenge",
 	manifest: "/manifest.webmanifest",
-	themeColor: "#140b07",
 	appleWebApp: {
 		capable: true,
 		statusBarStyle: "black-translucent",
@@ -22,6 +21,10 @@ export const metadata: Metadata = {
 	icons: {
 		apple: "/icons/icon-192.png",
 	},
+};
+
+export const viewport: Viewport = {
+	themeColor: "#140b07",
 };
 
 export default function RootLayout({

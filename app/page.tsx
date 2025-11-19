@@ -12,9 +12,9 @@ export default function RootPage() {
 		// Wait for auth to hydrate before making routing decisions
 		if (!isHydrated) return;
 
-		// Not logged in → send them to onboarding/login
+		// Not logged in → send them to lobbies page (which will show login)
 		if (!user) {
-			router.replace("/onboard");
+			router.replace("/lobbies");
 			return;
 		}
 
