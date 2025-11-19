@@ -6,12 +6,14 @@ import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 
 type AuthContextValue = {
 	user: User | null;
+	isHydrated: boolean; // true once we've checked auth state (even if user is null)
 	signInMagic: (email?: string) => Promise<void>;
 	signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue>({
 	user: null,
+	isHydrated: false,
 	signInMagic: async () => {},
 	signOut: async () => {}
 });
@@ -19,15 +21,23 @@ const AuthContext = createContext<AuthContextValue>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const supabase = useMemo(() => getBrowserSupabase(), []);
 	const [user, setUser] = useState<User | null>(null);
+	const [isHydrated, setIsHydrated] = useState(false);
 
 	useEffect(() => {
-		if (!supabase) return;
+		if (!supabase) {
+			setIsHydrated(true); // No supabase = hydrated (but no auth)
+			return;
+		}
 		let ignore = false;
 		supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
-			if (!ignore) setUser(data.user ?? null);
+			if (!ignore) {
+				setUser(data.user ?? null);
+				setIsHydrated(true); // Mark as hydrated after initial check
+			}
 		});
 		const { data: sub } = supabase.auth.onAuthStateChange((_e: any, session: any) => {
 			setUser(session?.user ?? null);
+			setIsHydrated(true); // Mark as hydrated on any auth state change
 			try {
 				if (typeof window !== "undefined" && session?.user?.id) {
 					localStorage.setItem("gymdm_userId", session.user.id);
@@ -49,7 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		if (!e) return;
 		const base = (process.env.NEXT_PUBLIC_BASE_URL || window.location.origin);
 		// If user is on an onboarding or join route, return them to the same page after magic link
-		let nextPath = "/home";
+		// Otherwise, redirect to "/" which will handle routing based on localStorage
+		let nextPath = "/";
 		try {
 			const path = window.location.pathname || "";
 			if (path.startsWith("/onboard/") || path.startsWith("/join/")) {
@@ -65,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		await supabase.auth.signOut();
 	}
 
-	return <AuthContext.Provider value={{ user, signInMagic, signOut }}>{children}</AuthContext.Provider>;
+	return <AuthContext.Provider value={{ user, isHydrated, signInMagic, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
