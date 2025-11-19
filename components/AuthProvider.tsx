@@ -57,7 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 		const e = email || window.prompt("Enter your email for a magic sign-in link") || "";
 		if (!e) return;
-		const base = (process.env.NEXT_PUBLIC_BASE_URL || window.location.origin);
+		// Use window.location.origin to ensure magic link returns to the exact origin the user is on
+		// This prevents domain mismatch issues (e.g., NEXT_PUBLIC_BASE_URL pointing to vercel.app
+		// while PWA is installed from a different domain)
+		const origin = window.location.origin;
 		// If user is on an onboarding or join route, return them to the same page after magic link
 		// Otherwise, redirect to "/" which will handle routing based on localStorage
 		let nextPath = "/";
@@ -67,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				nextPath = path;
 			}
 		} catch { /* ignore */ }
-		await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: base + nextPath } });
+		await supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: origin + nextPath } });
 		alert("Check your email for the sign-in link.");
 	}
 

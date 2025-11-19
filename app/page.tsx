@@ -12,7 +12,13 @@ export default function RootPage() {
 		// Wait for auth to hydrate before making routing decisions
 		if (!isHydrated) return;
 
-		// Check localStorage for last lobby
+		// Not logged in → send them to onboarding/login
+		if (!user) {
+			router.replace("/onboard");
+			return;
+		}
+
+		// Logged in → try last lobby
 		const lastLobbyId = typeof window !== "undefined" ? localStorage.getItem("gymdm_lastLobbyId") : null;
 		
 		if (lastLobbyId) {
@@ -22,20 +28,14 @@ export default function RootPage() {
 			// No last lobby, go to lobbies list
 			router.replace("/lobbies");
 		}
-	}, [isHydrated, router]);
+	}, [user, isHydrated, router]);
 
 	// Show loading while waiting for auth to hydrate
-	if (!isHydrated) {
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-main text-main">
-				<div className="text-center">
-					<div className="poster-headline text-xl mb-2">Loading your lobby...</div>
-					<div className="text-sm opacity-70">Please wait</div>
-				</div>
+	return (
+		<div className="min-h-screen flex items-center justify-center bg-main text-main">
+			<div className="text-center">
+				<div className="text-sm text-deepBrown/70">Loading your arena…</div>
 			</div>
-		);
-	}
-
-	// This should rarely render (redirect happens quickly), but show a fallback
-	return null;
+		</div>
+	);
 }
