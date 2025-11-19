@@ -23,7 +23,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [ownerPlayerId, setOwnerPlayerId] = useState<string | null>(null);
 	const [activities, setActivities] = useState<ActivityRow[]>([]);
 	const [votesByAct, setVotesByAct] = useState<Record<string, { legit: number; sus: number; mine?: "legit" | "sus" }>>({});
-	const { user } = useAuth();
+	const { user, isHydrated } = useAuth();
 	const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
 	const [adjustTarget, setAdjustTarget] = useState<string>("");
 	const [busy, setBusy] = useState(false);
@@ -36,11 +36,12 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 		(async () => {
 			const { lobbyId } = await params;
 			setLobbyId(lobbyId);
-			// Wait for user to be known; the API requires x-user-id
+			// Wait for auth hydration and user to be known; the API requires x-user-id
+			if (!isHydrated) return;
 			if (!user?.id) return;
 			await reloadActivities(lobbyId);
 		})();
-	}, [params, user?.id]);
+	}, [params, isHydrated, user?.id]);
 
 	// Also refresh when a global refresh event is fired (after posting)
 	useEffect(() => {

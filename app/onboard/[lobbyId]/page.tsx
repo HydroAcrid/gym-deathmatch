@@ -29,7 +29,7 @@ export default function OnboardPage({ params }: { params: Promise<{ lobbyId: str
 		})();
 		return () => { mounted = false; };
 	}, [params]);
-	const { user, signInWithGoogle } = useAuth();
+	const { user, isHydrated, signInWithGoogle } = useAuth();
 	const [displayName, setDisplayName] = useState("");
 	const [location, setLocation] = useState("");
 	const [quip, setQuip] = useState("");
@@ -39,6 +39,8 @@ export default function OnboardPage({ params }: { params: Promise<{ lobbyId: str
 
 	useEffect(() => {
 		(async () => {
+			// Wait for auth hydration before checking membership
+			if (!isHydrated) return;
 			if (!user?.id) return;
 			// If already a member of this lobby, jump straight to the lobby
 			try {
@@ -60,7 +62,7 @@ export default function OnboardPage({ params }: { params: Promise<{ lobbyId: str
 				if (j?.avatarUrl) setAvatarUrl(j.avatarUrl);
 			} catch { /* ignore */ }
 		})();
-	}, [user?.id]);
+	}, [isHydrated, user?.id, lobbyId]);
 
 	async function saveProfile() {
 		if (!user?.id) return;

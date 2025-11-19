@@ -29,20 +29,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			return;
 		}
 		let ignore = false;
+		let initialCheckComplete = false;
+		
+		// Initial auth check - must complete before isHydrated is true
 		supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
 			if (!ignore) {
 				setUser(data.user ?? null);
-				setIsHydrated(true); // Mark as hydrated after initial check
+				initialCheckComplete = true;
+				setIsHydrated(true); // Mark as hydrated ONLY after initial check completes
+				try {
+					if (typeof window !== "undefined" && data.user?.id) {
+						localStorage.setItem("gymdm_userId", data.user.id);
+					}
+				} catch { /* ignore */ }
+			}
+		}).catch((err: unknown) => {
+			console.error("[AuthProvider] getUser error:", err);
+			if (!ignore) {
+				initialCheckComplete = true;
+				setIsHydrated(true); // Even on error, mark as hydrated so UI doesn't hang
 			}
 		});
+		
+		// Listen for auth state changes (OAuth callbacks, sign out, etc.)
 		const { data: sub } = supabase.auth.onAuthStateChange((_e: any, session: any) => {
-			setUser(session?.user ?? null);
-			setIsHydrated(true); // Mark as hydrated on any auth state change
-			try {
-				if (typeof window !== "undefined" && session?.user?.id) {
-					localStorage.setItem("gymdm_userId", session.user.id);
+			if (!ignore) {
+				setUser(session?.user ?? null);
+				// Only set isHydrated if initial check already completed
+				// This prevents race conditions where onAuthStateChange fires before getUser() resolves
+				if (initialCheckComplete) {
+					setIsHydrated(true);
 				}
-			} catch { /* ignore */ }
+				try {
+					if (typeof window !== "undefined" && session?.user?.id) {
+						localStorage.setItem("gymdm_userId", session.user.id);
+					}
+				} catch { /* ignore */ }
+			}
 		});
 		return () => {
 			ignore = true;

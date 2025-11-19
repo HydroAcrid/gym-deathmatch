@@ -27,12 +27,12 @@ export default function LobbiesPage() {
 	const [allLobbies, setAllLobbies] = useState<LobbyRow[]>([]);
 	const [playerId, setPlayerId] = useState<string | null>(null);
 	const [editLobby, setEditLobby] = useState<LobbyRow | null>(null);
-	const { user } = useAuth();
+	const { user, isHydrated } = useAuth();
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [debouncedSearch, setDebouncedSearch] = useState<string>("");
 	const [sortBy, setSortBy] = useState<SortOption>("newest");
 	const [filters, setFilters] = useState<FilterOptions>({
-		showMine: true,
+		showMine: false, // Default to false so users see all lobbies they're a member of or own
 		showActive: false,
 		showCompleted: false,
 		showMoney: false,
@@ -45,15 +45,36 @@ export default function LobbiesPage() {
 	}, []);
 	
 	const reloadLobbies = useCallback(async () => {
-		// Always fetch all lobbies the user is a member of (API requires userId)
-		// The "show mine" filter will then filter to only owned ones client-side
-		const url = user?.id ? `/api/lobbies?userId=${encodeURIComponent(user.id)}` : "/api/lobbies";
-		fetch(url).then(r => r.json()).then(d => setAllLobbies(d.lobbies ?? [])).catch(() => {});
-	}, [user?.id]);
+		// CRITICAL: Only fetch if auth is hydrated and user exists
+		// This prevents race conditions where we fetch before auth is ready
+		if (!isHydrated) {
+			console.log("[lobbies] Skipping fetch - auth not hydrated yet");
+			return;
+		}
+		
+		if (!user?.id) {
+			console.log("[lobbies] No user ID - user not signed in");
+			setAllLobbies([]);
+			return;
+		}
+		
+		console.log("[lobbies] Fetching lobbies for user:", user.id);
+		const url = `/api/lobbies?userId=${encodeURIComponent(user.id)}`;
+		try {
+			const res = await fetch(url);
+			const data = await res.json();
+			setAllLobbies(data.lobbies ?? []);
+		} catch (err) {
+			console.error("[lobbies] Fetch error:", err);
+			setAllLobbies([]);
+		}
+	}, [isHydrated, user?.id]);
 
+	// Only fetch lobbies after auth is hydrated AND user exists
 	useEffect(() => {
+		if (!isHydrated) return; // Wait for auth hydration
 		reloadLobbies();
-	}, [reloadLobbies]);
+	}, [isHydrated, reloadLobbies]);
 
 	// Poll for lobby updates every 10 seconds
 	useEffect(() => {
@@ -173,12 +194,16 @@ export default function LobbiesPage() {
 				filteredCount={filteredAndSortedLobbies.length}
 			/>
 
-			{/* Lobby Grid */}
-			{filteredAndSortedLobbies.length === 0 ? (
+			{/* Loading state while auth hydrates */}
+			{!isHydrated ? (
+				<div className="paper-card paper-grain ink-edge p-8 text-center">
+					<div className="text-deepBrown/70 text-sm">Loading your account...</div>
+				</div>
+			) : filteredAndSortedLobbies.length === 0 ? (
 				<div className="paper-card paper-grain ink-edge p-8 text-center">
 					<div className="text-deepBrown/70 text-sm">
 						{allLobbies.length === 0 
-							? "No lobbies yet. Create one from the navbar."
+							? (user ? "No lobbies yet. Create one from the navbar." : "Sign in to see your lobbies.")
 							: "No lobbies found."}
 					</div>
 				</div>
