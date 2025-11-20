@@ -33,6 +33,13 @@ const STEPS = [
 		visual: "💵"
 	},
 	{
+		key: "install",
+		headline: "ADD GYM DEATHMATCH TO YOUR HOME SCREEN",
+		text: "Turn Gym Deathmatch into a real app on your phone — opens faster, smoother, and works fullscreen.",
+		sub: "📱 iOS: Share → Add to Home Screen\n⭐ Android: Menu → Install App",
+		visual: "📲"
+	},
+	{
 		key: "victory",
 		headline: "🔥 SURVIVE THE SEASON",
 		text: "When someone gets KO’d, the match ends. Winner takes bragging rights — loser pays the price.",
@@ -117,7 +124,28 @@ export function IntroGuide({ children }: IntroGuideProps) {
 										<div className="poster-headline text-xl sm:text-2xl">{slide.headline}</div>
 									</div>
 									<p className="text-sm mb-1 whitespace-normal break-words">{slide.text}</p>
-									{slide.sub ? <p className="text-[12px] text-deepBrown/70">{slide.sub}</p> : null}
+									{slide.key === "install" ? (
+										<div className="mt-3 space-y-3 text-xs bg-cream/50 p-3 rounded border border-deepBrown/10">
+											<div>
+												<strong className="block mb-1">iOS (Safari):</strong>
+												<ol className="list-decimal list-inside space-y-0.5 text-[11px] opacity-90">
+													<li>Tap the <strong>Share</strong> button (square with ↑)</li>
+													<li>Scroll down & pick <strong>Add to Home Screen</strong></li>
+													<li>Tap <strong>Add</strong></li>
+												</ol>
+											</div>
+											<div>
+												<strong className="block mb-1">Android (Chrome):</strong>
+												<ol className="list-decimal list-inside space-y-0.5 text-[11px] opacity-90">
+													<li>Tap the <strong>⋮ menu</strong></li>
+													<li>Choose <strong>Install App</strong> or <strong>Add to Home Screen</strong></li>
+													<li>Tap <strong>Install</strong></li>
+												</ol>
+											</div>
+										</div>
+									) : (
+										slide.sub ? <p className="text-[12px] text-deepBrown/70 whitespace-pre-wrap">{slide.sub}</p> : null
+									)}
 									{/* subtle line */}
 									<div className="mt-3 h-px w-full" style={{ backgroundColor: "rgba(74,38,32,0.25)" }} />
 								</motion.div>
