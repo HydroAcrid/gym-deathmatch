@@ -1,21 +1,28 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Home, Trophy, Plus, BarChart2, Menu, History, BookOpen, HelpCircle, X } from "lucide-react";
 import { CreateLobby } from "./CreateLobby";
 import { IntroGuide } from "./IntroGuide";
+import { ManualActivityModal } from "./ManualActivityModal";
 import { useState, useEffect } from "react";
+import { useToast } from "./ToastProvider";
 
 export function MobileNav() {
 	const pathname = usePathname();
+	const router = useRouter();
+	const toast = useToast();
 	const [lastLobbyId, setLastLobbyId] = useState<string | null>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
+	const [logModalOpen, setLogModalOpen] = useState(false);
+	const [playerId, setPlayerId] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		setLastLobbyId(localStorage.getItem("gymdm_lastLobbyId"));
+		setPlayerId(localStorage.getItem("gymdm_playerId"));
 	}, [pathname]);
 
 	// Determine correct paths based on lobby context
@@ -37,10 +44,22 @@ export function MobileNav() {
 	const navItems = [
 		{ label: "Home", href: "/home", icon: Home, active: isHomeActive },
 		{ label: "Lobbies", href: "/lobbies", icon: Trophy, active: isLobbiesActive },
-		{ label: "Create", isCreate: true, icon: Plus },
+		{ label: "Log", isLog: true, icon: Plus },
 		{ label: "History", href: historyHref, icon: History, active: isHistoryActive },
 		{ label: "More", isMenu: true, icon: Menu, active: menuOpen }
 	];
+
+	function handleLogClick() {
+		if (!lobbyId) {
+			toast.push("Join or enter a lobby to log activity.");
+			return;
+		}
+		if (!playerId) {
+			toast.push("You need to be a player in this lobby.");
+			return;
+		}
+		setLogModalOpen(true);
+	}
 
 	return (
 		<>
@@ -51,16 +70,14 @@ export function MobileNav() {
 			<div className="fixed bottom-0 left-0 right-0 bg-main border-t border-deepBrown/20 z-40 sm:hidden pb-[env(safe-area-inset-bottom)] overflow-visible">
 				<div className="flex items-center justify-around h-[60px]">
 					{navItems.map((item, index) => {
-						if (item.isCreate) {
+						if (item.isLog) {
 							return (
-								<CreateLobby key="create">
-									<span className="flex flex-col items-center justify-center w-16 h-full cursor-pointer relative z-50">
-										<span className="w-14 h-14 bg-[var(--accent-primary)] rounded-full flex items-center justify-center shadow-lg text-white mb-1 mt-[-24px] border-2 border-[var(--accent-primary)]">
-											<Plus size={24} strokeWidth={3} />
-										</span>
-										<span className="text-[9px] uppercase font-bold tracking-wide mt-1">Create</span>
+								<button key="log" onClick={handleLogClick} className="flex flex-col items-center justify-center w-16 h-full cursor-pointer relative z-50">
+									<span className="w-14 h-14 bg-[var(--accent-primary)] rounded-full flex items-center justify-center shadow-lg text-white mb-1 mt-[-24px] border-2 border-[var(--accent-primary)]">
+										<Plus size={24} strokeWidth={3} />
 									</span>
-								</CreateLobby>
+									<span className="text-[9px] uppercase font-bold tracking-wide mt-1">Log</span>
+								</button>
 							);
 						}
 
@@ -118,6 +135,12 @@ export function MobileNav() {
 									</button>
 								</div>
 								<div className="grid grid-cols-3 gap-4">
+									<CreateLobby>
+										<span className="flex flex-col items-center justify-center p-4 rounded-xl bg-elevated border border-deepBrown/10 h-full w-full">
+											<Plus size={24} className="mb-2 text-accent-primary" />
+											<span className="text-xs font-medium">Create Lobby</span>
+										</span>
+									</CreateLobby>
 									<Link
 										href={statsHref}
 										onClick={() => setMenuOpen(false)}
@@ -146,7 +169,21 @@ export function MobileNav() {
 					</>
 				)}
 			</AnimatePresence>
+
+			{/* Manual Activity Modal */}
+			{lobbyId && playerId && (
+				<ManualActivityModal
+					open={logModalOpen}
+					onClose={() => setLogModalOpen(false)}
+					lobbyId={lobbyId}
+					playerId={playerId}
+					onSaved={() => {
+						if (typeof window !== "undefined") {
+							window.dispatchEvent(new CustomEvent("gymdm:refresh-live", { detail: { lobbyId } }));
+						}
+					}}
+				/>
+			)}
 		</>
 	);
 }
-

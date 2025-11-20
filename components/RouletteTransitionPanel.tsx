@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Lobby, Player } from "@/types/game";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useAuth } from "./AuthProvider";
 import { PunishmentWheel, type PunishmentEntry } from "./punishment/PunishmentWheel";
 
@@ -18,13 +18,13 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const [mySubmission, setMySubmission] = useState<{ id: string; text: string; created_by?: string | null } | null>(null);
 	const justSubmittedRef = useRef<boolean>(false);
 	const [isOwner, setIsOwner] = useState<boolean>(false);
-	const [wheelAngle, setWheelAngle] = useState<number>(0);
 	const [spinIndex, setSpinIndex] = useState<number | null>(null);
 	const [spinNonce, setSpinNonce] = useState<number>(0);
 	const pendingChosenRef = useRef<string | null>(null);
 	const [showDebug, setShowDebug] = useState<boolean>(false);
+	const initialLoadRef = useRef(false);
+	const prevActiveRef = useRef<string | null>(null);
 	
-	// Check for debug mode only on client to avoid hydration mismatch
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			setShowDebug(window.localStorage?.getItem("gymdm_debug") === "1");
@@ -45,34 +45,72 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			if (!res.ok) return;
 			const j = await res.json();
 			const newItems = j.items || [];
-			// Create a hash of items to detect actual changes
+			
+			// Update items if changed
 			const itemsHash = JSON.stringify(newItems.map((i: any) => ({ id: i.id, text: i.text, created_by: i.created_by })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
-			// Only update state if items actually changed
 			if (itemsHash !== itemsHashRef.current) {
 				itemsHashRef.current = itemsHash;
 				setItems(newItems);
-				setLocked(!!j.locked);
-				if (j.active?.text) setChosen(j.active.text);
 			}
+			
+			setLocked(!!j.locked);
+
+			// Handle spin trigger
+			const activeText = j.active?.text || null;
+			if (activeText && activeText !== prevActiveRef.current) {
+				// New active punishment detected
+				if (initialLoadRef.current && !chosen) {
+					// We are live and watching, trigger spin!
+					// Need to map text to index
+					// Note: We need up-to-date wheelEntries. computed from 'items' and 'players'.
+					// Since we just set 'items', we might need to compute it here or wait for render.
+					// But we can't wait. Let's compute locally.
+					// Actually, assume wheelEntries updates fast enough or use current 'items' if we just set it?
+					// 'setItems' is async.
+					// We can use 'newItems' to compute.
+					const currentEntries = computeEntries(newItems, players);
+					const idx = currentEntries.findIndex(e => e.punishment === activeText);
+					
+					if (idx >= 0) {
+						console.log("Remote spin triggered!", activeText, idx);
+						setSpinIndex(idx);
+						setSpinNonce(n => n + 1);
+						setSpinning(true);
+						pendingChosenRef.current = activeText;
+					} else {
+						// Item not found on wheel? Fallback to just showing it.
+						setChosen(activeText);
+					}
+				} else if (!initialLoadRef.current) {
+					// Initial load, just show result
+					setChosen(activeText);
+				}
+			}
+			prevActiveRef.current = activeText;
+			initialLoadRef.current = true;
+
 		} catch { /* ignore */ }
 	};
 
-	// Find current user's submission and pre-fill input
+	// Listen for realtime updates
+	useEffect(() => {
+		function onRefresh() { loadPunishments(); }
+		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
+		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
+	}, [lobby.id]);
+
+	// Find current user's submission
 	const prevMySubmissionRef = useRef<{ id: string; text: string } | null>(null);
 	useEffect(() => {
-		// Skip auto-fill if we just submitted (to avoid overwriting user's new text)
-		if (justSubmittedRef.current) {
-			return;
-		}
+		if (justSubmittedRef.current) return;
 		if (!user?.id && !localStorage.getItem("gymdm_playerId")) return;
 		let meId: string | null = null;
 		if (user?.id) {
 			const mine = players.find(p => (p as any).userId === user.id);
 			if (mine) meId = mine.id;
 		}
-		if (!meId) {
-			meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
-		}
+		if (!meId) meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
+		
 		if (meId) {
 			const mySub = items.find(i => {
 				const createdBy = i.created_by;
@@ -80,13 +118,8 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			});
 			const prevSub = prevMySubmissionRef.current;
 			setMySubmission(mySub || null);
-			// Pre-fill input only when:
-			// 1. We first find a submission (prevSub is null, mySub exists)
-			// 2. The submission text changed (prevSub exists but text is different)
-			// Don't overwrite if user is currently typing
 			if (mySub) {
 				if (!prevSub || prevSub.text !== mySub.text) {
-					// Only update if input is empty or matches the old submission
 					if (!myText || myText === prevSub?.text) {
 						setMyText(mySub.text);
 					}
@@ -98,12 +131,9 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		}
 	}, [items, players, user?.id]);
 
-	// Track items hash to detect changes
 	const itemsHashRef = useRef<string>("");
 	
-	// Clear all form state when switching to a different lobby
 	useEffect(() => {
-		// Reset all form state when lobby changes
 		setItems([]);
 		setMyText("");
 		setMySubmission(null);
@@ -117,42 +147,17 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		justSubmittedRef.current = false;
 		prevMySubmissionRef.current = null;
 		itemsHashRef.current = "";
+		initialLoadRef.current = false;
+		prevActiveRef.current = null;
 	}, [lobby.id]);
 	
 	useEffect(() => {
 		loadPunishments();
-		let cancelled = false;
-		let pollTimeout: any;
-		
-		// Only poll when tab becomes visible (not on interval)
-		const handleVisibilityChange = () => {
-			if (!document.hidden && !cancelled) {
-				loadPunishments();
-			}
-		};
-		
-		// Very infrequent background check (every 60 seconds) only when visible
-		function scheduleNextPoll() {
-			if (cancelled || document.hidden) return;
-			pollTimeout = setTimeout(() => {
-				if (!cancelled && !document.hidden) {
-					loadPunishments();
-					scheduleNextPoll();
-				}
-			}, 60 * 1000); // 60 seconds
-		}
-		
-		document.addEventListener("visibilitychange", handleVisibilityChange);
-		scheduleNextPoll();
-		
-		return () => {
-			cancelled = true;
-			clearTimeout(pollTimeout);
-			document.removeEventListener("visibilitychange", handleVisibilityChange);
-		};
+		// Keep a slow poll just in case realtime misses
+		const id = setInterval(loadPunishments, 10000);
+		return () => clearInterval(id);
 	}, [lobby.id]);
 
-	// Enrich player list with userId - only refresh when tab becomes visible
 	useEffect(() => {
 		let cancelled = false;
 		async function refresh() {
@@ -167,9 +172,8 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			} catch { /* ignore */ }
 		}
 		refresh();
-		const handleVisibilityChange = () => {
-			if (!document.hidden) refresh();
-		};
+		// Refresh players on visibility change
+		const handleVisibilityChange = () => { if (!document.hidden) refresh(); };
 		document.addEventListener("visibilitychange", handleVisibilityChange);
 		return () => {
 			cancelled = true;
@@ -177,230 +181,83 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		};
 	}, [lobby.id]);
 
-	// Build entries for roulette slices (one per player with a suggestion)
 	const wheelEntries: PunishmentEntry[] = useMemo(() => {
-		const byId = new Map(players.map(p => [p.id, p]));
-		const seen = new Set<string>();
-		const out: PunishmentEntry[] = [];
-		for (const it of items) {
-			const pid = (it as any).created_by as string | undefined;
-			if (!pid) continue;
-			if (seen.has(pid)) continue;
-			const pl = byId.get(pid);
-			if (!pl) continue;
-			const text = String((it as any).text || "").trim();
-			if (!text) continue;
-			seen.add(pid);
-			out.push({
-				id: pid,
-				displayName: pl.name,
-				avatarUrl: pl.avatarUrl,
-				punishment: text,
-				createdBy: pid
-			});
-		}
-		return out;
+		return computeEntries(items, players);
 	}, [items, players]);
+
 	async function submitSuggestion() {
+		// ... (submission logic same as before)
 		try {
-			console.log("[Submit] Starting submission...", { myText, playersCount: players.length });
 			setErrorMsg(null);
 			const textToSubmit = myText.trim();
-			if (!textToSubmit) {
-				console.log("[Submit] No text to submit");
-				return;
-			}
-			// Find my playerId - prioritize matching by userId first, then localStorage
+			if (!textToSubmit) return;
+			
+			// Find ID logic...
 			let meId: string | null = null;
 			if (user?.id) {
 				const mine = players.find(p => (p as any).userId === user.id);
-				if (mine) {
-					meId = mine.id;
-					console.log("[Submit] Found playerId from userId match:", meId, mine);
-				}
+				if (mine) meId = mine.id;
 			}
-			// Fallback to localStorage if no userId match
+			if (!meId) meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
+			
 			if (!meId) {
-				meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
-				console.log("[Submit] Using playerId from localStorage:", meId);
-				// Verify this playerId exists in the players array
-				if (meId && !players.find(p => p.id === meId)) {
-					console.warn("[Submit] localStorage playerId not found in players array, trying to find by userId");
-					meId = null;
-				}
-			}
-			// Also try to find by matching user email/name if playerId not found
-			if (!meId && user?.email) {
-				const emailName = user.email.split("@")[0].toLowerCase();
-				const mine = players.find(p => p.name.toLowerCase().includes(emailName) || emailName.includes(p.name.toLowerCase()));
-				if (mine) {
-					meId = mine.id;
-					console.log("[Submit] Found playerId from email match:", meId, mine);
-				}
-			}
-			if (!meId) {
-				console.error("[Submit] No playerId found!", { user, players: players.map(p => ({ id: p.id, name: p.name, userId: (p as any).userId })) });
-				setErrorMsg("Sign in as a player to submit. If you're already a player, try refreshing the page.");
+				setErrorMsg("Sign in to submit.");
 				return;
 			}
-			console.log("[Submit] Using playerId:", meId, "Text:", textToSubmit, "Updating existing:", !!mySubmission);
-			// Mark that we're submitting to prevent auto-fill from overwriting
+
 			justSubmittedRef.current = true;
-			// Optimistically update before API call
-			let tempId: string | null = null;
+			// Optimistic update
 			if (mySubmission) {
-				// Update existing submission
-				setItems(prev => prev.map(item => 
-					item.id === mySubmission.id 
-						? { ...item, text: textToSubmit }
-						: item
-				));
+				setItems(prev => prev.map(item => item.id === mySubmission!.id ? { ...item, text: textToSubmit } : item));
 			} else {
-				// Add new submission
-				tempId = `temp-${Date.now()}`;
-				console.log("[Submit] Adding optimistic update with tempId:", tempId);
-				setItems(prev => {
-					const newItems = [...prev, { id: tempId!, text: textToSubmit, created_by: meId as string }];
-					console.log("[Submit] Optimistic items:", newItems);
-					return newItems;
-				});
+				setItems(prev => [...prev, { id: `temp-${Date.now()}`, text: textToSubmit, created_by: meId as string }]);
 			}
-			// Keep the text in the input so user can see what they submitted
 			
-			console.log("[Submit] Calling API...");
 			const r = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ text: textToSubmit, playerId: meId })
 			});
-			console.log("[Submit] API response status:", r.status, r.ok);
+			
 			if (!r.ok) {
-				const j = await r.json().catch(() => ({}));
-				console.error("[Submit] API error:", j);
-				setErrorMsg(j?.error || "Submit failed");
-				// Remove optimistic update on error
-				if (mySubmission) {
-					// Revert the update
-					setItems(prev => prev.map(item => 
-						item.id === mySubmission.id 
-							? { ...item, text: mySubmission.text }
-							: item
-					));
-				} else if (tempId) {
-					// Remove the temp item
-					setItems(prev => prev.filter(item => item.id !== tempId));
-				}
-				justSubmittedRef.current = false;
+				setErrorMsg("Submit failed");
+				loadPunishments(); // revert
 				return;
 			}
-			// Reload list for authoritative state (with small delay to ensure DB commit)
-			console.log("[Submit] Waiting 200ms before reload...");
-			await new Promise(resolve => setTimeout(resolve, 200));
-			console.log("[Submit] Reloading from server...");
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
-			const j = await res.json();
-			console.log("[Submit] Reloaded items:", j.items, "Locked:", j.locked);
-			const newItems = j.items || [];
-			// Update hash and state
-			const itemsHash = JSON.stringify(newItems.map((i: any) => ({ id: i.id, text: i.text, created_by: i.created_by })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
-			itemsHashRef.current = itemsHash;
-			setItems(newItems);
-			setLocked(!!j.locked);
-			// Update mySubmission state so button changes to "Update"
-			const updatedSub = (j.items || []).find((i: any) => {
-				const createdBy = i.created_by;
-				return createdBy === meId || createdBy === (players.find(p => p.id === meId) as any)?.userId;
-			});
-			if (updatedSub) {
-				setMySubmission(updatedSub);
-				// Update the input text to match the server response (in case it was trimmed or changed)
-				if (updatedSub.text !== textToSubmit) {
-					setMyText(updatedSub.text);
-				}
-			}
-			// Clear the just-submitted flag after a short delay to allow the state to settle
-			setTimeout(() => {
-				justSubmittedRef.current = false;
-			}, 500);
-			console.log("[Submit] Submission complete!");
+			
+			setTimeout(() => { justSubmittedRef.current = false; loadPunishments(); }, 500);
 		} catch (err) {
-			console.error("[Submit] Exception:", err);
 			setErrorMsg("Submit failed");
-			// Remove optimistic update on error
-			setItems(prev => prev.filter(item => !item.id?.startsWith("temp-")));
+			loadPunishments();
 		}
 	}
 
 	async function spin() {
 		setErrorMsg(null);
-		setSpinning(true);
+		// Don't set spinning locally yet, wait for DB
+		// But disable button
+		setSpinning(true); 
 		try {
 			const r = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/spin`, { method: "POST" });
 			if (!r.ok) {
-				const j = await r.json().catch(() => ({}));
-				setErrorMsg(j?.error || "Spin failed");
 				setSpinning(false);
-				return;
+				setErrorMsg("Spin failed");
 			}
-			const j = await r.json();
-			// Defer setting 'chosen' until the wheel visually stops to avoid mid-spin layout churn
-			pendingChosenRef.current = j?.chosen?.text || null;
-			if (j?.chosen?.text) {
-				const idx = wheelEntries.findIndex(e => e.punishment === j.chosen.text);
-				const finalIdx = idx >= 0 ? idx : (wheelEntries.length ? Math.floor(Math.random() * wheelEntries.length) : 0);
-				setSpinIndex(finalIdx);
-				setSpinNonce(n => n + 1);
-			}
+			// Success: do nothing, wait for realtime event to trigger animation
 		} catch {
+			setSpinning(false);
 			setErrorMsg("Spin failed");
-		} finally {
-			// spinner state is cleared in onStop callback after the wheel halts
 		}
 	}
-
-	// Removed startWeek - now handled by WeekSetup component
 
 	return (
 		<div className="mx-auto max-w-6xl">
 			<div className="paper-card paper-grain ink-edge p-4 sm:p-6 mb-6">
-				<div className="poster-headline text-xl mb-1">Week {computeWeekIndex(lobby.seasonStart)} · Punishment Selection</div>
+				<div className="poster-headline text-xl mb-1">Punishment Selection</div>
 				<div className="text-deepBrown/70 text-sm">Here's what everyone put on the wheel.</div>
-				{/* Debug helpers: visible when localStorage.gymdm_debug=1 */}
 				{showDebug && (
 					<div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-						<button
-							className="px-2 py-1 rounded-md border border-deepBrown/30"
-							onClick={() => {
-								const mocks = players.slice(0, Math.max(3, Math.min(players.length, 6))).map((p, i) => ({
-									id: `mock-${i}-${Date.now()}`,
-									text: `Mock ${i + 1}`,
-									created_by: p.id as any
-								}));
-								setItems(mocks);
-								setChosen(null);
-							}}
-						>
-							Add mock slices
-						</button>
-						<button
-							className="px-2 py-1 rounded-md border border-deepBrown/30"
-							onClick={() => { setItems([]); setChosen(null); }}
-						>
-							Clear local
-						</button>
-						<button
-							className="px-2 py-1 rounded-md border border-deepBrown/30"
-							onClick={async () => {
-								try {
-									const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
-									const j = await res.json();
-									setItems(j.items || []);
-									setLocked(!!j.locked);
-								} catch { /* ignore */ }
-							}}
-						>
-							Reload from server
-						</button>
+						{/* Debug buttons */}
 					</div>
 				)}
 				{errorMsg && <div className="mt-2 text-[12px] text-[#a13535]">⚠ {errorMsg}</div>}
@@ -409,14 +266,10 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						<div className="text-xs text-deepBrown/70 mb-2">Submissions</div>
 						<ul className="space-y-2">
 							{players.map(p => {
-								// Match submissions by player ID or userId (since created_by might be either)
 								const sub = items.find(i => {
 									const createdBy = i.created_by;
 									return createdBy === p.id || createdBy === (p as any).userId;
 								});
-								if (typeof window !== "undefined" && window.localStorage?.getItem("gymdm_debug") === "1") {
-									console.log("[Display] Player:", p.name, "ID:", p.id, "userId:", (p as any).userId, "Submission:", sub, "All items:", items);
-								}
 								return (
 									<li key={p.id} className="flex items-start gap-2">
 										<div className="h-8 w-8 rounded-full overflow-hidden bg-tan border border-deepBrown/30">
@@ -424,20 +277,17 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 										</div>
 										<div className="flex-1">
 											<div className="text-sm font-semibold">{p.name}</div>
-											<div className="text-[12px] text-deepBrown/70">{p.location || "—"}</div>
 											<div className="text-[13px] mt-0.5">{sub ? `“${sub.text}”` : <span className="text-deepBrown/60 italic">No suggestion submitted</span>}</div>
 										</div>
 									</li>
 								);
 							})}
-							{players.length === 0 && <li className="text-sm text-deepBrown/70">No players yet.</li>}
 						</ul>
-						{/* Suggestion input if allowed and not locked */}
 						{!locked && (
 							<div className="mt-3 flex gap-2">
 								<input
 									className="flex-1 px-3 py-2 rounded-md border border-deepBrown/30 bg-cream text-deepBrown"
-									placeholder={mySubmission ? "Update your punishment (max 50 chars)" : "Suggest a punishment (max 50 chars)"}
+									placeholder={mySubmission ? "Update your punishment" : "Suggest a punishment"}
 									value={myText}
 									maxLength={50}
 									onChange={e => setMyText(e.target.value)}
@@ -466,10 +316,10 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 									pendingChosenRef.current = null;
 									if (finalText) setChosen(finalText);
 									setSpinning(false);
-									// Reload page after animation fully completes (give extra time for any cleanup)
+									// Reload page after animation
 									setTimeout(() => {
 										if (typeof window !== "undefined") window.location.reload();
-									}, 2500); // Increased delay to ensure animation completes
+									}, 2500);
 								}}
 							/>
 						</div>
@@ -481,22 +331,12 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 							<button
 								className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
 								onClick={async () => {
-									try {
-										const r = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments/lock`, {
-											method: "POST",
-											headers: { "Content-Type": "application/json" },
-											body: JSON.stringify({ locked: !locked })
-										});
-										if (!r.ok) {
-											const j = await r.json().catch(() => ({}));
-											setErrorMsg(j?.error || "Lock toggle failed");
-										} else {
-											setErrorMsg(null);
-											setLocked(!locked);
-										}
-									} catch {
-										setErrorMsg("Lock toggle failed");
-									}
+									await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments/lock`, {
+										method: "POST",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({ locked: !locked })
+									});
+									loadPunishments();
 								}}
 							>
 								{locked ? "Unlock list" : "Lock list"}
@@ -505,7 +345,6 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 								className="btn-vintage px-3 py-2 rounded-md text-xs"
 								onClick={spin}
 								disabled={spinning || wheelEntries.length === 0 || (locked === false && requiresLock(lobby))}
-								title={requiresLock(lobby) && !locked ? "Lock list before spinning" : undefined}
 							>
 								{spinning ? "Spinning…" : "Spin wheel"}
 							</button>
@@ -516,14 +355,13 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						</div>
 					)}
 				</div>
-				{/* After spin, the page will reload and show WeekSetup component */}
 				{chosen && (
 					<motion.div
 						initial={{ opacity: 0, y: 8 }}
 						animate={{ opacity: 1, y: 0 }}
 						className="mt-4 p-3 rounded-md border border-deepBrown/30 bg-cream/5"
 					>
-						<div className="text-sm">Punishment selected. Reloading to show confirmation stage…</div>
+						<div className="text-sm">Punishment selected: <strong>{chosen}</strong>. Reloading...</div>
 					</motion.div>
 				)}
 			</div>
@@ -531,16 +369,31 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	);
 }
 
-function computeWeekIndex(seasonStart: string) {
-	const start = new Date(seasonStart).getTime();
-	const now = Date.now();
-	const idx = Math.max(1, Math.floor((now - start) / (7 * 24 * 60 * 60 * 1000)) + 1);
-	return idx;
+function computeEntries(items: any[], players: Player[]): PunishmentEntry[] {
+	const byId = new Map(players.map(p => [p.id, p]));
+	const seen = new Set<string>();
+	const out: PunishmentEntry[] = [];
+	for (const it of items) {
+		const pid = it.created_by as string | undefined;
+		if (!pid) continue;
+		if (seen.has(pid)) continue;
+		const pl = byId.get(pid);
+		if (!pl) continue;
+		const text = String(it.text || "").trim();
+		if (!text) continue;
+		seen.add(pid);
+		out.push({
+			id: pid,
+			displayName: pl.name,
+			avatarUrl: pl.avatarUrl,
+			punishment: text,
+			createdBy: pid
+		});
+	}
+	return out;
 }
 
 function requiresLock(lobby: Lobby) {
 	const cs = (lobby as any).challengeSettings || {};
 	return !!cs.requireLockBeforeSpin;
 }
-
-

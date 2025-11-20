@@ -1,48 +1,54 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { Lobby, Player } from "@/types/game";
+import { LiveLobbyResponse } from "@/types/api";
 import { motion } from "framer-motion";
 import { Scoreboard } from "./Scoreboard";
 import { PlayerCard } from "./PlayerCard";
-// import { InvitePlayerCard } from "./InvitePlayerCard";
 import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
 import { useToast } from "./ToastProvider";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { RecentFeed } from "./RecentFeed";
-import { oneLinerFromActivity } from "@/lib/messages";
 import { KoOverlay } from "./KoOverlay";
 import { WinnerOverlay } from "./WinnerOverlay";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { useAuth } from "./AuthProvider";
-import { WeeklyPunishmentCard } from "./WeeklyPunishmentCard";
 import { ChallengeHero } from "./ChallengeHero";
 import { WeekSetup } from "./WeekSetup";
 
 export function LobbyLayout({ 
 	lobby, 
+	liveData,
+	onRefresh,
 	onStageChange,
 	onOwnerChange
 }: { 
 	lobby: Lobby;
+	liveData?: LiveLobbyResponse | null;
+	onRefresh?: () => void;
 	onStageChange?: (stage: Lobby["stage"], summary: Lobby["seasonSummary"]) => void;
 	onOwnerChange?: (isOwner: boolean) => void;
 }) {
-	const [players, setPlayers] = useState<Player[]>(lobby.players);
-	const [currentPot, setCurrentPot] = useState<number>(lobby.cashPool);
-	const [seasonStatus, setSeasonStatus] = useState<"pending" | "scheduled" | "transition_spin" | "active" | "completed" | undefined>(lobby.status);
-	const [stage, setStage] = useState<Lobby["stage"]>(lobby.stage);
-	const [seasonSummary, setSeasonSummary] = useState(lobby.seasonSummary);
+	// Derive state directly from props
+	const players = lobby.players || [];
+	const currentPot = typeof lobby.cashPool === "number" ? lobby.cashPool : 0;
+	const seasonStatus = liveData?.seasonStatus ?? lobby.status;
+	const stage = liveData?.stage ?? lobby.stage;
+	const seasonSummary = liveData?.seasonSummary ?? lobby.seasonSummary;
+	const koEvent = liveData?.koEvent;
+	const mode = (lobby as any).mode;
+
+	// Local UI state
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
 	const [activePunishment, setActivePunishment] = useState<{ text: string; week: number } | null>(null);
-	const [koEvent, setKoEvent] = useState<any>(null);
 	const [showKo, setShowKo] = useState<boolean>(false);
 	const [showWinner, setShowWinner] = useState<boolean>(false);
 	const [me, setMe] = useState<string | null>(null);
 	const [editOpen, setEditOpen] = useState(false);
-	const [mode, setMode] = useState<string | undefined>((lobby as any).mode);
 	const { user } = useAuth();
+	const toast = useToast();
+
+	// Determine owner
 	const isOwner = useMemo(() => {
 		if (user?.id && (lobby as any).ownerUserId) return user.id === (lobby as any).ownerUserId;
 		const ownerPlayer = players.find(p => p.id === lobby.ownerId);
@@ -50,92 +56,54 @@ export function LobbyLayout({
 		return !!(lobby.ownerId && me && lobby.ownerId === me);
 	}, [user?.id, (lobby as any).ownerUserId, lobby.ownerId, me, players]);
 	
-	// Notify parent of owner status
+	// Notify parent of owner/stage status
 	useEffect(() => {
-		if (onOwnerChange) {
-			onOwnerChange(isOwner);
-		}
+		onOwnerChange?.(isOwner);
 	}, [isOwner, onOwnerChange]);
+
+	useEffect(() => {
+		if (onStageChange && (stage || seasonSummary !== undefined)) {
+			onStageChange(stage, seasonSummary);
+		}
+	}, [stage, seasonSummary, onStageChange]);
+
+	// Show KO/Winner overlays when events arrive
+	useEffect(() => {
+		if (koEvent) {
+			if (koEvent.winnerPlayerId) {
+				setShowWinner(true);
+			} else {
+				setShowKo(true);
+			}
+		}
+	}, [koEvent]);
+
+	// Show connection errors
+	useEffect(() => {
+		if (liveData?.errors?.length) {
+			const names: string[] = [];
+			for (const err of liveData.errors) {
+				const n = players.find((p: any) => p.id === err.playerId)?.name ?? err.playerId;
+				names.push(n);
+			}
+			toast.push(`Some connections need attention: ${names.join(", ")}`);
+		}
+	}, [liveData?.errors, players, toast]);
+
 	const search = useSearchParams();
 	const stravaConnected = search.get("stravaConnected");
 	const connectedPlayerId = search.get("playerId");
 	const stravaError = search.get("stravaError");
 	const joined = search.get("joined");
-	const container = {
-		hidden: {},
-		show: {
-			transition: {
-				staggerChildren: 0.08,
-				delayChildren: 0.12
-			}
-		}
-	};
+
 	const item = {
 		hidden: { opacity: 0, y: 12, scale: 0.98 },
 		show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" } }
 	};
 
-	const banner = useMemo(() => {
-		if (stravaConnected === "1" && connectedPlayerId) {
-			const name = players.find(p => p.id === connectedPlayerId)?.name ?? "A player";
-			return `${name} connected Strava ✅`;
-		}
-		if (stravaError === "1" && connectedPlayerId) {
-			const name = players.find(p => p.id === connectedPlayerId)?.name ?? "A player";
-			return `${name}: Strava connection failed. Please try again.`;
-		}
-		return null;
-	}, [stravaConnected, stravaError, connectedPlayerId, players]);
-	const toast = useToast();
-	const [feedEvents, setFeedEvents] = useState<{ message: string; timestamp: string }[]>([]);
-
-	const reloadLive = async () => {
-		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
-			if (!res.ok) return;
-			const data = await res.json();
-			if (data?.lobby?.players) {
-				setPlayers(data.lobby.players);
-				setFeedEvents(buildFeedFromPlayers(data.lobby.players));
-				if (typeof data.lobby.cashPool === "number") setCurrentPot(data.lobby.cashPool);
-			}
-			if ((data?.lobby as any)?.mode) setMode((data.lobby as any).mode);
-			setSeasonStatus(data.seasonStatus);
-			if (data.stage) {
-				setStage(data.stage);
-			}
-			if (data.seasonSummary !== undefined) {
-				setSeasonSummary(data.seasonSummary);
-			}
-			// Notify parent of stage changes
-			if (onStageChange && (data.stage || data.seasonSummary !== undefined)) {
-				onStageChange(data.stage || stage, data.seasonSummary !== undefined ? data.seasonSummary : seasonSummary);
-			}
-			if (data.koEvent) {
-				setKoEvent(data.koEvent);
-				if (data.koEvent.winnerPlayerId) {
-					setShowWinner(true);
-				} else {
-					setShowKo(true);
-				}
-			}
-			// show reconnect hint if there are errors
-			if (data?.errors?.length) {
-				const names: string[] = [];
-				for (const err of data.errors) {
-					const n = data.lobby.players.find((p: any) => p.id === err.playerId)?.name ?? err.playerId;
-					names.push(n);
-				}
-				toast.push(`Some connections need attention: ${names.join(", ")}`);
-			}
-		} catch {
-			// ignore
-		}
-	};
-
-	// Load week status and active punishment for challenge modes
+	// Load week status and active punishment for challenge modes (still polling separately for now)
 	useEffect(() => {
-		if (!String((lobby as any).mode || "").startsWith("CHALLENGE_")) return;
+		if (!String(mode || "").startsWith("CHALLENGE_")) return;
 		let cancelled = false;
 		async function load() {
 			try {
@@ -157,9 +125,9 @@ export function LobbyLayout({
 			cancelled = true;
 			clearInterval(id);
 		};
-	}, [lobby.id, (lobby as any).mode]);
+	}, [lobby.id, mode, liveData?.fetchedAt]);
 
-	// Sync current user's player data from profile when component loads or players change
+	// Sync current user's player data from profile
 	const syncedRef = useRef<string | null>(null);
 	useEffect(() => {
 		(async () => {
@@ -176,56 +144,30 @@ export function LobbyLayout({
 						body: JSON.stringify({
 							userId: user.id,
 							playerId: myPlayer.id,
-							overwriteAll: true // Always sync from profile to ensure quip/location are current
+							overwriteAll: true
 						})
 					});
-					// Refresh players list to show updated data
-					await reloadLive();
+					onRefresh?.();
 				} catch { /* ignore */ }
 			}
 		})();
-	}, [user?.id, players.length, lobby.id]); // Sync when user, players, or lobby changes
+	}, [user?.id, players.length, lobby.id, onRefresh]);
 
 	useEffect(() => {
-		let ignore = false;
 		const meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
 		setMe(meId);
-		async function loadLive() {
-			if (ignore) return;
-			await reloadLive();
+		// Force reload if strava params changed
+		if (stravaConnected || stravaError) {
+			onRefresh?.();
 		}
-		loadLive();
-		// re-fetch after connect or error banners too
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [lobby.id, stravaConnected, stravaError]);
-	// Auto-refresh every 15 seconds while tab is visible
-	useAutoRefresh(
-		() => {
-			reloadLive();
-		},
-		15000, // 15s refresh for live lobby
-		[lobby.id]
-	);
-	// Allow children to request refresh (e.g., after manual log)
-	useEffect(() => {
-		function handler() { reloadLive(); }
-		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", handler as any);
-		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", handler as any); };
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [stravaConnected, stravaError, onRefresh]);
+
 	// Welcome toast after join
 	useEffect(() => {
 		if (joined === "1" && connectedPlayerId) {
 			toast.push("Welcome! You joined the lobby.");
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [joined, connectedPlayerId]);
-	// Remember last visited lobby for user home
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			localStorage.setItem("gymdm_lastLobbyId", lobby.id);
-		}
-	}, [lobby.id]);
+	}, [joined, connectedPlayerId, toast]);
 
 	return (
 		<div className="mx-auto max-w-6xl">
@@ -263,7 +205,7 @@ export function LobbyLayout({
 							</svg>
 						</button>
 						<div className="poster-headline text-2xl">{lobby.name.toUpperCase()}</div>
-						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · MODE: {mode || (lobby as any).mode || "MONEY_SURVIVAL"}</div>
+						<div className="text-sm text-deepBrown/70">SEASON {lobby.seasonNumber} · MODE: {mode || "MONEY_SURVIVAL"}</div>
 						<div className="ml-auto">
 							{isOwner && (
 								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setEditOpen(true)}>
@@ -280,14 +222,14 @@ export function LobbyLayout({
 			<div className="header-divider-glow mb-3" />
 
 			{/* Week Setup (PENDING_CONFIRMATION) for Challenge Roulette */}
-			{String((lobby as any).mode || "").startsWith("CHALLENGE_") && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
+			{String(mode || "").startsWith("CHALLENGE_") && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
 				<>
 					<div className="mb-6">
 						<WeekSetup
 							lobbyId={lobby.id}
 							week={activePunishment.week}
 							punishmentText={activePunishment.text}
-							mode={(lobby as any).mode as any}
+							mode={mode as any}
 							challengeSettings={lobby.challengeSettings || null}
 							players={players}
 							isOwner={isOwner}
@@ -303,7 +245,7 @@ export function LobbyLayout({
 					{/* Money vs Challenge header blocks - hide countdown when completed */}
 					{stage !== "COMPLETED" && (
 						<>
-							{String((lobby as any).mode || "").startsWith("MONEY_") ? (
+							{String(mode || "").startsWith("MONEY_") ? (
 								<div className="mb-4">
 									<Scoreboard amount={currentPot} endIso={lobby.seasonEnd} />
 								</div>
@@ -311,7 +253,7 @@ export function LobbyLayout({
 								<div className="mb-4">
 									<ChallengeHero
 										lobbyId={lobby.id}
-										mode={(lobby as any).mode as any}
+										mode={mode as any}
 										challengeSettings={lobby.challengeSettings || null}
 										seasonStart={lobby.seasonStart}
 										seasonEnd={lobby.seasonEnd}
@@ -324,12 +266,11 @@ export function LobbyLayout({
 					<div className="mb-6">
 						<RecentFeed lobbyId={lobby.id} />
 					</div>
-					{/* Weekly punishment card removed - now handled by WeekSetup or ChallengeHero */}
 				</>
 			)}
 
 			{/* Player cards - hide during PENDING_CONFIRMATION, show in WeekSetup instead */}
-			{!(String((lobby as any).mode || "").startsWith("CHALLENGE_") && weekStatus === "PENDING_CONFIRMATION") && (
+			{!(String(mode || "").startsWith("CHALLENGE_") && weekStatus === "PENDING_CONFIRMATION") && (
 				<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
 					{players.slice(0, 2).map((p) => (
 						<motion.div key={p.id} variants={item} className="h-full">
@@ -380,47 +321,10 @@ export function LobbyLayout({
 					defaultWeeklyAnte={(lobby as any).weeklyAnte ?? 10}
 					defaultScalingEnabled={(lobby as any).scalingEnabled ?? false}
 					defaultPerPlayerBoost={(lobby as any).perPlayerBoost ?? 0}
-					onSaved={() => { setEditOpen(false); reloadLive(); }}
+					onSaved={() => { setEditOpen(false); onRefresh?.(); }}
 					hideTrigger
 				/>
 			)}
 		</div>
 	);
-}
-
-// (inline OwnerSettings removed; replaced by OwnerSettingsModal)
-
-function buildFeedFromPlayers(players: any[]) {
-	const evs: { message: string; timestamp: string }[] = [];
-	for (const p of players) {
-		const name = p.name || "Player";
-		for (const a of (p.recentActivities ?? [])) {
-			evs.push({
-				message: `${name}: ${a.durationMinutes}m ${readableType(a.type)} — ${a.name}`,
-				timestamp: a.startDate
-			});
-		}
-		for (const e of (p.events ?? [])) {
-			evs.push({
-				message: e.met ? `${name} hit weekly target (${e.count}) ✅` : `${name} missed target (${e.count}) 💀`,
-				timestamp: e.weekStart
-			});
-		}
-	}
-	evs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-	// last 24h only, keep up to 5
-	const day = 24 * 60 * 60 * 1000;
-	const now = Date.now();
-	const recent = evs.filter(e => now - new Date(e.timestamp).getTime() <= day);
-	return (recent.length ? recent : evs).slice(0, 5);
-}
-
-function readableType(t: string) {
-	const s = (t || "").toLowerCase();
-	if (s.includes("run")) return "run 🏃";
-	if (s.includes("ride") || s.includes("bike")) return "ride 🚴";
-	if (s.includes("swim")) return "swim 🏊";
-	if (s.includes("walk")) return "walk 🚶";
-	if (s.includes("hike")) return "hike 🥾";
-	return "session 💪";
 }

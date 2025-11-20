@@ -108,4 +108,22 @@ export interface ActivitySummary {
 	source?: "strava" | "manual";
 }
 
+export interface PlayerLite {
+	id: string;
+	name: string;
+	avatarUrl: string | null;
+	userId: string | null;
+	hearts: number;
+}
 
+export interface ActivityRow {
+	id: string;
+	playerId: string;
+	type: string;
+	duration: number;
+	notes?: string;
+	imageUrl?: string;
+	createdAt: string;
+	source: string;
+	distance?: number;
+}
