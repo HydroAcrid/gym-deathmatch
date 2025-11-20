@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "./ToastProvider";
 import { useAuth } from "./AuthProvider";
@@ -8,7 +8,11 @@ import { ChallengeSettingsCard, resetChallengeDefaults } from "./ChallengeSettin
 import type { ChallengeSettings } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
 
-export function CreateLobby() {
+type CreateLobbyProps = {
+	children?: React.ReactNode;
+};
+
+export function CreateLobby({ children }: CreateLobbyProps) {
 	const [open, setOpen] = useState(false);
 	const [lobbyName, setLobbyName] = useState("");
 	const [seasonStart, setSeasonStart] = useState<string>(new Date().toISOString().slice(0, 16));
@@ -105,11 +109,34 @@ export function CreateLobby() {
 		}
 	}
 
+	function handleTriggerClick(e?: React.MouseEvent) {
+		e?.preventDefault();
+		setOpen(true);
+	}
+
+	let trigger: React.ReactNode = (
+		<button
+			type="button"
+			onClick={handleTriggerClick}
+			className="btn-secondary px-3 py-2 rounded-md text-xs"
+		>
+			＋ Create Lobby
+		</button>
+	);
+
+	if (children && isValidElement(children)) {
+		const child = children as React.ReactElement<any>;
+		trigger = cloneElement(child, {
+			onClick: (event: React.MouseEvent) => {
+				child.props?.onClick?.(event);
+				handleTriggerClick(event);
+			}
+		});
+	}
+
 	return (
 		<>
-			<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setOpen(true)}>
-				＋ Create Lobby
-			</button>
+			{trigger}
 			<AnimatePresence>
 				{open && (
 					<motion.div
@@ -121,12 +148,12 @@ export function CreateLobby() {
 						<motion.div
 							role="dialog"
 							aria-modal="true"
-							className="ui-panel relative w-full sm:max-w-5xl h-[100svh] sm:h-[85vh] rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+							className="ui-panel relative w-full sm:max-w-5xl h-full sm:h-[85vh] sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
 							initial={{ scale: 0.96, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.96, opacity: 0 }}
 						>
-							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
+							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3 below-navbar sm:mt-0">
 								<div className="min-w-0">
 									<h2 className="poster-headline text-lg sm:text-xl tracking-wide truncate">Create Lobby</h2>
 									<p className="ui-panel-muted text-xs sm:text-sm truncate">Configure dates, mode, targets, and challenge options</p>
@@ -144,7 +171,7 @@ export function CreateLobby() {
 									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={submit}>Create</button>
 								</div>
 							</header>
-							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
+							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 pb-32 sm:pb-6 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
 									<section className="space-y-4">
 										<div className="ui-panel rounded-xl p-4 space-y-3 border">

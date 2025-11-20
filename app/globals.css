@@ -18,7 +18,7 @@
   --accent-success: #2d7c4f;
   --overlay-backdrop: rgba(0,0,0,0.65);
   /* nav height (mobile default) */
-  --nav-height: 112px;
+  --nav-height: 64px;
 }
 
 .dark {

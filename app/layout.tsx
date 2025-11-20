@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
+import { MobileNav } from "@/components/MobileNav";
 import { PageMotion } from "@/components/PageMotion";
 import { ToastProvider } from "@/components/ToastProvider";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -40,6 +41,7 @@ export default function RootLayout({
 				<AuthProvider>
 					<ToastProvider>
 						<Navbar />
+						<MobileNav />
 						<main className="relative z-20 px-3 sm:px-6 lg:px-8 pt-nav pb-4 sm:pb-6">
 							<PageMotion>{children}</PageMotion>
 						</main>

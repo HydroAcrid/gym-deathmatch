@@ -6,9 +6,8 @@ import { motion } from "framer-motion";
 import { IntroGuide } from "./IntroGuide";
 import { JoinLobby } from "./JoinLobby";
 import { CreateLobby } from "./CreateLobby";
-import { AuthButtons } from "./AuthButtons";
-import { ProfileAvatar } from "./ProfileAvatar";
 import { useAuth } from "./AuthProvider";
+import { ProfileAvatar } from "./ProfileAvatar";
 import { useEffect, useState } from "react";
 import { useTheme } from "./useTheme";
 
@@ -22,7 +21,7 @@ const baseTabs = [
 
 export function Navbar() {
 	const pathname = usePathname();
-	const { user } = useAuth();
+	const { user, signInWithGoogle, signOut } = useAuth();
 	const [lastLobbyId, setLastLobbyId] = useState<string | null>(null);
 	const { theme, toggleTheme } = useTheme();
 	useEffect(() => {
@@ -49,15 +48,25 @@ export function Navbar() {
 	return (
 		<div className="sticky top-0 z-50 bg-main">
 			<div className="mx-auto max-w-6xl">
-				<div className="flex items-center justify-between py-2 sm:py-3 px-2 sm:px-3 border-b-4" style={{ borderColor: "var(--accent-primary)" }}>
+				<div className="flex items-center justify-between py-1.5 sm:py-2 px-2 sm:px-3 border-b-4" style={{ borderColor: "var(--accent-primary)" }}>
 					<div className="poster-headline text-xl sm:text-2xl text-main">GYM DEATHMATCH</div>
 					<div className="flex items-center gap-2">
-						<AuthButtons />
+						<div className="flex items-center gap-2">
+							{user ? (
+								<button onClick={signOut} className="px-3 py-1 rounded-full border border-deepBrown/30 text-[10px] sm:text-xs font-medium hover:bg-deepBrown/5 transition-colors">
+									Sign out
+								</button>
+							) : (
+								<button onClick={signInWithGoogle} className="px-3 py-1 rounded-full border border-deepBrown/30 text-[10px] sm:text-xs font-medium hover:bg-deepBrown/5 transition-colors">
+									Sign in
+								</button>
+							)}
+						</div>
 						{user && <ProfileAvatar />}
 						{/* Theme toggle */}
 						<button
 							aria-label="Toggle theme"
-							className="px-2 py-1 rounded-md border border-strong text-xs"
+							className="w-7 h-7 flex items-center justify-center rounded-md border border-[var(--accent-primary)] text-xs hover:bg-[var(--accent-primary)] hover:text-white transition-colors"
 							onClick={toggleTheme}
 							title={theme === "dark" ? "Switch to light" : "Switch to dark"}
 						>
@@ -65,7 +74,7 @@ export function Navbar() {
 						</button>
 					</div>
 				</div>
-				<nav className="flex items-center gap-3 sm:gap-4 py-1.5 sm:py-2 px-2 sm:px-3 overflow-x-auto whitespace-nowrap">
+				<nav className="hidden sm:flex items-center gap-3 sm:gap-4 py-1.5 sm:py-2 px-2 sm:px-3 overflow-x-auto whitespace-nowrap">
 					{tabs.map((t) => {
 						let active = pathname === t.href; // exact match
 						// Treat lobby root pages as "Home" active

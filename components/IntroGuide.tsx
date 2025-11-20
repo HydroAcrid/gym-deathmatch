@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STEPS = [
@@ -41,7 +41,9 @@ const STEPS = [
 	}
 ] as const;
 
-export function IntroGuide() {
+type IntroGuideProps = { children?: React.ReactNode };
+
+export function IntroGuide({ children }: IntroGuideProps) {
 	const [open, setOpen] = useState(false);
 	const [idx, setIdx] = useState(0);
 
@@ -64,19 +66,36 @@ export function IntroGuide() {
 		exit: { opacity: 0, y: -8, transition: { duration: 0.25, ease: "easeIn" } }
 	};
 
+	function handleTriggerClick(event?: React.MouseEvent) {
+		event?.preventDefault();
+		setIdx(0);
+		setOpen(true);
+	}
+
+	let trigger: React.ReactNode = (
+		<button
+			type="button"
+			onClick={handleTriggerClick}
+			className="ml-3 btn-secondary px-2 py-1 text-xs"
+			aria-label="Open tutorial"
+		>
+			<span className="flex items-center justify-center w-full h-full">?</span>
+		</button>
+	);
+
+	if (children && isValidElement(children)) {
+		const child = children as React.ReactElement<any>;
+		trigger = cloneElement(child, {
+			onClick: (event: React.MouseEvent) => {
+				child.props?.onClick?.(event);
+				handleTriggerClick(event);
+			}
+		});
+	}
+
 	return (
 		<>
-			<button
-				type="button"
-				className="ml-3 btn-secondary px-2 py-1 text-xs"
-				onClick={() => {
-					setIdx(0);
-					setOpen(true);
-				}}
-				aria-label="Open tutorial"
-			>
-				?
-			</button>
+			{trigger}
 			<AnimatePresence>
 				{open && (
 					<motion.div
