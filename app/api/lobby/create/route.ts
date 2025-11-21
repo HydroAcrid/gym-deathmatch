@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
 			};
 		}
 
+		const ownerId = body.ownerId || null;
+
 		const lobby = {
 			id: lobbyId,
 			name: String(body.name || "").slice(0, 48),
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest) {
 			cash_pool: 0,
 			weekly_target: body.weeklyTarget ?? 3,
 			initial_lives: body.initialLives ?? 3,
-			owner_id: body.ownerId || null,
+			owner_id: null,
 			owner_user_id: body.userId || null,
 			status: body.status || "pending",
 			mode: body.mode || "MONEY_SURVIVAL",
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
 			return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);
 		}
 		// Ensure owner player created/updated from user profile
-		if (body.ownerId) {
+		if (ownerId) {
 			let ownerName = body.ownerName || null;
 			let ownerAvatarUrl = body.ownerAvatarUrl || null;
 			try {
@@ -80,8 +82,8 @@ export async function POST(req: NextRequest) {
 				if (!ownerName) ownerName = prof?.display_name ?? null;
 				if (!ownerAvatarUrl) ownerAvatarUrl = prof?.avatar_url ?? null;
 			} catch { /* ignore */ }
-			await supabase.from("player").upsert({
-				id: body.ownerId,
+			const { error: playerErr } = await supabase.from("player").upsert({
+				id: ownerId,
 				lobby_id: lobbyId,
 				name: ownerName ?? "Owner",
 				avatar_url: ownerAvatarUrl ?? null,
@@ -89,10 +91,21 @@ export async function POST(req: NextRequest) {
 				quip: body.ownerQuip ?? null,
 				user_id: body.userId || null
 			});
+			if (playerErr) {
+				console.error("owner player upsert error", playerErr);
+				return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);
+			}
+			const { error: ownerUpdateErr } = await supabase.from("lobby").update({
+				owner_id: ownerId,
+				owner_user_id: body.userId || null
+			}).eq("id", lobbyId);
+			if (ownerUpdateErr) {
+				console.error("owner update error", ownerUpdateErr);
+				return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);
+			}
 		}
 		return NextResponse.json({ ok: true, id: lobbyId });
 	} catch (e) {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }
-
