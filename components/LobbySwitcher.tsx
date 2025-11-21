@@ -12,10 +12,11 @@ import { useAuth } from "./AuthProvider";
 
 export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const [overridePre, setOverridePre] = useState<boolean>(false);
+	const [showDebugToggle, setShowDebugToggle] = useState(false);
 	const { user } = useAuth();
 	
 	// Realtime & Live Data Hooks
-	const { data: liveData, reload } = useLobbyLive(initialLobby.id);
+	const { data: liveData, reload, loading } = useLobbyLive(initialLobby.id);
 	useLobbyRealtime(initialLobby.id, { onChange: reload });
 
 	// Merge live data with initial data
@@ -48,6 +49,13 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 		};
 	}, [lobby.id, (lobby as any).mode, liveData?.fetchedAt]); // Re-check when live data updates
 
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		if (window.location.hostname === "localhost") {
+			setShowDebugToggle(true);
+		}
+	}, []);
+
 	function toggle() {
 		setOverridePre((prev) => !prev);
 	}
@@ -77,7 +85,14 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 		);
 
 		return (
-			<div className="relative">
+			<div className="relative min-h-[400px] sm:min-h-[500px]">
+				{loading && !liveData && (
+					<div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[#120b07]/90 backdrop-blur-sm text-cream">
+						<div className="w-16 h-16 border-4 border-cream/20 border-t-[var(--accent-primary)] rounded-full animate-spin" />
+						<div className="text-sm sm:text-base tracking-[0.2em] uppercase">Loading lobby</div>
+						<div className="text-[11px] text-cream/70">Pulling live arena data…</div>
+					</div>
+				)}
 				{
 					shouldShowTransitionPanel ? (
 						<RouletteTransitionPanel lobby={lobby} />
@@ -106,7 +121,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 			}
 			
 			{/* Debug toggle */}
-			{(typeof window !== "undefined" && window.location.hostname === "localhost") && (
+			{showDebugToggle && (
 				<div className="fixed bottom-20 right-4 z-[100]">
 					<button onClick={toggle} className="text-[10px] bg-black/50 text-white px-2 py-1 rounded">
 						Toggle Pre

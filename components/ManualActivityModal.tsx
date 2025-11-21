@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useLayoutEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
@@ -81,23 +81,33 @@ export function ManualActivityModal({
 			try { toast?.push?.("Post submitted ✍️"); } catch { /* ignore */ }
 			onClose();
 			onSaved?.();
-		} finally {
-			setBusy(false);
-		}
+	} finally {
+		setBusy(false);
 	}
+	}
+
+	useLayoutEffect(() => {
+		if (!open || typeof document === "undefined") return;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			document.body.style.overflow = previousOverflow;
+		};
+	}, [open]);
 
 	// Render in a portal so transforms on parents don't trap the overlay
 	if (typeof window === "undefined" || !open) return null;
 	return createPortal(
 		<AnimatePresence>
 			<motion.div
-				className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+				className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
 				exit={{ opacity: 0 }}
 			>
 				<motion.div
-					className="paper-card paper-grain ink-edge bg-tan text-deepBrown w-full h-[92vh] sm:h-auto sm:max-w-lg sm:w-[92%] p-4 sm:p-6 overflow-y-auto"
+					className="paper-card paper-grain ink-edge bg-tan text-deepBrown w-full max-w-lg mx-auto p-4 sm:p-6"
+					style={{ maxHeight: "calc(100vh - 2rem)" }}
 					initial={{ y: 20, opacity: 0 }}
 					animate={{ y: 0, opacity: 1 }}
 					exit={{ y: 20, opacity: 0 }}
@@ -189,4 +199,3 @@ export function ManualActivityModal({
 		document.body
 	);
 }
-
