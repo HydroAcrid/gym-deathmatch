@@ -48,9 +48,9 @@ export function MobileNav() {
 
 	return (
 		<>
-			<div className="h-[calc(60px+env(safe-area-inset-bottom))] sm:hidden" />
-			<div className="fixed bottom-0 left-0 right-0 bg-main border-t border-deepBrown/20 z-40 sm:hidden pb-[env(safe-area-inset-bottom)] overflow-visible">
-				<div className="flex items-center justify-around h-[60px]">
+			<div className="h-[calc(76px+env(safe-area-inset-bottom))] sm:hidden" />
+			<div className="fixed bottom-0 left-0 right-0 bg-main border-t border-deepBrown/20 z-40 sm:hidden pb-[calc(env(safe-area-inset-bottom)+12px)] pt-1 overflow-visible">
+				<div className="flex items-center justify-around h-[70px]">
 					{navItems.map((item) => {
 						if (item.isLog) {
 							return (
