@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { User, AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 
 type AuthContextValue = {
@@ -25,51 +25,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	useEffect(() => {
 		if (!supabase) {
-			setIsHydrated(true); // No supabase = hydrated (but no auth)
+			setIsHydrated(true);
 			return;
 		}
-		let ignore = false;
-		let initialCheckComplete = false;
-		
-		// Initial auth check - must complete before isHydrated is true
-		supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
-			if (!ignore) {
-				setUser(data.user ?? null);
-				initialCheckComplete = true;
-				setIsHydrated(true); // Mark as hydrated ONLY after initial check completes
-				try {
-					if (typeof window !== "undefined" && data.user?.id) {
-						localStorage.setItem("gymdm_userId", data.user.id);
-					}
-				} catch { /* ignore */ }
-			}
-		}).catch((err: unknown) => {
-			console.error("[AuthProvider] getUser error:", err);
-			if (!ignore) {
-				initialCheckComplete = true;
-				setIsHydrated(true); // Even on error, mark as hydrated so UI doesn't hang
-			}
-		});
-		
-		// Listen for auth state changes (OAuth callbacks, sign out, etc.)
-		const { data: sub } = supabase.auth.onAuthStateChange((_e: any, session: any) => {
-			if (!ignore) {
-				setUser(session?.user ?? null);
-				// Only set isHydrated if initial check already completed
-				// This prevents race conditions where onAuthStateChange fires before getUser() resolves
-				if (initialCheckComplete) {
-					setIsHydrated(true);
+
+		let mounted = true;
+
+		async function bootstrap() {
+			try {
+				const { data } = await supabase.auth.getUser();
+				if (mounted) {
+					setUser(data.user ?? null);
 				}
-				try {
-					if (typeof window !== "undefined" && session?.user?.id) {
-						localStorage.setItem("gymdm_userId", session.user.id);
-					}
-				} catch { /* ignore */ }
+			} catch (err) {
+				console.error("[AuthProvider] getUser error:", err);
+			} finally {
+				if (mounted) setIsHydrated(true);
 			}
+		}
+
+		bootstrap();
+
+		const { data: subscription } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+			if (!mounted) return;
+			setUser(session?.user ?? null);
+			setIsHydrated(true);
 		});
+
 		return () => {
-			ignore = true;
-			sub.subscription.unsubscribe();
+			mounted = false;
+			subscription.subscription.unsubscribe();
 		};
 	}, [supabase]);
 
@@ -79,30 +64,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			return;
 		}
 
-		const fromEnv = process.env.NEXT_PUBLIC_BASE_URL;
-		const base = (
-			fromEnv && fromEnv.startsWith("http")
-				? fromEnv
-				: (typeof window !== "undefined" ? window.location.origin : "")
-		).replace(/\/$/, "");
-
-		let nextPath = "/";
-		try {
-			if (typeof window !== "undefined") {
-				const path = window.location.pathname || "/";
-				nextPath = path;
-			}
-		} catch {
-			// ignore
-		}
-
-		const redirectTo = `${base}${nextPath}`;
+		const base =
+			process.env.NEXT_PUBLIC_BASE_URL ||
+			(typeof window !== "undefined" ? window.location.origin : "https://gym-deathmatch.vercel.app");
+		const path = typeof window !== "undefined" ? window.location.pathname + window.location.search + window.location.hash : "/";
+		const redirectTo = `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 
 		await supabase.auth.signInWithOAuth({
 			provider: "google",
 			options: {
-				redirectTo
-			}
+				redirectTo,
+			},
 		});
 	}
 
@@ -117,5 +89,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
 	return useContext(AuthContext);
 }
-
-

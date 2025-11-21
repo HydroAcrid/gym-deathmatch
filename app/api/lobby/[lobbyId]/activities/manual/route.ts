@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { onActivityLogged } from "@/lib/commentary";
+import type { Activity } from "@/lib/types";
+
+type ActivityCommentRow = {
+	primary_player_id: string | null;
+	payload: { type?: string } | null;
+};
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -8,11 +14,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
 		const body = await req.json();
-		const playerId = String(body.playerId || "");
-		if (!playerId) return NextResponse.json({ error: "Missing playerId" }, { status: 400 });
+		const userId = req.headers.get("x-user-id") || "";
+		if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
+		const { data: member } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
+		if (!member) return NextResponse.json({ error: "Not a player in lobby" }, { status: 403 });
+		const playerId = member.id;
 		// Always use current time when submitting - prevents date manipulation and timezone issues
 		const dateIso = new Date().toISOString();
-		const type = String(body.type || "other").toLowerCase();
+		const type = (String(body.type || "other").toLowerCase() as Activity["type"]);
 		const durationMinutes = body.durationMinutes != null ? Number(body.durationMinutes) : null;
 		const distanceKm = body.distanceKm != null ? Number(body.distanceKm) : null;
 		const notes = body.notes ? String(body.notes).slice(0, 200) : null;
@@ -21,10 +30,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		if (!photoUrl || !caption) {
 			return NextResponse.json({ error: "Photo and caption are required" }, { status: 400 });
 		}
-
-		// Validate player belongs to lobby
-		const { data: prow } = await supabase.from("player").select("id").eq("id", playerId).eq("lobby_id", lobbyId).maybeSingle();
-		if (!prow) return NextResponse.json({ error: "Player not in lobby" }, { status: 400 });
 
 		const { data, error } = await supabase.from("manual_activities").insert({
 			lobby_id: lobbyId,
@@ -52,7 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 
 		// Commentary engine (activity, plus social/theme checks)
 		try {
-			const act = {
+			const act: Activity = {
 				id: data.id,
 				playerId,
 				lobbyId,
@@ -62,12 +67,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				type,
 				source: "manual",
 				notes: notes ?? undefined
-			} as any;
+			};
 			await onActivityLogged(lobbyId, act);
 			// Social coincidence checks:
 			const supabase = getServerSupabase();
 			if (supabase) {
-				// Duo burst: find another recent ACTIVITY comment in last 20m by different player
 				const since20 = new Date(Date.now() - 20 * 60 * 1000).toISOString();
 				const { data: recentActs } = await supabase
 					.from("comments")
@@ -77,12 +81,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					.gte("created_at", since20)
 					.order("created_at", { ascending: false })
 					.limit(5);
-				const other = (recentActs ?? []).find((r: any) => r.primary_player_id && r.primary_player_id !== playerId);
-				if (other) {
-					const { onSocialBurst, onThemeHour } = await import("@/lib/commentary");
-					await onSocialBurst(lobbyId, String(other.primary_player_id), playerId);
-				}
-				// Theme hour: same type in last hour by 2+ players
+				const other = ((recentActs ?? []) as ActivityCommentRow[]).find((r) => r.primary_player_id && r.primary_player_id !== playerId);
+
 				const since60 = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 				const { data: lastHour } = await supabase
 					.from("comments")
@@ -91,11 +91,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					.eq("type", "ACTIVITY")
 					.gte("created_at", since60);
 				const distinctPlayersSameType = new Set(
-					(lastHour ?? []).filter((r: any) => (r.payload?.type || "").toLowerCase() === type.toLowerCase()).map((r: any) => r.primary_player_id)
+					((lastHour ?? []) as ActivityCommentRow[])
+						.filter((r) => (r.payload?.type || "").toLowerCase() === type.toLowerCase())
+						.map((r) => r.primary_player_id)
 				);
-				if (distinctPlayersSameType.size >= 2) {
-					const { onThemeHour } = await import("@/lib/commentary");
-					await onThemeHour(lobbyId, type);
+
+				if (other || distinctPlayersSameType.size >= 2) {
+					const commentary = await import("@/lib/commentary");
+					if (other) {
+						await commentary.onSocialBurst(lobbyId, String(other.primary_player_id), playerId);
+					}
+					if (distinctPlayersSameType.size >= 2) {
+						await commentary.onThemeHour(lobbyId, type);
+					}
 				}
 			}
 		} catch { /* ignore */ }
@@ -121,5 +129,3 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }
-
-

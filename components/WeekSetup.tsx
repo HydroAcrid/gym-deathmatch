@@ -33,14 +33,6 @@ export function WeekSetup({
 			const found = players.find(p => (p as any).userId === user.id);
 			if (found) return found;
 		}
-		// Fallback to localStorage playerId
-		if (typeof window !== "undefined") {
-			const playerId = localStorage.getItem("gymdm_playerId");
-			if (playerId) {
-				const found = players.find(p => p.id === playerId);
-				if (found) return found;
-			}
-		}
 		return null;
 	}, [players, user?.id]);
 
@@ -234,4 +226,3 @@ export function WeekSetup({
 		</div>
 	);
 }
-

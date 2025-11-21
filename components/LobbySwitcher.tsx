@@ -8,9 +8,11 @@ import { RouletteTransitionPanel } from "./RouletteTransitionPanel";
 import { SeasonCompleteOverlay } from "./SeasonCompleteOverlay";
 import { useLobbyLive } from "@/hooks/useLobbyLive";
 import { useLobbyRealtime } from "@/hooks/useLobbyRealtime";
+import { useAuth } from "./AuthProvider";
 
 export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const [overridePre, setOverridePre] = useState<boolean>(false);
+	const { user } = useAuth();
 	
 	// Realtime & Live Data Hooks
 	const { data: liveData, reload } = useLobbyLive(initialLobby.id);
@@ -46,23 +48,8 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 		};
 	}, [lobby.id, (lobby as any).mode, liveData?.fetchedAt]); // Re-check when live data updates
 
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-		const v = localStorage.getItem("gymdm_view_override_pre");
-		setOverridePre(v === "1");
-	}, []);
-
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-		localStorage.setItem("gymdm_lastLobbyId", lobby.id);
-	}, [lobby.id]);
-
 	function toggle() {
-		const next = !overridePre;
-		setOverridePre(next);
-		if (typeof window !== "undefined") {
-			localStorage.setItem("gymdm_view_override_pre", next ? "1" : "0");
-		}
+		setOverridePre((prev) => !prev);
 	}
 
 	const currentStage = liveStage || lobby.stage || (lobby.status === "completed" ? "COMPLETED" : lobby.status === "active" || lobby.status === "transition_spin" ? "ACTIVE" : "PRE_STAGE");
@@ -82,18 +69,36 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 		? { ...lobby, status: lobby.status ?? "scheduled", scheduledStart: new Date(Date.now() + 5 * 60 * 1000).toISOString() }
 		: lobby;
 
-	return (
-		<div className="relative">
-			{
-				shouldShowTransitionPanel ? (
-					<RouletteTransitionPanel lobby={lobby} />
-				) : shouldShowPre ? (
-					<PreStageView lobby={stagedLobby} />
-				) : currentStage === "COMPLETED" && currentSummary ? (
-					<SeasonCompleteOverlay summary={currentSummary} lobby={lobby} />
-				) : (
-					<LobbyLayout 
-						lobby={lobby} 
+		const ownerPlayer = (lobby.players || []).find(p => p.id === lobby.ownerId);
+		const overlayIsOwner = Boolean(
+			user?.id &&
+			(((lobby as any).ownerUserId && user.id === (lobby as any).ownerUserId) ||
+				(ownerPlayer?.userId && ownerPlayer.userId === user.id))
+		);
+
+		return (
+			<div className="relative">
+				{
+					shouldShowTransitionPanel ? (
+						<RouletteTransitionPanel lobby={lobby} />
+					) : shouldShowPre ? (
+						<PreStageView lobby={stagedLobby} />
+					) : currentStage === "COMPLETED" && currentSummary ? (
+						<SeasonCompleteOverlay
+							lobbyId={lobby.id}
+							seasonNumber={lobby.seasonNumber ?? 1}
+							mode={lobby.mode}
+							seasonSummary={currentSummary}
+							isOwner={overlayIsOwner}
+							defaultWeekly={lobby.weeklyTarget ?? 3}
+							defaultLives={lobby.initialLives ?? 3}
+							defaultSeasonEnd={lobby.seasonEnd ?? new Date().toISOString()}
+							ownerPlayerId={lobby.ownerId}
+							onNextSeason={reload}
+						/>
+					) : (
+						<LobbyLayout 
+							lobby={lobby} 
 						liveData={liveData}
 						onRefresh={reload}
 					/>

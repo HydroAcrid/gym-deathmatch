@@ -2,48 +2,47 @@
 
 import { useEffect } from "react";
 
-/**
- * PWA Service Worker Registration Component
- * 
- * Registers the service worker for offline support and asset caching.
- * Only runs in the browser (client-side).
- */
 export function PWARegister() {
-	useEffect(() => {
-		// Only run in browser
-		if (typeof window === "undefined") return;
-		
-		// Check if service workers are supported
-		if (!("serviceWorker" in navigator)) {
-			console.log("[PWA] Service workers not supported");
-			return;
-		}
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator)) {
+      console.log("[PWA] Service workers not supported");
+      return;
+    }
 
-		// Register service worker after page load
-		const registerSW = () => {
-			navigator.serviceWorker
-				.register("/sw.js")
-				.then((registration) => {
-					console.log("[PWA] Service worker registered:", registration.scope);
-					
-					// Check for updates periodically
-					setInterval(() => {
-						registration.update();
-					}, 60 * 60 * 1000); // Check every hour
-				})
-				.catch((error) => {
-					console.error("[PWA] Service worker registration failed:", error);
-				});
-		};
+    const registerSW = async () => {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
+          const scriptURL =
+            reg.active?.scriptURL ||
+            reg.installing?.scriptURL ||
+            reg.waiting?.scriptURL ||
+            "";
+          if (!scriptURL.endsWith("/sw-v2.js")) {
+            console.log("[PWA] Unregistering old worker", scriptURL);
+            await reg.unregister();
+          }
+        }
 
-		// Register on load
-		if (document.readyState === "complete") {
-			registerSW();
-		} else {
-			window.addEventListener("load", registerSW);
-		}
-	}, []);
+        const reg = await navigator.serviceWorker.register("/sw-v2.js");
+        console.log("[PWA] Registered sw-v2", reg);
 
-	return null; // This component doesn't render anything
+        reg.update().catch(() => {});
+        setInterval(() => {
+          reg.update().catch(() => {});
+        }, 60 * 60 * 1000);
+      } catch (error) {
+        console.error("[PWA] Service worker registration failed", error);
+      }
+    };
+
+    if (document.readyState === "complete") {
+      registerSW();
+    } else {
+      window.addEventListener("load", registerSW);
+    }
+  }, []);
+
+  return null;
 }
-

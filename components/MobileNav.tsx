@@ -1,61 +1,46 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { Home, Trophy, Plus, BarChart2, Menu, History, BookOpen, HelpCircle, X } from "lucide-react";
-import { CreateLobby } from "./CreateLobby";
-import { IntroGuide } from "./IntroGuide";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Home, Trophy, Plus, History, Menu, BarChart2, BookOpen, HelpCircle, X } from "lucide-react";
 import { ManualActivityModal } from "./ManualActivityModal";
-import { useState, useEffect } from "react";
 import { useToast } from "./ToastProvider";
+import { IntroGuide } from "./IntroGuide";
+import { CreateLobby } from "./CreateLobby";
+import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 
 export function MobileNav() {
 	const pathname = usePathname();
-	const router = useRouter();
 	const toast = useToast();
-	const [lastLobbyId, setLastLobbyId] = useState<string | null>(null);
+	const lobbyMatch = pathname?.match(/^\/lobby\/([^/]+)/);
+	const lobbyId = lobbyMatch?.[1] ?? null;
+	const lastLobby = useLastLobbySnapshot();
+	const resolvedLobbyId = lobbyId ?? lastLobby?.id ?? null;
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [logModalOpen, setLogModalOpen] = useState(false);
-	const [playerId, setPlayerId] = useState<string | null>(null);
 
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-		setLastLobbyId(localStorage.getItem("gymdm_lastLobbyId"));
-		setPlayerId(localStorage.getItem("gymdm_playerId"));
-	}, [pathname]);
+	const statsHref = resolvedLobbyId ? `/lobby/${resolvedLobbyId}/stats` : "/stats";
+	const historyHref = resolvedLobbyId ? `/lobby/${resolvedLobbyId}/history` : "/history";
 
-	// Determine correct paths based on lobby context
-	const lobbyMatch = pathname?.match(/^\/lobby\/([^\/]+)/);
-	const lobbyId = lobbyMatch ? lobbyMatch[1] : lastLobbyId;
-
-	const statsHref = lobbyId ? `/lobby/${lobbyId}/stats` : "/stats";
-	const historyHref = lobbyId ? `/lobby/${lobbyId}/history` : "/history";
-
-	const isActive = (path: string) => pathname === path;
-	
-	// Special check for Home active state
+	const isActive = (href: string) => pathname === href;
 	const isHomeActive = isActive("/home") || /^\/lobby\/[^/]+$/.test(pathname ?? "");
-	const isStatsActive = isActive(statsHref);
-	const isHistoryActive = isActive(historyHref);
 	const isLobbiesActive = isActive("/lobbies");
-	const isRulesActive = isActive("/rules");
+	const isHistoryActive = isActive(historyHref);
+	const isRulesActive = pathname?.startsWith("/rules");
 
 	const navItems = [
 		{ label: "Home", href: "/home", icon: Home, active: isHomeActive },
 		{ label: "Lobbies", href: "/lobbies", icon: Trophy, active: isLobbiesActive },
-		{ label: "Log", isLog: true, icon: Plus },
+		{ label: "Log", isLog: true },
 		{ label: "History", href: historyHref, icon: History, active: isHistoryActive },
 		{ label: "More", isMenu: true, icon: Menu, active: menuOpen }
 	];
 
 	function handleLogClick() {
-		if (!lobbyId) {
+		if (!resolvedLobbyId) {
 			toast.push("Join or enter a lobby to log activity.");
-			return;
-		}
-		if (!playerId) {
-			toast.push("You need to be a player in this lobby.");
 			return;
 		}
 		setLogModalOpen(true);
@@ -63,16 +48,17 @@ export function MobileNav() {
 
 	return (
 		<>
-			{/* Spacer to prevent content from being hidden behind navbar */}
 			<div className="h-[calc(60px+env(safe-area-inset-bottom))] sm:hidden" />
-
-			{/* Bottom Navigation Bar */}
 			<div className="fixed bottom-0 left-0 right-0 bg-main border-t border-deepBrown/20 z-40 sm:hidden pb-[env(safe-area-inset-bottom)] overflow-visible">
 				<div className="flex items-center justify-around h-[60px]">
-					{navItems.map((item, index) => {
+					{navItems.map((item) => {
 						if (item.isLog) {
 							return (
-								<button key="log" onClick={handleLogClick} className="flex flex-col items-center justify-center w-16 h-full cursor-pointer relative z-50">
+								<button
+									key="log"
+									onClick={handleLogClick}
+									className="flex flex-col items-center justify-center w-16 h-full cursor-pointer relative z-50"
+								>
 									<span className="w-14 h-14 bg-[var(--accent-primary)] rounded-full flex items-center justify-center shadow-lg text-white mb-1 mt-[-24px] border-2 border-[var(--accent-primary)]">
 										<Plus size={24} strokeWidth={3} />
 									</span>
@@ -86,7 +72,7 @@ export function MobileNav() {
 								<button
 									key="menu"
 									onClick={() => setMenuOpen(!menuOpen)}
-									className={`flex flex-col items-center justify-center w-16 h-full border-t-2 ${menuOpen ? "text-[var(--accent-primary)] border-[var(--accent-primary)]" : "text-muted border-transparent"}`}
+									className={`flex flex-col items-center justify-center w-16 h-full border-t-2 ${menuOpen ? "text-[var(--accent-primary)] border-[var(--accent-primary)]" : "text-deepBrown/60 border-transparent"}`}
 								>
 									<Menu size={20} />
 									<span className="text-[9px] uppercase font-bold tracking-wide mt-1">More</span>
@@ -94,12 +80,12 @@ export function MobileNav() {
 							);
 						}
 
-						const Icon = item.icon;
+						const Icon = item.icon!;
 						return (
 							<Link
 								key={item.label}
 								href={item.href!}
-								className={`flex flex-col items-center justify-center w-16 h-full border-t-2 ${item.active ? "text-[var(--accent-primary)] border-[var(--accent-primary)]" : "text-muted border-transparent"}`}
+								className={`flex flex-col items-center justify-center w-16 h-full border-t-2 ${item.active ? "text-[var(--accent-primary)] border-[var(--accent-primary)]" : "text-deepBrown/60 border-transparent"}`}
 							>
 								<Icon size={20} />
 								<span className="text-[9px] uppercase font-bold tracking-wide mt-1">{item.label}</span>
@@ -109,7 +95,6 @@ export function MobileNav() {
 				</div>
 			</div>
 
-			{/* More Menu Drawer */}
 			<AnimatePresence>
 				{menuOpen && (
 					<>
@@ -144,7 +129,7 @@ export function MobileNav() {
 									<Link
 										href={statsHref}
 										onClick={() => setMenuOpen(false)}
-										className={`flex flex-col items-center justify-center p-4 rounded-xl bg-elevated border border-deepBrown/10 ${isStatsActive ? "ring-2 ring-accent-primary" : ""}`}
+										className={`flex flex-col items-center justify-center p-4 rounded-xl bg-elevated border border-deepBrown/10 ${isActive(statsHref) ? "ring-2 ring-accent-primary" : ""}`}
 									>
 										<BarChart2 size={24} className="mb-2 text-accent-primary" />
 										<span className="text-xs font-medium">Stats</span>
@@ -170,16 +155,19 @@ export function MobileNav() {
 				)}
 			</AnimatePresence>
 
-			{/* Manual Activity Modal */}
-			{lobbyId && playerId && (
+			{resolvedLobbyId && (
 				<ManualActivityModal
 					open={logModalOpen}
 					onClose={() => setLogModalOpen(false)}
-					lobbyId={lobbyId}
-					playerId={playerId}
+					lobbyId={resolvedLobbyId}
 					onSaved={() => {
-						if (typeof window !== "undefined") {
-							window.dispatchEvent(new CustomEvent("gymdm:refresh-live", { detail: { lobbyId } }));
+						setLogModalOpen(false);
+						try {
+							if (typeof window !== "undefined") {
+								window.dispatchEvent(new CustomEvent("gymdm:refresh-live", { detail: { lobbyId: resolvedLobbyId } }));
+							}
+						} catch {
+							// ignore
 						}
 					}}
 				/>

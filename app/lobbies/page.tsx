@@ -25,7 +25,6 @@ type LobbyRow = {
 
 export default function LobbiesPage() {
 	const [allLobbies, setAllLobbies] = useState<LobbyRow[]>([]);
-	const [playerId, setPlayerId] = useState<string | null>(null);
 	const [editLobby, setEditLobby] = useState<LobbyRow | null>(null);
 	const { user, isHydrated } = useAuth();
 	const [searchQuery, setSearchQuery] = useState<string>("");
@@ -39,11 +38,6 @@ export default function LobbiesPage() {
 		showChallenge: false,
 	});
 
-	useEffect(() => {
-		const me = localStorage.getItem("gymdm_playerId");
-		setPlayerId(me);
-	}, []);
-	
 	const reloadLobbies = useCallback(async () => {
 		// CRITICAL: Only fetch if auth is hydrated and user exists
 		// This prevents race conditions where we fetch before auth is ready
@@ -104,10 +98,7 @@ export default function LobbiesPage() {
 
 		// Apply "show mine" filter - filter to only owned lobbies
 		if (filters.showMine && user?.id) {
-			filtered = filtered.filter(l => 
-				(user.id === l.owner_user_id) || 
-				(playerId && l.owner_id === playerId)
-			);
+			filtered = filtered.filter(l => user.id === l.owner_user_id);
 		}
 
 		// Apply status filters
@@ -155,7 +146,7 @@ export default function LobbiesPage() {
 		});
 
 		return filtered;
-	}, [allLobbies, debouncedSearch, filters, sortBy, user?.id, playerId]);
+	}, [allLobbies, debouncedSearch, filters, sortBy, user?.id]);
 
 	// Calculate days ago
 	const getDaysAgo = (createdAt?: string) => {
@@ -169,8 +160,7 @@ export default function LobbiesPage() {
 		return `${diffDays} days ago`;
 	};
 
-	const isOwner = (l: LobbyRow) => 
-		(playerId && l.owner_id === playerId) || (user?.id && l.owner_user_id === user.id);
+	const isOwner = (l: LobbyRow) => Boolean(user?.id && l.owner_user_id === user.id);
 
 	return (
 		<div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -178,7 +168,7 @@ export default function LobbiesPage() {
 			<div className="paper-card paper-grain ink-edge p-5 mb-6 border-b-4" style={{ borderColor: "#E1542A" }}>
 				<div className="poster-headline text-lg mb-1">LOBBIES</div>
 				<div className="text-deepBrown/70 text-xs">
-					{user?.email ? `Signed in as ${user.email}` : playerId ? `Player: ${playerId}` : "Not joined yet — use Join Lobby to create your player"}
+					{user?.email ? `Signed in as ${user.email}` : "Sign in to manage your lobbies"}
 				</div>
 			</div>
 
@@ -302,12 +292,13 @@ export default function LobbiesPage() {
 					})}
 				</div>
 			)}
-			{editLobby && ((playerId && editLobby.owner_id === playerId) || (user?.id && editLobby.owner_user_id === user.id)) && (
-				<OwnerSettingsModal
-					lobbyId={editLobby.id}
-					defaultWeekly={editLobby.weekly_target ?? 3}
-					defaultLives={editLobby.initial_lives ?? 3}
-					defaultSeasonEnd={editLobby.season_end ?? new Date().toISOString()}
+				{editLobby && isOwner(editLobby) && (
+					<OwnerSettingsModal
+						lobbyId={editLobby.id}
+						ownerPlayerId={editLobby.owner_id || null}
+						defaultWeekly={editLobby.weekly_target ?? 3}
+						defaultLives={editLobby.initial_lives ?? 3}
+						defaultSeasonEnd={editLobby.season_end ?? new Date().toISOString()}
 					autoOpen
 					hideTrigger
 					onSaved={() => { setEditLobby(null); reloadLobbies(); }}
@@ -317,5 +308,3 @@ export default function LobbiesPage() {
 		</div>
 	);
 }
-
-

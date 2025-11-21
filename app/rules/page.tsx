@@ -1,20 +1,40 @@
- "use client";
-import { useEffect, useState } from "react";
+"use client";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { OwnerSettingsModal } from "@/components/OwnerSettingsModal";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function RulesPage() {
-	const [lobbyId, setLobbyId] = useState<string>("");
+	const searchParams = useSearchParams();
+	const lobbyId = searchParams?.get("lobbyId") ?? "";
 	const [info, setInfo] = useState<any>(null);
-	useEffect(() => {
-		const id = typeof window !== "undefined" ? localStorage.getItem("gymdm_lastLobbyId") || "" : "";
-		setLobbyId(id);
-		(async () => {
-			if (!id) return;
-			const res = await fetch(`/api/lobby/${encodeURIComponent(id)}/live`, { cache: "no-store" });
+	const { user } = useAuth();
+
+	const loadLobby = useCallback(async () => {
+		if (!lobbyId) {
+			setInfo(null);
+			return;
+		}
+		try {
+			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 			const data = await res.json();
 			setInfo(data?.lobby ?? null);
-		})();
-	}, []);
+		} catch {
+			setInfo(null);
+		}
+	}, [lobbyId]);
+
+	useEffect(() => {
+		loadLobby();
+	}, [loadLobby]);
+
+	const isOwner = Boolean(
+		lobbyId &&
+		info?.ownerId &&
+		user?.id &&
+		Array.isArray(info?.players) &&
+		info.players.some((p: any) => p.id === info.ownerId && p.userId === user.id)
+	);
 
 	const rules = [
 		"Hit your weekly target to keep hearts.",
@@ -50,10 +70,11 @@ export default function RulesPage() {
 						<div><span className="font-semibold">Starting Lives:</span> {info?.initialLives ?? 3}</div>
 						<div className="mt-2"><span className="font-semibold">Current mode:</span> First person KO ends the season.</div>
 					</div>
-					{info?.ownerId && (typeof window !== "undefined") && (localStorage.getItem("gymdm_playerId") === info.ownerId) ? (
+					{isOwner ? (
 						<div className="mt-3">
 							<OwnerSettingsModal
 								lobbyId={lobbyId}
+								ownerPlayerId={info?.ownerId ?? null}
 								defaultWeekly={info?.weeklyTarget ?? 3}
 								defaultLives={info?.initialLives ?? 3}
 								defaultSeasonEnd={info?.seasonEnd}
@@ -61,7 +82,7 @@ export default function RulesPage() {
 								defaultWeeklyAnte={info?.weeklyAnte ?? 10}
 								defaultScalingEnabled={info?.scalingEnabled ?? false}
 								defaultPerPlayerBoost={info?.perPlayerBoost ?? 0}
-								onSaved={() => window.location.reload()}
+								onSaved={loadLobby}
 								hideTrigger={false}
 							/>
 						</div>
@@ -71,5 +92,3 @@ export default function RulesPage() {
 		</div>
 	);
 }
-
-

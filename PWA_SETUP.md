@@ -11,7 +11,7 @@ This app is now configured as a Progressive Web App (PWA) that can be installed 
 - **`public/icons/icon.svg`**: Source SVG icon (can be used to regenerate PNGs)
 
 ### Service Worker
-- **`public/sw.js`**: Service worker implementing caching strategies:
+- **`public/sw-v2.js`**: Service worker implementing caching strategies:
   - **Static assets** (`/_next/static/*`, `/icons/*`): Cache-first
   - **HTML pages**: Network-first with cache fallback
   - **API calls** (`/api/*`): Network-only (no caching to avoid stale data)

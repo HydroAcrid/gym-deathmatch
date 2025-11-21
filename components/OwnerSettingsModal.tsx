@@ -10,6 +10,7 @@ import { useAuth } from "./AuthProvider";
 
 export function OwnerSettingsModal({
 	lobbyId,
+	ownerPlayerId,
 	defaultWeekly,
 	defaultLives,
 	defaultSeasonEnd,
@@ -25,6 +26,7 @@ export function OwnerSettingsModal({
 	isNextSeason
 }: {
 	lobbyId: string;
+	ownerPlayerId?: string | null;
 	defaultWeekly: number;
 	defaultLives: number;
 	defaultSeasonEnd?: string;
@@ -198,19 +200,23 @@ export function OwnerSettingsModal({
 	}, [open, lobbyId]);
 
 	async function adminHeaders() {
-		const token = typeof window !== "undefined" ? localStorage.getItem("gymdm_admin_token") : null;
+		const token = typeof window !== "undefined" ? (window as any).__gymdm_admin_token : null;
 		return token ? { Authorization: `Bearer ${token}` } : {};
 	}
 
 	async function removePlayer() {
 		if (!removeId) return;
+		if (!ownerPlayerId) {
+			toast.push("Owner identity unavailable");
+			return;
+		}
 		// owner path requires ownerPlayerId; admin path uses header
 		const headers: any = { "Content-Type": "application/json", ...(await adminHeaders()) };
 		const isAdmin = !!headers.Authorization;
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}/player/${encodeURIComponent(removeId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}/players/${encodeURIComponent(removeId)}`;
-		const body = isAdmin ? undefined : JSON.stringify({ ownerPlayerId: localStorage.getItem("gymdm_playerId") || "" });
+		const body = isAdmin ? undefined : JSON.stringify({ ownerPlayerId });
 		const res = await fetch(url, { method: "DELETE", headers, body });
 		if (res.ok) {
 			toast.push("Player removed");
@@ -228,7 +234,7 @@ export function OwnerSettingsModal({
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}`;
 		const body = isAdmin ? undefined : JSON.stringify({
-			ownerPlayerId: localStorage.getItem("gymdm_playerId") || "",
+			ownerPlayerId: ownerPlayerId || "",
 			userId: user?.id || undefined
 		});
 		const res = await fetch(url, { method: "DELETE", headers, body });
@@ -242,11 +248,15 @@ export function OwnerSettingsModal({
 
 	async function transferOwner() {
 		if (!newOwnerId) return;
+		if (!ownerPlayerId) {
+			toast.push("Owner identity unavailable");
+			return;
+		}
 		const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/owner`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				ownerPlayerId: localStorage.getItem("gymdm_playerId") || "",
+				ownerPlayerId,
 				newOwnerPlayerId: newOwnerId
 			})
 		});
@@ -518,5 +528,3 @@ export function OwnerSettingsModal({
 		</>
 	);
 }
-
-

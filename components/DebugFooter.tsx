@@ -8,7 +8,9 @@ export function DebugFooter() {
 
 	useEffect(() => {
 		const check = () => {
-			setEnabled(localStorage.getItem("gymdm_debug") === "1");
+			if (typeof window === "undefined") return;
+			const search = new URLSearchParams(window.location.search);
+			setEnabled(search.get("debug") === "1");
 			setReady((window as any).__gymdm_ready || "");
 		};
 		check();
@@ -27,5 +29,4 @@ export function DebugFooter() {
 		</div>
 	);
 }
-
 

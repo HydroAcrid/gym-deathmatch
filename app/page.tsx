@@ -12,22 +12,7 @@ export default function RootPage() {
 		// Wait for auth to hydrate before making routing decisions
 		if (!isHydrated) return;
 
-		// Not logged in → send them to lobbies page (which will show login)
-		if (!user) {
-			router.replace("/lobbies");
-			return;
-		}
-
-		// Logged in → try last lobby
-		const lastLobbyId = typeof window !== "undefined" ? localStorage.getItem("gymdm_lastLobbyId") : null;
-		
-		if (lastLobbyId) {
-			// User has a last lobby, go there
-			router.replace(`/lobby/${encodeURIComponent(lastLobbyId)}`);
-		} else {
-			// No last lobby, go to lobbies list
-			router.replace("/lobbies");
-		}
+		router.replace(user ? "/home" : "/lobbies");
 	}, [user, isHydrated, router]);
 
 	// Show loading while waiting for auth to hydrate

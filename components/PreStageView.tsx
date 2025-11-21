@@ -12,7 +12,6 @@ import { StatusBadge } from "./StatusBadge";
 
 export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const router = useRouter();
-	const [me, setMe] = useState<string | null>(null);
 	const { user } = useAuth();
 	const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 	const [editOpen, setEditOpen] = useState(false);
@@ -21,18 +20,21 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const [profileLocation, setProfileLocation] = useState<string>("");
 	const [profileQuip, setProfileQuip] = useState<string>("");
 	const [players, setPlayers] = useState(lobby.players);
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			setMe(localStorage.getItem("gymdm_playerId"));
-		}
-	}, []);
 	const isOwner = useMemo(() => {
+		const ownerPlayer = players.find(p => p.id === lobby.ownerId);
 		// Prefer owner_user_id when present
 		if (user?.id && lobby.ownerUserId) return user.id === lobby.ownerUserId;
 		// Fallback: auth user matches owner player's user_id, or legacy playerId check
 		if (user?.id && ownerUserId) return user.id === ownerUserId;
-		return !!(lobby.ownerId && me && lobby.ownerId === me);
-	}, [lobby.ownerId, lobby.ownerUserId, me, user?.id, ownerUserId]);
+		if (user?.id && ownerPlayer?.userId) return user.id === ownerPlayer.userId;
+		return false;
+	}, [players, lobby.ownerId, lobby.ownerUserId, user?.id, ownerUserId]);
+
+	const me = useMemo(() => {
+		if (!user?.id) return null;
+		const myPlayer = players.find(p => (p as any).userId === user.id);
+		return myPlayer?.id ?? null;
+	}, [players, user?.id]);
 
 	// Fetch owner's user_id for robust checks
 	useEffect(() => {
@@ -145,7 +147,6 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				userId: user.id
 			})
 		});
-		localStorage.setItem("gymdm_playerId", id);
 		router.refresh();
 	}
 
@@ -243,14 +244,15 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 					</div>
 				)}
 			</motion.div>
-			{isOwner && (
-				<OwnerSettingsModal
-					open={editOpen}
-					onClose={() => setEditOpen(false)}
-					lobbyId={lobby.id}
-					defaultWeekly={lobby.weeklyTarget ?? 3}
-					defaultLives={lobby.initialLives ?? 3}
-					defaultSeasonEnd={lobby.seasonEnd}
+				{isOwner && (
+					<OwnerSettingsModal
+						open={editOpen}
+						onClose={() => setEditOpen(false)}
+						lobbyId={lobby.id}
+						ownerPlayerId={lobby.ownerId}
+						defaultWeekly={lobby.weeklyTarget ?? 3}
+						defaultLives={lobby.initialLives ?? 3}
+						defaultSeasonEnd={lobby.seasonEnd}
 					onSaved={() => { setEditOpen(false); reloadLobby(); }}
 					hideTrigger
 				/>
@@ -340,7 +342,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 							<div className="text-xs text-deepBrown/80 whitespace-nowrap">{p.currentStreak}-day streak</div>
 							{p.isStravaConnected ? (
 								<StatusBadge status="online" className="ml-2" />
-							) : me === p.id ? (
+							) : me === p.id && me ? (
 								<a className="ml-2 px-2 py-0.5 rounded text-[10px] underline"
 									href={`/api/strava/authorize?playerId=${encodeURIComponent(p.id)}&lobbyId=${encodeURIComponent(lobby.id)}`}>
 									Connect Strava
@@ -355,5 +357,3 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		</div>
 	);
 }
-
-

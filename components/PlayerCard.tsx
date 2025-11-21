@@ -128,7 +128,6 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 					open={openManual}
 					onClose={() => setOpenManual(false)}
 					lobbyId={lobbyId}
-					playerId={player.id}
 					onSaved={() => {
 						try {
 							// soft refresh data by reloading /live through a custom event
@@ -142,5 +141,4 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 		</motion.div>
 	);
 }
-
 

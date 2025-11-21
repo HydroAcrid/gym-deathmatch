@@ -7,8 +7,8 @@
  * - API calls (/api/*): Network-only (no caching to avoid stale data)
  */
 
-const CACHE_NAME = 'arena-pwa-v1';
-const STATIC_CACHE = 'arena-static-v1';
+const CACHE_NAME = 'arena-pwa-v2';
+const STATIC_CACHE = 'arena-static-v2';
 
 // Assets to precache on install
 const PRECACHE_ASSETS = [

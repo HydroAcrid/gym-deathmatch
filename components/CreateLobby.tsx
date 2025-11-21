@@ -59,16 +59,12 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 
 	async function submit() {
 		if (!lobbyName.trim()) return;
-		const lobbyId = slugify(lobbyName);
-		let ownerId = localStorage.getItem("gymdm_playerId") || "";
-		if (!ownerId) {
-			if (!ownerName.trim()) {
-				toast.push("Enter your name to create your player");
-				return;
-			}
-			ownerId = slugify(ownerName) + "-" + Math.floor(Math.random() * 10000).toString(16);
-			localStorage.setItem("gymdm_playerId", ownerId);
+		if (!user?.id) {
+			toast.push("Sign in to create a lobby");
+			return;
 		}
+		const lobbyId = slugify(lobbyName);
+		const ownerId = user.id;
 		if (!seasonStart || !seasonEnd) {
 			toast.push("Enter start and end dates");
 			return;
@@ -85,7 +81,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 				initialLives: Number(lives),
 				ownerId,
 				ownerName: ownerName || undefined,
-				userId: user?.id || null,
+				userId: user.id,
 				status: "pending",
 				ownerAvatarUrl: profileAvatar,
 				mode,
@@ -278,15 +274,17 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 												<ChallengeSettingsCard mode={mode as any} value={challengeSettings} onChange={setChallengeSettings} />
 											</div>
 										)}
-										{!localStorage.getItem("gymdm_playerId") && (
-											<div className="ui-panel rounded-xl p-4 border">
-												<label className="text-xs">
-													<span className="block mb-1">Your display name (you’ll be the owner)</span>
-													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" placeholder="Your name"
-														value={ownerName} onChange={e => setOwnerName(e.target.value)} />
-												</label>
-											</div>
-										)}
+										<div className="ui-panel rounded-xl p-4 border">
+											<label className="text-xs">
+												<span className="block mb-1">Owner display name</span>
+												<input
+													className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+													placeholder="Your name"
+													value={ownerName}
+													onChange={e => setOwnerName(e.target.value)}
+												/>
+											</label>
+										</div>
 									</section>
 								</div>
 							</div>
@@ -299,5 +297,4 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 		</>
 	);
 }
-
 

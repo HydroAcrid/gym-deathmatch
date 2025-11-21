@@ -10,15 +10,11 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 	const [avatarUrl, setAvatarUrl] = useState("");
 	const [quip, setQuip] = useState("");
 	const [submitting, setSubmitting] = useState(false);
-	const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
-	const { user } = useAuth();
+	const [playerId, setPlayerId] = useState<string | null>(null);
+	const { user, signInWithGoogle } = useAuth();
 	const [profileName, setProfileName] = useState<string | null>(null);
 	const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
 
-	useEffect(() => {
-		const me = localStorage.getItem("gymdm_playerId");
-		if (me) setNewPlayerId(me);
-	}, []);
 	useEffect(() => {
 		(async () => {
 			if (!user?.id) return;
@@ -28,27 +24,60 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 				const j = await res.json();
 				setProfileName(j?.name ?? null);
 				setProfileAvatar(j?.avatarUrl ?? null);
-				// Auto-fill if fields empty
 				if (!name && j?.name) setName(j.name);
 				if (!avatarUrl && j?.avatarUrl) setAvatarUrl(j.avatarUrl);
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 		})();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [user?.id]);
 
+	// Determine if the user already has a player in this lobby
+	useEffect(() => {
+		(async () => {
+			if (!user?.id || !open) {
+				setPlayerId(null);
+				return;
+			}
+			try {
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+				if (!res.ok) return;
+				const data = await res.json();
+				const players = (data?.lobby?.players || []) as Array<{ id: string; userId?: string | null }>;
+				const mine = players.find((p) => p.userId === user.id);
+				setPlayerId(mine ? mine.id : null);
+			} catch {
+				setPlayerId(null);
+			}
+		})();
+	}, [user?.id, lobbyId, open]);
+
 	async function submit() {
+		if (!user?.id) {
+			signInWithGoogle();
+			return;
+		}
 		if (!name.trim()) return;
 		setSubmitting(true);
-		const id = name.toLowerCase().replace(/\s+/g, "-") + "-" + Math.floor(Math.random() * 10000).toString(16);
 		try {
-			await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
+			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ id, name: name.trim(), avatarUrl: avatarUrl.trim(), quip: quip.trim() || null, userId: user?.id || null })
+				body: JSON.stringify({
+					name: name.trim(),
+					avatarUrl: avatarUrl.trim() || null,
+					quip: quip.trim() || null,
+					userId: user.id
+				})
 			});
-			localStorage.setItem("gymdm_playerId", id);
-			setNewPlayerId(id);
-			// Navigate to the lobby so the Connect button appears on your card
-			window.location.href = `/lobby/${encodeURIComponent(lobbyId)}?joined=1&playerId=${encodeURIComponent(id)}`;
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(data?.error || "Failed to join lobby");
+			}
+			const id = data?.playerId || user.id;
+			setPlayerId(id);
+			window.location.href = `/lobby/${encodeURIComponent(lobbyId)}?joined=1`;
 		} finally {
 			setSubmitting(false);
 		}
@@ -66,7 +95,7 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 						<motion.div className="paper-card paper-grain ink-edge max-w-lg w-[92%] p-6 bg-tan"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 							<div className="poster-headline text-xl mb-3">Join this Lobby</div>
-							{!newPlayerId ? (
+							{!playerId ? (
 								<div className="grid gap-2">
 									{user && profileName && (
 										<button
@@ -96,7 +125,7 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 								<div className="grid gap-3">
 									<div className="text-sm">Player created! Next, connect your Strava:</div>
 									<a className="btn-vintage px-3 py-2 rounded-md text-xs"
-										href={`/api/strava/authorize?playerId=${encodeURIComponent(newPlayerId)}&lobbyId=${encodeURIComponent(lobbyId)}`}>
+										href={`/api/strava/authorize?playerId=${encodeURIComponent(playerId)}&lobbyId=${encodeURIComponent(lobbyId)}`}>
 										Connect my Strava
 									</a>
 									<div className="flex justify-end">
@@ -111,5 +140,3 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 		</>
 	);
 }
-
-

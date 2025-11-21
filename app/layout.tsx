@@ -41,10 +41,12 @@ export default function RootLayout({
 				<AuthProvider>
 					<ToastProvider>
 						<Navbar />
-						<MobileNav />
-						<main className="relative z-20 px-3 sm:px-6 lg:px-8 pt-nav pb-4 sm:pb-6">
+						{/* Main content with bottom padding to reserve space for fixed mobile nav */}
+						<main className="relative z-20 px-3 sm:px-6 lg:px-8 pt-nav pb-24 sm:pb-6">
 							<PageMotion>{children}</PageMotion>
 						</main>
+						{/* Mobile bottom nav - fixed to viewport, doesn't affect layout */}
+						<MobileNav />
 					</ToastProvider>
 				</AuthProvider>
 				<Analytics />

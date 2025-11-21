@@ -16,7 +16,8 @@ export function SeasonCompleteOverlay({
 	defaultWeekly,
 	defaultLives,
 	defaultSeasonEnd,
-	onNextSeason
+	onNextSeason,
+	ownerPlayerId
 }: {
 	lobbyId: string;
 	seasonNumber: number;
@@ -27,6 +28,7 @@ export function SeasonCompleteOverlay({
 	defaultLives: number;
 	defaultSeasonEnd: string;
 	onNextSeason?: () => void;
+	ownerPlayerId?: string | null;
 }) {
 	const router = useRouter();
 	const [showEditModal, setShowEditModal] = useState(false);
@@ -246,6 +248,7 @@ export function SeasonCompleteOverlay({
 					open={showEditModal}
 					onClose={() => setShowEditModal(false)}
 					lobbyId={lobbyId}
+					ownerPlayerId={ownerPlayerId ?? null}
 					defaultWeekly={defaultWeekly}
 					defaultLives={defaultLives}
 					defaultSeasonEnd={defaultSeasonEnd}
@@ -261,4 +264,3 @@ export function SeasonCompleteOverlay({
 		</>
 	);
 }
-

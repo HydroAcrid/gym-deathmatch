@@ -48,6 +48,9 @@ const STEPS = [
 	}
 ] as const;
 
+let introGuideShown = false;
+const INTRO_STORAGE_KEY = "gymdm:intro-guide-shown";
+
 type IntroGuideProps = { children?: React.ReactNode };
 
 export function IntroGuide({ children }: IntroGuideProps) {
@@ -55,15 +58,24 @@ export function IntroGuide({ children }: IntroGuideProps) {
 	const [idx, setIdx] = useState(0);
 
 	useEffect(() => {
-		const seen = typeof window !== "undefined" ? localStorage.getItem("gymdm_seen_intro") : "1";
-		if (!seen) {
+		if (typeof window === "undefined") return;
+		const stored = window.localStorage.getItem(INTRO_STORAGE_KEY);
+		if (stored) {
+			introGuideShown = true;
+			return;
+		}
+		if (!introGuideShown) {
+			introGuideShown = true;
 			setOpen(true);
 		}
 	}, []);
 
-	function close(markSeen: boolean) {
-		if (markSeen) localStorage.setItem("gymdm_seen_intro", "1");
+	function close() {
+		introGuideShown = true;
 		setOpen(false);
+		if (typeof window !== "undefined") {
+			window.localStorage.setItem(INTRO_STORAGE_KEY, "1");
+		}
 	}
 
 	const slide = STEPS[idx];
@@ -171,7 +183,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 											Next
 										</button>
 									) : (
-										<button className="btn-vintage px-3 py-2 rounded-md text-xs min-h-[44px]" onClick={() => close(true)}>
+										<button className="btn-vintage px-3 py-2 rounded-md text-xs min-h-[44px]" onClick={() => close()}>
 											ENTER ARENA
 										</button>
 									)}
@@ -184,5 +196,3 @@ export function IntroGuide({ children }: IntroGuideProps) {
 		</>
 	);
 }
-
-

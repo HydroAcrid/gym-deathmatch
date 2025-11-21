@@ -3,18 +3,17 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
+import { useAuth } from "./AuthProvider";
 
 export function ManualActivityModal({
 	open,
 	onClose,
 	lobbyId,
-	playerId,
 	onSaved
 }: {
 	open: boolean;
 	onClose: () => void;
 	lobbyId: string;
-	playerId: string;
 	onSaved?: () => void;
 }) {
 	const [type, setType] = useState<string>("gym");
@@ -25,10 +24,14 @@ export function ManualActivityModal({
 	const [file, setFile] = useState<File | null>(null);
 	const [busy, setBusy] = useState<boolean>(false);
 	const supabase = (require("@/lib/supabaseBrowser") as any).getBrowserSupabase?.() || null;
-	const userId = (typeof window !== "undefined" && localStorage.getItem("gymdm_playerUserId")) || null;
 	const toast = useToast?.();
+	const { user } = useAuth();
 
 	async function submit() {
+		if (!user?.id) {
+			toast?.push?.("Sign in to log workouts");
+			return;
+		}
 		if (!file || !caption.trim()) {
 			alert("Please add a photo and caption.");
 			return;
@@ -39,14 +42,7 @@ export function ManualActivityModal({
 			let publicUrl = "";
 			if (supabase && file) {
 				// Storage RLS expects folder == auth.uid(). Use that when available, otherwise fall back.
-				let folder = playerId;
-				try {
-					const { data } = await supabase.auth.getUser();
-					const uid = (data && (data as any).user && (data as any).user.id) || null;
-					if (uid) folder = uid;
-				} catch {
-					// ignore - will fall back to playerId
-				}
+				let folder = user.id;
 				// Sanitize filename to avoid illegal path characters
 				const safeName = file.name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
 				const path = `${folder}/${Date.now()}_${safeName}`;
@@ -70,9 +66,8 @@ export function ManualActivityModal({
 			}
 			await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/activities/manual`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", "x-user-id": user.id },
 				body: JSON.stringify({
-					playerId,
 					// Date is automatically set to current time on the server
 					type,
 					durationMinutes: duration ? Number(duration) : null,
@@ -194,5 +189,4 @@ export function ManualActivityModal({
 		document.body
 	);
 }
-
 

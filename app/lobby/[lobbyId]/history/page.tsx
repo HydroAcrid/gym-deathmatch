@@ -1,16 +1,61 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { ActivityRow, PlayerLite } from "@/types/game";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { ActivityFeedItem } from "@/components/ActivityFeedItem";
 import { useToast } from "@/components/ToastProvider";
-import { getBrowserSupabase } from "@/lib/supabaseBrowser";
-import { AnimatePresence, motion } from "framer-motion";
-import { useLobbyRealtime } from "@/hooks/useLobbyRealtime";
+import { Button } from "@/components/ui/Button";
+import { StatusPill } from "@/components/ui/StatusPill";
+import { StyledSelect } from "@/components/ui/StyledSelect";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
-type EventRow = { id: string; lobby_id: string; actor_player_id: string | null; target_player_id: string | null; type: string; payload: any; created_at: string };
+type PlayerLite = {
+	id: string;
+	name: string;
+	avatar_url?: string | null;
+	user_id?: string | null;
+};
+
+type ActivityRow = {
+	id: string;
+	lobby_id: string;
+	player_id: string;
+	player_snapshot?: PlayerLite | null;
+	player_name?: string | null;
+	player_avatar_url?: string | null;
+	player_user_id?: string | null;
+	date: string;
+	type: string;
+	duration_minutes: number | null;
+	distance_km: number | null;
+	caption: string | null;
+	photo_url: string | null;
+	status: string;
+	vote_deadline: string | null;
+	decided_at: string | null;
+	created_at?: string | null;
+};
+
+type EventRow = {
+	id: string;
+	lobby_id: string;
+	actor_player_id: string | null;
+	target_player_id: string | null;
+	actor_snapshot?: PlayerLite | null;
+	target_snapshot?: PlayerLite | null;
+	actor_name?: string | null;
+	target_name?: string | null;
+	type: string;
+	payload: any;
+	created_at: string;
+};
+
+type CommentRow = {
+	id: string;
+	type: string;
+	rendered: string;
+	created_at: string;
+	primary_player_id?: string | null;
+};
 
 export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId: string }> }) {
 	const [lobbyId, setLobbyId] = useState<string>("");
@@ -25,263 +70,651 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 	const [historyEvents, setHistoryEvents] = useState<EventRow[]>([]);
 	const [lobbyName, setLobbyName] = useState<string>("");
+	const [signedUrlByAct, setSignedUrlByAct] = useState<Record<string, string>>({});
 	const toast = useToast();
 
-	// Subscribe to realtime updates for this lobby
-	useLobbyRealtime(lobbyId);
-
-	const reloadActivities = useCallback(async (idOverride?: string) => {
-		const id = idOverride || lobbyId;
-		if (!id) return;
+		const reloadActivities = useCallback(async (lid: string = lobbyId) => {
+		if (!lid) return;
+		if (!isHydrated || !user?.id) return;
 		try {
-			const headers: any = {};
-			if (user?.id) headers["x-user-id"] = user.id;
-			const res = await fetch(`/api/lobby/${encodeURIComponent(id)}/history`, { headers, cache: "no-store" });
-			if (res.ok) {
-				const data = await res.json();
-				setActivities(data.activities);
-				setPlayers(data.players);
-				setOwnerPlayerId(data.ownerPlayerId);
-				setVotesByAct(data.votes);
-				if (data.myPlayerId) setMyPlayerId(data.myPlayerId);
-				if (data.events) setHistoryEvents(data.events);
-				if (data.lobbyName) setLobbyName(data.lobbyName);
+			const headers: Record<string, string> = { "x-user-id": user.id };
+			const res = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history?t=${Date.now()}`, {
+				headers,
+				cache: "no-store"
+			});
+			if (!res.ok) {
+				setActivities([]);
+				setHistoryEvents([]);
+				setVotesByAct({});
+				return;
 			}
-		} catch { /* ignore */ }
-	}, [lobbyId, user?.id]);
+			const data = await res.json();
+			const rawActivities = (data?.activities ?? []) as any[];
+				const normalizedActivities: ActivityRow[] = rawActivities.map((a: any) => ({
+					...a,
+					player_id: a.player_id ?? a.playerId,
+					player_snapshot: a.player_snapshot ?? a.playerSnapshot ?? null,
+					player_name: a.player_name ?? a.playerName ?? a.player_snapshot?.name ?? null,
+					player_avatar_url: a.player_avatar_url ?? a.playerAvatarUrl ?? a.player_snapshot?.avatar_url ?? null,
+					player_user_id: a.player_user_id ?? a.playerUserId ?? a.player_snapshot?.user_id ?? null,
+					date: a.date ?? a.createdAt ?? a.created_at ?? "",
+					duration_minutes: a.duration_minutes ?? a.duration ?? null,
+					distance_km: a.distance_km ?? a.distance ?? null,
+					caption: a.caption ?? a.notes ?? null,
+					photo_url: a.photo_url ?? a.imageUrl ?? null,
+					vote_deadline: a.vote_deadline ?? a.voteDeadline ?? null,
+					decided_at: a.decided_at ?? a.decidedAt ?? null
+				}));
+				const playerRows = (data?.players ?? []) as any[];
+				const normalizedPlayers: PlayerLite[] = playerRows.map((p: any) => ({
+					id: p.id,
+					name: p.name,
+					avatar_url: p.avatar_url ?? p.avatarUrl ?? null,
+					user_id: p.user_id ?? p.userId ?? null
+				}));
+				const snapshotPlayers: PlayerLite[] = [];
+				for (const act of normalizedActivities) {
+					if (act.player_snapshot && !normalizedPlayers.some(p => p.id === act.player_snapshot?.id)) {
+						snapshotPlayers.push(act.player_snapshot);
+					}
+				}
+				const lobbyRow = data?.lobby as any;
+				setLobbyName(lobbyRow?.name || lid);
+
+				const comments = (data?.comments ?? []) as CommentRow[];
+				const commentEvents: EventRow[] = comments.map(c => ({
+					id: c.id,
+					lobby_id: lid,
+					actor_player_id: c.primary_player_id || null,
+					actor_name: c.primary_player_id ? normalizedPlayers.find(p => p.id === c.primary_player_id)?.name ?? null : null,
+					target_player_id: null,
+					type: "COMMENT",
+					payload: { rendered: c.rendered, commentType: c.type },
+					created_at: c.created_at
+				}));
+				const rawEvents = ((data?.events ?? []) as EventRow[]).map(ev => {
+					const evAny = ev as any;
+					return {
+						...ev,
+						actor_snapshot: ev.actor_snapshot ?? evAny.actorSnapshot ?? null,
+						target_snapshot: ev.target_snapshot ?? evAny.targetSnapshot ?? null,
+						actor_name: ev.actor_name ?? ev.actor_snapshot?.name ?? null,
+						target_name: ev.target_name ?? ev.target_snapshot?.name ?? null
+					};
+				});
+				for (const ev of rawEvents) {
+					if (ev.actor_snapshot && !normalizedPlayers.some(p => p.id === ev.actor_snapshot?.id)) {
+						snapshotPlayers.push(ev.actor_snapshot);
+					}
+					if (ev.target_snapshot && !normalizedPlayers.some(p => p.id === ev.target_snapshot?.id)) {
+						snapshotPlayers.push(ev.target_snapshot);
+					}
+				}
+				const mergedPlayers = [...normalizedPlayers];
+				for (const snap of snapshotPlayers) {
+					if (snap && !mergedPlayers.some(p => p.id === snap.id)) mergedPlayers.push(snap);
+				}
+				setActivities(normalizedActivities);
+				setPlayers(mergedPlayers);
+
+				const combinedEvents = ([...rawEvents, ...commentEvents] as EventRow[]).sort(
+					(a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+				);
+			setHistoryEvents(combinedEvents);
+
+			const ownerId = data?.ownerPlayerId as string | null | undefined;
+			if (ownerId) {
+				setOwnerPlayerId(ownerId);
+			} else if (data?.ownerUserId && user?.id && data.ownerUserId === user.id) {
+				const ownerPlayer = normalizedPlayers.find(p => p.user_id === user.id);
+				if (ownerPlayer) setOwnerPlayerId(ownerPlayer.id);
+			}
+
+			const myPlayer = (data?.myPlayerId as string | null | undefined) ?? normalizedPlayers.find(p => p.user_id === user?.id)?.id ?? null;
+			setMyPlayerId(myPlayer);
+			setVotesByAct(data?.votes ?? {});
+		} catch (e) {
+			console.error("history reload error", e);
+		}
+	}, [lobbyId, user?.id, isHydrated]);
 
 	useEffect(() => {
 		(async () => {
 			const { lobbyId } = await params;
 			setLobbyId(lobbyId);
-			// Wait for auth hydration and user to be known; the API requires x-user-id
-			if (!isHydrated) return;
-			if (!user?.id) return;
-			await reloadActivities(lobbyId);
 		})();
-	}, [params, isHydrated, user?.id, reloadActivities]);
+	}, [params]);
 
-	// Also refresh when a global refresh event is fired (after posting or from realtime)
-	useEffect(() => {
-		function onRefresh() { reloadActivities(); }
-		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
-		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
-	}, [lobbyId, reloadActivities]);
-
-	// Auto-refresh every 30 seconds while tab is visible
-	useAutoRefresh(
-		() => {
-			reloadActivities(lobbyId);
-		},
-		30000, // 30s refresh for history
-		[lobbyId]
-	);
-
-	// Supabase Realtime subscription for live vote updates across all devices
 	useEffect(() => {
 		if (!lobbyId) return;
-		const supabase = getBrowserSupabase();
-		if (!supabase) return;
-		
-		const channel = supabase.channel(`lobby_votes:${lobbyId}`)
-			.on("postgres_changes", { 
-				event: "*", 
-				schema: "public", 
-				table: "vote", 
-				filter: `activity_id=in.(${activities.map(a => a.id).join(",")})` 
-			}, () => {
-				reloadActivities();
-			})
-			.subscribe();
-			
-		return () => {
-			supabase.removeChannel(channel);
-		};
-	}, [lobbyId, activities.length, reloadActivities]);
+		if (!isHydrated || !user?.id) return;
+		reloadActivities(lobbyId);
+	}, [lobbyId, isHydrated, user?.id, reloadActivities]);
 
-	const isOwner = useMemo(() => {
-		return ownerPlayerId && myPlayerId ? ownerPlayerId === myPlayerId : false;
-	}, [ownerPlayerId, myPlayerId]);
-
-	async function postComment(activityId: string, text: string) {
-		if (!text.trim()) return;
-		try {
-			await fetch(`/api/activity/${activityId}/comment`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json", "x-user-id": user?.id || "" },
-				body: JSON.stringify({ text })
-			});
+	useEffect(() => {
+		function onRefresh() {
 			reloadActivities();
-		} catch {
-			toast.push("Failed to post comment");
 		}
+		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
+		return () => {
+			if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any);
+		};
+	}, [reloadActivities]);
+
+	useAutoRefresh(() => {
+		reloadActivities();
+	}, 30000, [reloadActivities]);
+
+	useEffect(() => {
+		if (!lobbyId) return;
+
+		let votesChannel: any = null;
+		let activitiesChannel: any = null;
+		let isSubscribed = true;
+
+		(async () => {
+			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+			if (!supabase || !isSubscribed) return;
+
+			votesChannel = supabase
+				.channel(`activity-votes-${lobbyId}-${Date.now()}`)
+				.on(
+					"postgres_changes",
+					{
+						event: "*",
+						schema: "public",
+						table: "activity_votes"
+					},
+					() => {
+						if (!isSubscribed) return;
+						reloadActivities();
+					}
+				)
+				.subscribe();
+
+			activitiesChannel = supabase
+				.channel(`manual-activities-${lobbyId}-${Date.now()}`)
+				.on(
+					"postgres_changes",
+					{
+						event: "UPDATE",
+						schema: "public",
+						table: "manual_activities",
+						filter: `lobby_id=eq.${lobbyId}`
+					},
+					() => {
+						if (!isSubscribed) return;
+						reloadActivities();
+					}
+				)
+				.subscribe();
+		})();
+
+		return () => {
+			isSubscribed = false;
+			(async () => {
+				const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+				if (supabase) {
+					if (votesChannel) await supabase.removeChannel(votesChannel);
+					if (activitiesChannel) await supabase.removeChannel(activitiesChannel);
+				}
+			})();
+		};
+	}, [lobbyId, reloadActivities]);
+
+		function playerById(id: string) {
+			return players.find(p => p.id === id);
+		}
+
+		function playerForActivity(activity: ActivityRow) {
+			if (!activity.player_id) return activity.player_snapshot ?? null;
+			const existing = playerById(activity.player_id);
+			if (existing) return existing;
+			if (activity.player_snapshot) return activity.player_snapshot;
+			const fallback: PlayerLite = {
+				id: activity.player_id,
+				name: activity.player_name ?? "Unknown athlete",
+				avatar_url: activity.player_avatar_url ?? null,
+				user_id: activity.player_user_id ?? undefined
+			};
+			return fallback;
+		}
+
+	function canVote(a: ActivityRow) {
+		if (a.decided_at) return false;
+		if ((players?.length || 0) <= 2) return false;
+		if (!myPlayerId || a.player_id === myPlayerId) return false;
+		if (a.status === "pending") {
+			if (a.vote_deadline && new Date(a.vote_deadline).getTime() < Date.now()) return false;
+			return true;
+		}
+		if (a.status === "approved" && !a.decided_at) return true;
+		return false;
 	}
 
-	async function adjustHearts(playerId: string, delta: number, reason: string) {
-		if (!reason.trim()) {
-			toast.push("Enter a reason");
+	function timeLeft(a: ActivityRow) {
+		if (!a.vote_deadline) return "";
+		const ms = new Date(a.vote_deadline).getTime() - Date.now();
+		if (ms <= 0) return "0h";
+		const h = Math.floor(ms / 3600000);
+		const m = Math.floor((ms % 3600000) / 60000);
+		return `${h}h ${m}m`;
+	}
+
+	async function vote(activityId: string, choice: "legit" | "sus" | "remove") {
+		if (!myPlayerId) {
+			toast?.push?.("Unable to vote: player ID not found. Please refresh the page.");
 			return;
 		}
 		setBusy(true);
 		try {
-			const res = await fetch(`/api/lobby/${lobbyId}/admin/hearts`, {
+			const res = await fetch(`/api/activities/${encodeURIComponent(activityId)}/vote`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ targetPlayerId: playerId, delta, reason, userId: user?.id })
+				body: JSON.stringify({ voterPlayerId: myPlayerId, choice }),
+				cache: "no-store"
 			});
-			if (res.ok) {
-				setAdjustTarget("");
-				reloadActivities();
-				toast.push("Hearts adjusted");
-			} else {
-				toast.push("Failed to adjust");
+			if (!res.ok) {
+				const error = await res.json().catch(() => ({ error: "Unknown error" }));
+				toast?.push?.(`Failed to ${choice === "remove" ? "remove vote" : "vote"}: ${error.error || "Unknown error"}`);
+				return;
 			}
+			const data = await res.json().catch(() => ({ ok: true }));
+			if (choice === "remove") {
+				if (data.reverted === true) toast?.push?.("Challenge cancelled. Activity reverted to approved ✅");
+				else toast?.push?.("Your vote was removed.");
+			} else {
+				const current = votesByAct[activityId];
+				const isChangingVote = current?.mine && current.mine !== choice;
+				if (choice === "legit") toast?.push?.(isChangingVote ? "Changed vote to ✅ Looks good" : "Voted ✅ Looks good");
+				else toast?.push?.(isChangingVote ? "Changed vote to 🚩 Challenge" : "Voted 🚩 Challenge");
+			}
+			setVotesByAct({});
+			await reloadActivities();
+			setTimeout(() => {
+				setVotesByAct({});
+				reloadActivities();
+			}, 300);
+		} catch (e) {
+			console.error("Vote error", e);
+			toast?.push?.(`Failed to ${choice === "remove" ? "remove vote" : "vote"}. Please try again.`);
 		} finally {
 			setBusy(false);
 		}
 	}
 
-	async function deleteActivity(actId: string) {
-		if (!confirm("Delete this activity? Pot/hearts will not revert automatically.")) return;
+	async function overrideActivity(activityId: string, newStatus: "approved" | "rejected") {
+		if (!ownerPlayerId) {
+			toast?.push?.("Unable to override: owner ID not found.");
+			return;
+		}
+		setBusy(true);
 		try {
-			await fetch(`/api/activity/${actId}`, {
-				method: "DELETE",
-				headers: { "x-user-id": user?.id || "" }
+			const res = await fetch(`/api/activities/${encodeURIComponent(activityId)}/override`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ ownerPlayerId, newStatus }),
+				cache: "no-store"
 			});
-			reloadActivities();
-			toast.push("Deleted");
-		} catch {
-			toast.push("Failed to delete");
+			if (!res.ok) {
+				const error = await res.json().catch(() => ({ error: "Unknown error" }));
+				toast?.push?.(`Failed to override: ${error.error || "Unknown error"}`);
+				return;
+			}
+			toast?.push?.(newStatus === "approved" ? "Activity approved ✅" : "Activity rejected 🚩");
+			setVotesByAct({});
+			await reloadActivities();
+			setTimeout(() => {
+				setVotesByAct({});
+				reloadActivities();
+			}, 300);
+		} catch (e) {
+			console.error("Override error", e);
+			toast?.push?.("Failed to override. Please try again.");
+		} finally {
+			setBusy(false);
 		}
 	}
 
-	async function vote(activityId: string, type: "legit" | "sus") {
-		if (!myPlayerId) return;
-		// Optimistic
-		setVotesByAct(prev => {
-			const next = { ...prev };
-			const current = next[activityId] || { legit: 0, sus: 0 };
-			// If changing vote, remove old
-			if (current.mine === "legit") current.legit--;
-			if (current.mine === "sus") current.sus--;
-			// Add new
-			if (type === "legit") current.legit++;
-			if (type === "sus") current.sus++;
-			current.mine = type;
-			next[activityId] = current;
-			return next;
-		});
-
+	async function adjustHearts(delta: number) {
+		if (!ownerPlayerId || !adjustTarget) return;
+		setBusy(true);
 		try {
-			const res = await fetch(`/api/activity/${activityId}/vote`, {
+			await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/adjust-hearts`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ playerId: myPlayerId, type })
+				body: JSON.stringify({ ownerPlayerId, targetPlayerId: adjustTarget, delta })
 			});
-			if (!res.ok) throw new Error();
-			reloadActivities();
+			alert("Adjustment logged. Hearts will reflect in the lobby view.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	const isOwner = ownerPlayerId && myPlayerId && ownerPlayerId === myPlayerId;
+
+	const items = useMemo(() => {
+		const arr: Array<{ kind: "post" | "event"; createdAt: string; a?: ActivityRow; e?: EventRow }> = [];
+		for (const a of activities as ActivityRow[]) arr.push({ kind: "post", createdAt: (a.created_at || a.date) as string, a });
+		for (const e of historyEvents as EventRow[]) arr.push({ kind: "event", createdAt: e.created_at as string, e });
+		arr.sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
+		return arr;
+	}, [activities, historyEvents]);
+
+	async function resolveSignedUrl(activityId: string, publicUrl: string) {
+		try {
+			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+			if (!supabase || !publicUrl) return;
+			const marker = "/object/public/";
+			const idx = publicUrl.indexOf(marker);
+			if (idx === -1) return;
+			const sub = publicUrl.slice(idx + marker.length);
+			const slash = sub.indexOf("/");
+			if (slash === -1) return;
+			const bucket = sub.slice(0, slash);
+			const objectPath = sub.slice(slash + 1);
+			const { data, error } = await supabase.storage.from(bucket).createSignedUrl(objectPath, 60 * 60 * 12);
+			if (error || !data?.signedUrl) return;
+			setSignedUrlByAct(prev => ({ ...prev, [activityId]: data.signedUrl }));
 		} catch {
-			reloadActivities(); // revert
-			toast.push("Vote failed");
+			// ignore
 		}
 	}
 
 	if (!isHydrated) return <div className="p-8 text-center text-deepBrown/60">Loading...</div>;
+	if (!user) return <div className="p-8 text-center text-deepBrown/60">Please sign in to view history.</div>;
 
 	return (
-		<div className="mx-auto max-w-2xl pb-20">
-			<div className="flex items-center justify-between mb-4">
-				<h2 className="poster-headline text-xl">{lobbyName || "History"}</h2>
+		<div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-8">
+			<div className="paper-card paper-grain ink-edge p-5 sm:p-6 mb-6 sm:mb-8 border-b-4" style={{ borderColor: "#E1542A" }}>
+				<div className="poster-headline text-lg sm:text-xl mb-2">HISTORY</div>
+				<div className="text-deepBrown/70 text-xs sm:text-sm">Manual posts and decisions • Lobby: {lobbyName || lobbyId}</div>
 			</div>
 
-			<div className="space-y-6">
-				<section>
-					<h3 className="text-xs font-bold uppercase tracking-wide mb-3 text-deepBrown/50">Recent Activity</h3>
-					<div className="space-y-4">
-						{historyEvents.filter(e => e.type === "KO" || e.type === "WINNER" || e.type === "REVIVE").map(e => (
-							<div key={e.id} className="paper-card paper-grain ink-edge p-3 bg-red-50 border-l-4 border-accent-danger text-sm">
-								<div className="flex items-center gap-2 mb-1">
-									<span className="text-xl">{e.type === "KO" ? "🥊" : e.type === "WINNER" ? "👑" : "❤️"}</span>
-									<span className="font-bold">
-										{e.type === "KO" ? "KNOCKOUT" : e.type === "WINNER" ? "VICTORY" : "REVIVED"}
-									</span>
-									<span className="ml-auto text-[10px] opacity-60">
-										{new Date(e.created_at).toLocaleDateString()}
-									</span>
-								</div>
-								<p>
-									{e.type === "KO" 
-										? `${e.payload.loserName} was KO'd! Pot is $${e.payload.pot}.` 
-										: e.type === "WINNER"
-										? `${e.payload.winnerName} wins the season! Pot: $${e.payload.pot}.`
-										: `${e.payload.playerName} used Sudden Death to revive.`}
-								</p>
-							</div>
-						))}
-
-						{activities.length === 0 && historyEvents.length === 0 ? (
-							<div className="p-8 text-center border border-dashed border-deepBrown/30 rounded-xl text-sm text-deepBrown/60">
-								No history yet.
-							</div>
-						) : (
-							activities.map(a => (
-								<ActivityFeedItem
-									key={a.id}
-									activity={a}
-									votes={votesByAct[a.id] || { legit: 0, sus: 0 }}
-									players={players}
-									onVote={vote}
-									onComment={postComment}
-									onDelete={isOwner || a.playerId === myPlayerId ? () => deleteActivity(a.id) : undefined}
-									currentUserId={user?.id}
-									onImageClick={setLightboxUrl}
-								/>
-							))
-						)}
-					</div>
-				</section>
-
-				{isOwner && (
-					<section className="mt-8 pt-6 border-t border-deepBrown/20">
-						<h3 className="text-xs font-bold uppercase tracking-wide mb-3 text-deepBrown/50">Admin: Adjust Hearts</h3>
-						<div className="paper-card p-4 bg-white/50">
-							<select 
-								className="w-full mb-2 p-2 text-sm rounded border border-deepBrown/30 bg-white"
-								value={adjustTarget}
-								onChange={e => setAdjustTarget(e.target.value)}
-							>
-								<option value="">Select player...</option>
+			{isOwner ? (
+				<div className="paper-card paper-grain ink-edge p-4 sm:p-5 mb-6 sm:mb-8">
+					<div className="poster-headline text-base sm:text-lg mb-3 sm:mb-4">Owner tools</div>
+					<div className="flex flex-col md:flex-row gap-2 md:gap-3 items-start md:items-center md:justify-start flex-wrap">
+						<div className="w-full md:w-auto">
+							<StyledSelect value={adjustTarget} onChange={e => setAdjustTarget(e.target.value)} className="w-full md:w-auto text-sm">
+								<option value="">Select athlete</option>
 								{players.map(p => (
-									<option key={p.id} value={p.id}>{p.name} ({p.hearts} ❤)</option>
+									<option key={p.id} value={p.id}>{p.name}</option>
 								))}
-							</select>
-							{adjustTarget && (
-								<div className="flex gap-2">
-									<button disabled={busy} onClick={() => adjustHearts(adjustTarget, 1, "Admin bonus")} className="flex-1 bg-green-100 border border-green-300 p-2 rounded text-xs font-bold text-green-800 hover:bg-green-200">
-										+1 Heart
-									</button>
-									<button disabled={busy} onClick={() => adjustHearts(adjustTarget, -1, "Admin penalty")} className="flex-1 bg-red-100 border border-red-300 p-2 rounded text-xs font-bold text-red-800 hover:bg-red-200">
-										-1 Heart
-									</button>
-								</div>
-							)}
+							</StyledSelect>
 						</div>
-					</section>
-				)}
+						<div className="flex gap-2 w-full md:w-auto">
+							<Button variant="secondary" size="md" className="flex-1 md:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(1)}>
+								+1 HEART
+							</Button>
+							<Button variant="secondary" size="md" className="flex-1 md:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(-1)}>
+								-1 HEART
+							</Button>
+						</div>
+						<div className="text-[11px] sm:text-xs text-deepBrown/70 w-full md:w-auto">Logged publicly in history.</div>
+					</div>
+				</div>
+			) : null}
+
+			<div className="flex flex-col gap-4 sm:gap-6">
+				{items.map(item => {
+					if (item.kind === "event") {
+						const ev = item.e as EventRow;
+						return (
+							<div key={`ev-${ev.id}`} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
+								<div className="text-lg sm:text-xl flex-shrink-0">📜</div>
+								<div className="flex-1 min-w-0">
+									<div className="text-[11px] sm:text-xs text-deepBrown/70 mb-1">{new Date(ev.created_at).toLocaleString()}</div>
+									<div className="text-sm sm:text-base leading-relaxed">{renderEventLine(ev, players)}</div>
+								</div>
+							</div>
+						);
+					}
+
+					const a = item.a as ActivityRow;
+					const p = playerForActivity(a);
+					const v = votesByAct[a.id] || { legit: 0, sus: 0 };
+					const pending = a.status === "pending";
+
+					return (
+						<div key={a.id} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex flex-col gap-4 sm:gap-5">
+							<div className="flex items-center gap-3">
+								<div className="h-10 w-10 rounded-full overflow-hidden bg-tan border border-deepBrown/20 flex items-center justify-center">
+									{p?.avatar_url ? <img src={p.avatar_url} alt={p?.name || "athlete"} className="h-full w-full object-cover" /> : <span className="text-xl">🏋️‍♂️</span>}
+								</div>
+								<div className="flex-1">
+									<div className="poster-headline text-base leading-5">{(p?.name || "Unknown athlete").toUpperCase()}</div>
+									<div className="text-[11px] text-deepBrown/70">{new Date(a.date).toLocaleString()}</div>
+								</div>
+								<StatusPill status={a.status as "pending" | "approved" | "rejected"} />
+							</div>
+
+							{a.caption ? <div className="text-sm">{a.caption}</div> : null}
+
+							{a.photo_url ? (
+								<button
+									type="button"
+									aria-label="Open full-size photo"
+									className="relative w-full h-52 sm:h-56 md:h-64 rounded-xl overflow-hidden border border-deepBrown/20 bg-[#1a1512] group"
+									onClick={() => setLightboxUrl(a.photo_url || null)}
+								>
+									<img
+										src={signedUrlByAct[a.id] || a.photo_url}
+										alt=""
+										className="absolute inset-0 w-full h-full object-cover"
+										loading="lazy"
+										onError={() => resolveSignedUrl(a.id, a.photo_url || "")}
+									/>
+									<div className="absolute bottom-2 right-2 text-[12px] px-2 py-1 rounded-md bg-black/50 text-cream opacity-80 group-hover:opacity-100 transition">
+										🔍 Tap to expand
+									</div>
+								</button>
+							) : null}
+
+							<div className="text-xs sm:text-sm text-deepBrown/80 border-t border-deepBrown/10 pt-3 sm:pt-4">
+								<div className="flex flex-wrap items-center gap-1.5">
+									<strong className="font-medium">{titleCase(a.type)}</strong>
+									{a.duration_minutes && <span>{a.duration_minutes} min</span>}
+									{a.duration_minutes && a.distance_km && <span>·</span>}
+									{a.distance_km && <span>{a.distance_km} km</span>}
+								</div>
+							</div>
+
+							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 text-xs sm:text-sm">
+								<div className="flex flex-wrap items-center gap-1.5 text-deepBrown/80">
+									{a.status === "approved" && (
+										<>
+											<span className="font-medium">Approved:</span>
+											<span>{v.legit} legit</span>
+											{v.sus > 0 && <span>· {v.sus} sus</span>}
+										</>
+									)}
+									{a.status === "rejected" && (
+										<>
+											<span className="font-medium">Rejected:</span>
+											<span>{v.sus} sus</span>
+											{v.legit > 0 && <span>· {v.legit} legit</span>}
+										</>
+									)}
+									{pending && (
+										<>
+											<span className="font-medium">Pending vote:</span>
+											<span>{v.legit} legit</span>
+											<span>· {v.sus} sus</span>
+											{a.vote_deadline && <span className="text-deepBrown/60">· {timeLeft(a)} left</span>}
+										</>
+									)}
+								</div>
+								{canVote(a) && !a.decided_at ? (
+									<div className="flex gap-2 flex-wrap">
+										{a.status === "approved" && !v.mine ? (
+											<Button
+												variant="secondary"
+												size="sm"
+												disabled={busy}
+												onClick={() => vote(a.id, "sus")}
+												title="Challenge this activity"
+												className="normal-case"
+											>
+												Feels sus 🚩
+											</Button>
+										) : (
+											<>
+												<Button
+													variant={v.mine === "legit" ? "primary" : "secondary"}
+													size="sm"
+													disabled={busy}
+													onClick={() => vote(a.id, "legit")}
+													title={v.mine === "legit" ? `You voted 'Count it'. Click to change.` : `Vote 'Count it'`}
+													className="normal-case"
+												>
+													Count it ✅
+												</Button>
+												<Button
+													variant={v.mine === "sus" ? "primary" : "secondary"}
+													size="sm"
+													disabled={busy}
+													onClick={() => vote(a.id, "sus")}
+													title={v.mine === "sus" ? `You voted 'Feels sus'. Click to change.` : `Vote 'Feels sus'`}
+													className="normal-case"
+												>
+													Feels sus 🚩
+												</Button>
+											</>
+										)}
+										{v.mine && a.status === "pending" && (
+											<Button
+												variant="secondary"
+												size="sm"
+												disabled={busy}
+												onClick={() => vote(a.id, "remove")}
+												title="Remove your vote to revert activity to approved"
+												className="normal-case text-xs"
+											>
+												Remove vote
+											</Button>
+										)}
+									</div>
+								) : a.decided_at ? (
+									<div className="text-[11px] text-deepBrown/50 italic">Voting closed</div>
+								) : a.player_id === myPlayerId ? (
+									<div className="text-[11px] text-deepBrown/50 italic">You can't vote on your own activity</div>
+								) : !myPlayerId ? (
+									<div className="text-[11px] text-deepBrown/50 italic">Sign in to vote</div>
+								) : (players?.length || 0) <= 2 ? (
+									<div className="text-[11px] text-deepBrown/50 italic">Voting requires 3+ players</div>
+								) : null}
+							</div>
+
+							{isOwner ? (
+								<div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-deepBrown/10">
+									<span className="text-[11px] sm:text-xs text-deepBrown/70 font-medium uppercase tracking-wide whitespace-nowrap">Owner override:</span>
+									<div className="flex gap-2 w-full sm:w-auto">
+										<Button
+											variant="secondary"
+											size="sm"
+											disabled={busy}
+											onClick={() => overrideActivity(a.id, "approved")}
+											className={`flex-1 sm:flex-none ${a.status === "approved" ? "bg-accent-primary/20 border-accent-primary" : ""}`}
+											title={a.status === "approved" ? "Currently approved" : "Override to approve"}
+										>
+											APPROVE
+										</Button>
+										<Button
+											variant="secondary"
+											size="sm"
+											disabled={busy}
+											onClick={() => overrideActivity(a.id, "rejected")}
+											className={`flex-1 sm:flex-none ${a.status === "rejected" ? "bg-accent-primary/20 border-accent-primary" : ""}`}
+											title={a.status === "rejected" ? "Currently rejected" : "Override to reject"}
+										>
+											REJECT
+										</Button>
+									</div>
+								</div>
+							) : null}
+
+							<ActivityComments activityId={a.id} />
+						</div>
+					);
+				})}
+				{items.length === 0 && <div className="text-deepBrown/70 text-sm">No posts yet.</div>}
 			</div>
 
-			<AnimatePresence>
-				{lightboxUrl && (
-					<motion.div
-						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-						className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
-						onClick={() => setLightboxUrl(null)}
-					>
-						<img src={lightboxUrl} alt="Full size" className="max-w-full max-h-full rounded shadow-2xl" />
-						<button className="absolute top-4 right-4 text-white text-xl bg-white/20 w-10 h-10 rounded-full">×</button>
-					</motion.div>
-				)}
-			</AnimatePresence>
+			<Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+		</div>
+	);
+}
+
+function ActivityComments({ activityId }: { activityId: string }) {
+	const [comments, setComments] = useState<Array<{ id: string; type: string; rendered: string; created_at: string }>>([]);
+	useEffect(() => {
+		(async () => {
+			try {
+				const res = await fetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, { cache: "no-store" });
+				if (!res.ok) return;
+				const j = await res.json();
+				setComments(j.comments ?? []);
+			} catch {
+				// ignore
+			}
+		})();
+	}, [activityId]);
+	if (!comments.length) return null;
+	return (
+		<div className="mt-2 border-t border-deepBrown/20 pt-2 space-y-1">
+			{comments.map(c => (
+				<div key={c.id} className="text-[12px] text-deepBrown/90">
+					{c.rendered}
+					<span className="ml-2 text-[11px] text-deepBrown/60">{new Date(c.created_at).toLocaleString()}</span>
+				</div>
+			))}
+		</div>
+	);
+}
+
+function titleCase(s: string) {
+	return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function renderEventLine(ev: EventRow, players: PlayerLite[]) {
+	const actor =
+		ev.actor_player_id
+			? players.find(p => p.id === ev.actor_player_id)?.name || ev.actor_snapshot?.name || ev.actor_name || "Unknown athlete"
+			: ev.actor_snapshot?.name || ev.actor_name || "System";
+	const target =
+		ev.target_player_id
+			? players.find(p => p.id === ev.target_player_id)?.name || ev.target_snapshot?.name || ev.target_name || "Unknown athlete"
+			: ev.target_snapshot?.name || ev.target_name || "";
+	if (ev.type === "ACTIVITY_LOGGED") return `${actor} posted a workout`;
+	if (ev.type === "VOTE_RESULT") {
+		const result = ev.payload?.result || "decision";
+		return `Vote result: ${result.replace(/_/g, " ")} (${ev.payload?.legit ?? 0} legit · ${ev.payload?.sus ?? 0} sus)`;
+	}
+	if (ev.type === "OWNER_OVERRIDE_ACTIVITY") {
+		return `${actor} set an activity to ${String(ev.payload?.newStatus || "").toUpperCase()}${target ? ` for ${target}` : ""}`;
+	}
+	if (ev.type === "OWNER_ADJUST_HEARTS") {
+		const d = Number(ev.payload?.delta || 0);
+		const sign = d > 0 ? "+" : "";
+		return `${actor} adjusted hearts for ${target}: ${sign}${d}${ev.payload?.reason ? ` — ${ev.payload.reason}` : ""}`;
+	}
+	if (ev.type === "COMMENT") {
+		return ev.payload?.rendered || "Comment";
+	}
+	return `${actor || "System"}: ${ev.type}`;
+}
+
+function Lightbox({ url, onClose }: { url: string | null; onClose: () => void }) {
+	if (!url) return null;
+	return (
+		<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+			<div className="relative max-w-3xl w-full">
+				<img src={url} alt="" className="w-full h-auto object-contain rounded-md" />
+				<button className="absolute top-2 right-2 px-3 py-1.5 rounded-md bg-[#000]/70 text-cream text-xs" onClick={onClose}>
+					Close
+				</button>
+			</div>
 		</div>
 	);
 }

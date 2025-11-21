@@ -26,9 +26,9 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const prevActiveRef = useRef<string | null>(null);
 	
 	useEffect(() => {
-		if (typeof window !== "undefined") {
-			setShowDebug(window.localStorage?.getItem("gymdm_debug") === "1");
-		}
+		if (typeof window === "undefined") return;
+		const search = new URLSearchParams(window.location.search);
+		setShowDebug(search.get("debug") === "1");
 	}, []);
 
 	useEffect(() => {
@@ -103,33 +103,26 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const prevMySubmissionRef = useRef<{ id: string; text: string } | null>(null);
 	useEffect(() => {
 		if (justSubmittedRef.current) return;
-		if (!user?.id && !localStorage.getItem("gymdm_playerId")) return;
-		let meId: string | null = null;
-		if (user?.id) {
-			const mine = players.find(p => (p as any).userId === user.id);
-			if (mine) meId = mine.id;
-		}
-		if (!meId) meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
-		
-		if (meId) {
-			const mySub = items.find(i => {
-				const createdBy = i.created_by;
-				return createdBy === meId || createdBy === (players.find(p => p.id === meId) as any)?.userId;
-			});
-			const prevSub = prevMySubmissionRef.current;
-			setMySubmission(mySub || null);
-			if (mySub) {
-				if (!prevSub || prevSub.text !== mySub.text) {
-					if (!myText || myText === prevSub?.text) {
-						setMyText(mySub.text);
-					}
+		if (!user?.id) return;
+		const mine = players.find(p => (p as any).userId === user.id);
+		if (!mine) return;
+		const mySub = items.find(i => {
+			const createdBy = i.created_by;
+			return createdBy === mine.id || createdBy === user.id;
+		});
+		const prevSub = prevMySubmissionRef.current;
+		setMySubmission(mySub || null);
+		if (mySub) {
+			if (!prevSub || prevSub.text !== mySub.text) {
+				if (!myText || myText === prevSub?.text) {
+					setMyText(mySub.text);
 				}
-				prevMySubmissionRef.current = { id: mySub.id, text: mySub.text };
-			} else {
-				prevMySubmissionRef.current = null;
 			}
+			prevMySubmissionRef.current = { id: mySub.id, text: mySub.text };
+		} else {
+			prevMySubmissionRef.current = null;
 		}
-	}, [items, players, user?.id]);
+	}, [items, players, user?.id, myText]);
 
 	const itemsHashRef = useRef<string>("");
 	
@@ -198,7 +191,6 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 				const mine = players.find(p => (p as any).userId === user.id);
 				if (mine) meId = mine.id;
 			}
-			if (!meId) meId = typeof window !== "undefined" ? localStorage.getItem("gymdm_playerId") : null;
 			
 			if (!meId) {
 				setErrorMsg("Sign in to submit.");

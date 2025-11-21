@@ -35,10 +35,6 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     return `conic-gradient(${stops.join(",")})`;
   }, [wheelSegs]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") setMePlayerId(localStorage.getItem("gymdm_playerId"));
-  }, []);
-
   async function load() {
     try {
       const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
@@ -84,10 +80,14 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
         const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
         if (res.ok) {
           const j = await res.json();
-          const players = (j?.lobby?.players || []) as Array<{ ready?: boolean }>;
+          const players = (j?.lobby?.players || []) as Array<{ id: string; ready?: boolean; userId?: string | null }>;
           const total = players.length;
           const readyCount = players.filter(p => p.ready).length;
           setAllReady(total > 0 && readyCount === total);
+          if (user?.id) {
+            const mine = players.find(p => p.userId === user.id);
+            if (mine) setMePlayerId(mine.id);
+          }
           (window as any).__gymdm_ready = `${readyCount}/${total}`;
         }
       } catch { /* ignore */ }
@@ -103,7 +103,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
       clearTimeout(tm);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [lobbyId]);
+  }, [lobbyId, user?.id]);
 
   async function suggest() {
     if (!text.trim() || !mePlayerId) return;
@@ -347,5 +347,4 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     </div>
   );
 }
-
 

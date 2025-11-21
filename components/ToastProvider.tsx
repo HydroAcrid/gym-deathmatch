@@ -24,7 +24,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 	return (
 		<ToastCtx.Provider value={value}>
 			{children}
-			<div className="fixed bottom-4 right-4 z-[100] space-y-2">
+			<div className="fixed bottom-4 right-4 z-50 space-y-2 sm:bottom-4">
 				<AnimatePresence>
 					{toasts.map((t) => (
 						<motion.div key={t.id}

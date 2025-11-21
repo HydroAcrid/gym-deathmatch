@@ -12,7 +12,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		const body = await req.json();
 		// Prevent duplicate player for the same user in this lobby
 		// If user already has a player in this lobby, use that player's ID instead of creating a new one
-		let playerId = body.id as string;
+		let playerId = typeof body.id === "string" && body.id.trim().length ? body.id.trim() : "";
+		if (!playerId) {
+			if (body.userId) {
+				playerId = body.userId;
+			} else if (body.name) {
+				const base = String(body.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+				playerId = base || `player-${Math.random().toString(36).slice(2, 8)}`;
+			} else {
+				playerId = `player-${Math.random().toString(36).slice(2, 8)}`;
+			}
+		}
 		if (body.userId) {
 			const { data: existing } = await supabase
 				.from("player")
@@ -70,5 +80,4 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }
-
 

@@ -4,12 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { IntroGuide } from "./IntroGuide";
-import { JoinLobby } from "./JoinLobby";
 import { CreateLobby } from "./CreateLobby";
 import { useAuth } from "./AuthProvider";
 import { ProfileAvatar } from "./ProfileAvatar";
-import { useEffect, useState } from "react";
 import { useTheme } from "./useTheme";
+import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 
 const baseTabs = [
 	{ href: "/home", label: "Home" },
@@ -22,29 +21,18 @@ const baseTabs = [
 export function Navbar() {
 	const pathname = usePathname();
 	const { user, signInWithGoogle, signOut } = useAuth();
-	const [lastLobbyId, setLastLobbyId] = useState<string | null>(null);
 	const { theme, toggleTheme } = useTheme();
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-		setLastLobbyId(localStorage.getItem("gymdm_lastLobbyId"));
-	}, [pathname]);
-	// If on a lobby route, make History contextual to that lobby; otherwise fall back to last lobby
-	let tabs = baseTabs;
-	const lobbyMatch = pathname?.match(/^\/lobby\/([^\/]+)/);
-	if (lobbyMatch) {
-		const lobbyId = lobbyMatch[1];
-		tabs = baseTabs.map(t => {
-			if (t.label === "History") return { ...t, href: `/lobby/${lobbyId}/history` };
-			if (t.label === "Stats") return { ...t, href: `/lobby/${lobbyId}/stats` };
-			return t;
-		});
-	} else if (lastLobbyId) {
-		tabs = baseTabs.map(t => {
-			if (t.label === "History") return { ...t, href: `/lobby/${lastLobbyId}/history` };
-			if (t.label === "Stats") return { ...t, href: `/lobby/${lastLobbyId}/stats` };
-			return t;
-		});
-	}
+	const lobbyMatch = pathname?.match(/^\/lobby\/([^/]+)/);
+	const lobbyId = lobbyMatch?.[1] ?? null;
+	const lastLobby = useLastLobbySnapshot();
+	const resolvedLobbyId = lobbyId ?? lastLobby?.id ?? null;
+
+	const tabs = baseTabs.map((tab) => {
+		if (!resolvedLobbyId) return tab;
+		if (tab.label === "History") return { ...tab, href: `/lobby/${resolvedLobbyId}/history` };
+		if (tab.label === "Stats") return { ...tab, href: `/lobby/${resolvedLobbyId}/stats` };
+		return tab;
+	});
 	return (
 		<div className="sticky top-0 z-50 bg-main">
 			<div className="mx-auto max-w-6xl">
@@ -74,6 +62,7 @@ export function Navbar() {
 						</button>
 					</div>
 				</div>
+				{/* Desktop Navigation - Hidden on mobile, shown on sm and up */}
 				<nav className="hidden sm:flex items-center gap-3 sm:gap-4 py-1.5 sm:py-2 px-2 sm:px-3 overflow-x-auto whitespace-nowrap">
 					{tabs.map((t) => {
 						let active = pathname === t.href; // exact match
@@ -113,5 +102,3 @@ export function Navbar() {
 		</div>
 	);
 }
-
-
