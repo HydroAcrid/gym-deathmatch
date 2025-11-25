@@ -148,8 +148,22 @@ export async function onWeeklyRollover(lobbyId: string): Promise<void> {
 export async function onPotChanged(lobbyId: string, delta: number): Promise<void> {
 	const supabase = getServerSupabase();
 	if (!supabase) return;
+	// Dedupe: if we already logged the same delta/pot recently, skip
+	const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 	const { data: lobby } = await supabase.from("lobby").select("cash_pool").eq("id", lobbyId).maybeSingle();
 	const rendered = `Ante collected. Pot climbs to $${(lobby?.cash_pool ?? 0)}`;
+	if (lobby) {
+		const { data: exists } = await supabase
+			.from("comments")
+			.select("id")
+			.eq("lobby_id", lobbyId)
+			.eq("type", "POT")
+			.eq("rendered", rendered)
+			.contains("payload", { delta, pot: lobby.cash_pool ?? 0 } as any)
+			.gte("created_at", since)
+			.limit(1);
+		if (exists && exists.length) return;
+	}
 	await insertQuips(lobbyId, [{ type: "POT", rendered, payload: { delta, pot: lobby?.cash_pool ?? 0 }, visibility: "feed" } as Quip]);
 }
 
@@ -322,4 +336,3 @@ export async function onThemeHour(lobbyId: string, type: string) {
 	const rendered = `Theme hour: ${type.toLowerCase()} — the arena syncs up ⏱️`;
 	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { type }, visibility: "feed" }]);
 }
-
