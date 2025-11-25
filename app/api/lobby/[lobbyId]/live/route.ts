@@ -492,16 +492,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					if (supabase && events.length) {
 						const last = events[events.length - 1];
 						const type = last.met ? "WEEKLY_TARGET_MET" : "WEEKLY_TARGET_MISSED";
-						// Check if an event already exists for this (lobby, player, weekStart, type)
+						// Dedupe by latest event payload weekStart to avoid re-logging every poll
 						const { data: existing } = await supabase
 							.from("history_events")
-							.select("id")
+							.select("id,payload")
 							.eq("lobby_id", lobby.id)
 							.eq("target_player_id", p.id)
 							.eq("type", type)
-							.contains("payload", { weekStart: last.weekStart } as any)
+							.order("created_at", { ascending: false })
 							.limit(1);
-						if (!existing || existing.length === 0) {
+						const alreadyLogged = existing?.[0] && (existing[0].payload as any)?.weekStart === last.weekStart;
+						if (!alreadyLogged) {
 							await supabase.from("history_events").insert({
 								lobby_id: lobby.id,
 								actor_player_id: null,
@@ -968,5 +969,4 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	}
 	return NextResponse.json(live, { status: 200 });
 }
-
 

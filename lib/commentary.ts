@@ -122,6 +122,21 @@ export async function onVoteResolved(lobbyId: string, activity: Activity, status
 }
 
 export async function onHeartsChanged(lobbyId: string, playerId: string, delta: number, reason: string): Promise<void> {
+	const supabase = getServerSupabase();
+	if (supabase) {
+		// Dedupe so the same heart change reason isn't posted on every live poll
+		const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+		const { data: exists } = await supabase
+			.from("comments")
+			.select("id")
+			.eq("lobby_id", lobbyId)
+			.eq("type", "HEARTS")
+			.eq("primary_player_id", playerId)
+			.contains("payload", { delta, reason } as any)
+			.gte("created_at", since)
+			.limit(1);
+		if (exists && exists.length) return;
+	}
 	const rendered = delta < 0 ? `{name} lost a heart. ${reason || ""}`.trim() : `New week, new life — {name} back in the fight ❤️`;
 	await insertQuips(lobbyId, [{ type: "HEARTS", rendered, payload: { delta, reason }, primaryPlayerId: playerId, visibility: "both" }]);
 }
@@ -307,5 +322,4 @@ export async function onThemeHour(lobbyId: string, type: string) {
 	const rendered = `Theme hour: ${type.toLowerCase()} — the arena syncs up ⏱️`;
 	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { type }, visibility: "feed" }]);
 }
-
 
