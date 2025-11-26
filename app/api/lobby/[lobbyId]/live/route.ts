@@ -748,8 +748,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			scalingEnabled: !!lobby.scalingEnabled,
 			perPlayerBoost: lobby.perPlayerBoost ?? 0
 		}, playerCount);
+		const supabase = getServerSupabase();
+		const newContributions: number[] = [];
 		try {
-			const supabase = getServerSupabase();
 			if (supabase && weeks > 0) {
 				const weekStarts: string[] = [];
 				// Normalize season start to midnight (start of day) for consistent week calculations
@@ -779,20 +780,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							amount: amt,
 							player_count: survivors
 						});
-						try { await onPotChanged(lobby.id, amt); } catch { /* ignore */ }
+						newContributions.push(amt);
 					}
 				}
 			}
 		} catch { /* ignore */ }
 		let contributionsSum = 0;
 		try {
-			const supabase = getServerSupabase();
 			if (supabase) {
 				const { data: sumRows } = await supabase.from("weekly_pot_contributions").select("amount").eq("lobby_id", lobby.id);
 				contributionsSum = (sumRows ?? []).reduce((s: number, r: any) => s + (r.amount as number), 0);
 			}
 		} catch { /* ignore */ }
 		currentPot = (lobby.initialPot ?? 0) + contributionsSum;
+		if (supabase && newContributions.length) {
+			const existingPot = currentPot - newContributions.reduce((s, n) => s + n, 0);
+			let rollingPot = existingPot;
+			for (const amt of newContributions) {
+				rollingPot += amt;
+				try { await onPotChanged(lobby.id, amt, rollingPot); } catch { /* ignore */ }
+			}
+			try { await supabase.from("lobby").update({ cash_pool: currentPot }).eq("id", lobby.id); } catch { /* ignore */ }
+		}
 	}
 
 	// Tight race callout: multiple players tied on top hearts with meaningful pot

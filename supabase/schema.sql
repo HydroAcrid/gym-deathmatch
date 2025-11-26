@@ -317,6 +317,8 @@ for select using (
 create index if not exists comments_lobby_created_idx on comments (lobby_id, created_at desc);
 -- Dedupe helper: prevent duplicates per activity/rendered
 create unique index if not exists comments_activity_dedupe_idx on comments (lobby_id, type, activity_id, rendered) where activity_id is not null;
+-- Prevent duplicate tight-race summaries (rendered string encodes pot)
+create unique index if not exists comments_tight_race_once_idx on comments (lobby_id, type, rendered) where type = 'SUMMARY' and payload ? 'tightRace';
 
 -- Idempotent add: per-player sudden death toggle
 do $$
@@ -438,4 +440,3 @@ create policy week_ready_member on week_ready_states
 for select using (
   exists (select 1 from player p where p.lobby_id = week_ready_states.lobby_id and p.user_id::text = auth.uid()::text)
 );
-

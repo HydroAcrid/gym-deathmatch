@@ -391,31 +391,33 @@ export async function onWeeklyRollover(lobbyId: string): Promise<void> {
 	// placeholder: could summarise here
 }
 
-export async function onPotChanged(lobbyId: string, delta: number): Promise<void> {
+export async function onPotChanged(lobbyId: string, delta: number, potOverride?: number): Promise<void> {
 	const supabase = getServerSupabase();
 	if (!supabase) return;
 	// Dedupe: if we already logged the same delta/pot recently, skip
 	const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-	const { data: lobby } = await supabase.from("lobby").select("cash_pool").eq("id", lobbyId).maybeSingle();
-	const rendered = `Ante collected. Pot climbs to $${(lobby?.cash_pool ?? 0)}`;
-	if (lobby) {
-		const { data: exists } = await supabase
-			.from("comments")
-			.select("id")
-			.eq("lobby_id", lobbyId)
-			.eq("type", "POT")
-			.eq("rendered", rendered)
-			.contains("payload", { delta, pot: lobby.cash_pool ?? 0 } as any)
-			.gte("created_at", since)
-			.limit(1);
-		if (exists && exists.length) return;
+	let potVal = potOverride;
+	if (potVal === undefined) {
+		const { data: lobby } = await supabase.from("lobby").select("cash_pool").eq("id", lobbyId).maybeSingle();
+		potVal = lobby?.cash_pool ?? 0;
 	}
+	potVal = Number(potVal ?? 0);
+	const rendered = `Ante collected. Pot climbs to $${potVal}`;
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("type", "POT")
+		.eq("rendered", rendered)
+		.contains("payload", { delta, pot: potVal } as any)
+		.gte("created_at", since)
+		.limit(1);
+	if (exists && exists.length) return;
 	const receipts = ["🧾", "💸", "📜", "🏦"];
 	const flair = receipts[Math.floor(Math.random() * receipts.length)];
-	await insertQuips(lobbyId, [{ type: "POT", rendered: `${rendered} ${flair}`, payload: { delta, pot: lobby?.cash_pool ?? 0 }, visibility: "feed" } as Quip]);
+	await insertQuips(lobbyId, [{ type: "POT", rendered: `${rendered} ${flair}`, payload: { delta, pot: potVal }, visibility: "feed" } as Quip]);
 
 	// Milestone shout-outs
-	const potVal = Number(lobby?.cash_pool ?? 0);
 	const milestones = [50, 100, 250, 500];
 	const hit = milestones.find(m => potVal >= m && potVal - delta < m);
 	if (hit) {
