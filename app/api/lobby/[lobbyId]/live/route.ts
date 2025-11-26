@@ -11,7 +11,7 @@ import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 import { getDailyTaunts } from "@/lib/funFacts";
 import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
-import { onHeartsChanged, onKO, onPotChanged, onWeeklyReset, onAllReady } from "@/lib/commentary";
+import { onHeartsChanged, onKO, onPotChanged, onWeeklyReset, onAllReady, onGhostWeek, onPerfectWeek, onWeeklyHype, onTightRace } from "@/lib/commentary";
 import { logError } from "@/lib/logger";
 
 // Generate season summary when season completes
@@ -452,6 +452,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						if (last.heartsGained > 0) {
 							await onHeartsChanged(lobby.id, p.id, last.heartsGained, `hit weekly target (${last.workouts}/${weeklyTarget})`);
 						}
+						if (last.met && last.workouts >= weeklyTarget) {
+							try { await onPerfectWeek(lobby.id, p.id, last.workouts); } catch { /* ignore */ }
+						}
 					}
 				} catch { /* ignore */ }
 				// Challenge: cumulative punishments — log missing weeks
@@ -482,6 +485,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 									await supabase.from("user_punishments").insert({ user_id: userId, lobby_id: lobby.id, week: wi, text, resolved: false });
 								}
 							}
+						}
+					}
+				} catch { /* ignore */ }
+				// Ghost week warning for in-progress week with 0/target by midweek
+				try {
+					const currentWeek = (weekly.events || [])[weekly.events.length - 1];
+					if (currentWeek) {
+						const ws = new Date(currentWeek.weekStart);
+						const we = new Date(ws.getTime() + 7 * 24 * 60 * 60 * 1000);
+						const daysIn = (Date.now() - ws.getTime()) / (24 * 60 * 60 * 1000);
+						if (we.getTime() > Date.now() && daysIn >= 3 && weeklyTarget > 0 && currentWeek.workouts === 0) {
+							await onGhostWeek(lobby.id, p.id, currentWeek.weekStart, weeklyTarget);
 						}
 					}
 				} catch { /* ignore */ }
@@ -701,6 +716,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		})
 	);
 
+	// Weekly hype: Friday preview for players one workout away
+	try {
+		const now = new Date();
+		const weeklyTargetVal = (lobby as any).weeklyTarget ?? (lobby as any).weekly_target ?? 3;
+		if (weeklyTargetVal > 0 && now.getDay() === 5) { // Friday
+			const hype: Array<{ id: string; name?: string | null }> = [];
+			for (const pl of updatedPlayers) {
+				const timeline = (pl as any).heartsTimeline as any[];
+				const current = timeline?.[timeline.length - 1];
+				if (!current) continue;
+				const we = new Date(new Date(current.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000);
+				if (we.getTime() < now.getTime()) continue; // completed week
+				if (current.workouts === weeklyTargetVal - 1) {
+					hype.push({ id: pl.id, name: (pl as any).name ?? null });
+				}
+			}
+			if (hype.length) await onWeeklyHype(lobby.id, hype, weeklyTargetVal);
+		}
+	} catch { /* ignore */ }
+
 	// Compute pot only for Money modes
 	const mode = (lobby as any).mode || "MONEY_SURVIVAL";
 	let currentPot = 0;
@@ -759,6 +794,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		} catch { /* ignore */ }
 		currentPot = (lobby.initialPot ?? 0) + contributionsSum;
 	}
+
+	// Tight race callout: multiple players tied on top hearts with meaningful pot
+	try {
+		if (String(mode).startsWith("MONEY_") && currentPot >= 50) {
+			const maxHearts = Math.max(...updatedPlayers.map(p => p.livesRemaining));
+			const top = updatedPlayers.filter(p => p.livesRemaining === maxHearts);
+			if (top.length >= 2) {
+				const names = top.map((p: any) => p.name || "Athlete");
+				await onTightRace(lobby.id, names, currentPot);
+			}
+		}
+	} catch { /* ignore */ }
 
 	// KO detection depends on mode
 	let koEvent: LiveLobbyResponse["koEvent"] | undefined;
@@ -969,4 +1016,3 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	}
 	return NextResponse.json(live, { status: 200 });
 }
-

@@ -100,6 +100,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					const commentary = await import("@/lib/commentary");
 					if (other) {
 						await commentary.onSocialBurst(lobbyId, String(other.primary_player_id), playerId);
+						await commentary.onRivalryPulse(lobbyId, String(other.primary_player_id), playerId);
 					}
 					if (distinctPlayersSameType.size >= 2) {
 						await commentary.onThemeHour(lobbyId, type);

@@ -21,6 +21,43 @@ type EngineContext = {
 	event?: any;
 };
 
+async function insertQuipOnce(opts: {
+	lobbyId: string;
+	type: QuipType;
+	rendered: string;
+	payload?: Record<string, any>;
+	primaryPlayerId?: string;
+	secondaryPlayerId?: string;
+	visibility?: 'feed'|'history'|'both';
+	dedupeMs?: number;
+	dedupeKey?: Record<string, any>;
+}) {
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const dedupeMs = opts.dedupeMs ?? 6 * 60 * 60 * 1000;
+	const since = new Date(Date.now() - dedupeMs).toISOString();
+	let query = supabase
+		.from("comments")
+		.select("id,payload")
+		.eq("lobby_id", opts.lobbyId)
+		.eq("type", opts.type)
+		.eq("rendered", opts.rendered)
+		.gte("created_at", since)
+		.limit(1);
+	if (opts.primaryPlayerId) query = query.eq("primary_player_id", opts.primaryPlayerId);
+	if (opts.dedupeKey) query = query.contains("payload", opts.dedupeKey as any);
+	const { data: exists } = await query;
+	if (exists && exists.length) return;
+	await insertQuips(opts.lobbyId, [{
+		type: opts.type,
+		rendered: opts.rendered,
+		payload: opts.payload ?? {},
+		primaryPlayerId: opts.primaryPlayerId,
+		secondaryPlayerId: opts.secondaryPlayerId,
+		visibility: opts.visibility ?? "feed"
+	}]);
+}
+
 export function generateQuips(ctx: EngineContext): Quip[] {
 	const q: Quip[] = [];
 	const now = ctx.now ?? new Date();
@@ -113,6 +150,203 @@ async function insertQuips(lobbyId: string, quips: Quip[]) {
 export async function onActivityLogged(lobbyId: string, activity: Activity): Promise<void> {
 	const quips = generateQuips({ now: new Date(), lobbyId, activity });
 	await insertQuips(lobbyId, quips);
+
+	// Extra flavor scenarios to keep the feed lively
+	try {
+		const supabase = getServerSupabase();
+		if (!supabase) return;
+		const now = new Date();
+		const hour = now.getHours();
+		const dayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+
+		// Time-of-day callouts (late-night / lunch)
+		if (hour >= 22 || hour < 5) {
+			const templates = [
+				"Late-night grinder. {name} punched the clock after hours 🌙",
+				"{name} is stealing reps from tomorrow's sleep schedule 🦉",
+				"No bedtime, just sets. {name} keeps the lights on in the arena."
+			];
+			await insertQuipOnce({
+				lobbyId,
+				type: "SUMMARY",
+				rendered: templates[Math.floor(Math.random() * templates.length)],
+				payload: { timeWindow: "late-night" },
+				primaryPlayerId: activity.playerId,
+				visibility: "both",
+				dedupeMs: 6 * 60 * 60 * 1000
+			});
+		} else if (hour >= 11 && hour < 14) {
+			const templates = [
+				"Lunchtime warrior: {name} traded sandwiches for sweat 🥪➡️🏋️",
+				"Clocked out, clocked in. {name} owns the lunch hour.",
+				"Midday raid by {name}. The cafe can wait."
+			];
+			await insertQuipOnce({
+				lobbyId,
+				type: "SUMMARY",
+				rendered: templates[Math.floor(Math.random() * templates.length)],
+				payload: { timeWindow: "midday" },
+				primaryPlayerId: activity.playerId,
+				visibility: "both",
+				dedupeMs: 6 * 60 * 60 * 1000
+			});
+		}
+
+		// Double-header: 2+ workouts same day (manual data)
+		const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const endDay = new Date(startDay.getTime() + 24 * 60 * 60 * 1000);
+		const { data: dayActs } = await supabase
+			.from("manual_activities")
+			.select("id,date")
+			.eq("lobby_id", lobbyId)
+			.eq("player_id", activity.playerId)
+			.gte("date", startDay.toISOString())
+			.lt("date", endDay.toISOString());
+		if ((dayActs?.length ?? 0) >= 2) {
+			const templates = [
+				"Double-header for {name}. Arena tax prepaid.",
+				"{name} ran back another session today. Respect.",
+				"Two-a-day unlocked. {name} is farming XP."
+			];
+			await insertQuipOnce({
+				lobbyId,
+				type: "SUMMARY",
+				rendered: templates[Math.floor(Math.random() * templates.length)],
+				payload: { doubleHeaderDate: dayKey },
+				primaryPlayerId: activity.playerId,
+				visibility: "both",
+				dedupeMs: 12 * 60 * 60 * 1000
+			});
+		}
+
+		// Consistency: 3-day streak (manual data by day)
+		const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+		const { data: recentActs } = await supabase
+			.from("manual_activities")
+			.select("date")
+			.eq("lobby_id", lobbyId)
+			.eq("player_id", activity.playerId)
+			.gte("date", threeDaysAgo.toISOString());
+		const distinctDays = new Set(
+			(recentActs ?? []).map(r => {
+				const d = new Date(r.date as string);
+				return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+			})
+		);
+		if (distinctDays.size >= 3) {
+			const templates = [
+				"Three days straight. {name} found a groove.",
+				"Consistency badge: {name} is on a 3-day heater.",
+				"Alarm clock setting: OFF. {name} shows up three days running."
+			];
+			await insertQuipOnce({
+				lobbyId,
+				type: "SUMMARY",
+				rendered: templates[Math.floor(Math.random() * templates.length)],
+				payload: { streakDays: 3 },
+				primaryPlayerId: activity.playerId,
+				visibility: "both",
+				dedupeMs: 24 * 60 * 60 * 1000
+			});
+		}
+
+		// Underdog alert: lowest hearts posts a workout
+		const { data: heartRows } = await supabase.from("player").select("id,lives_remaining").eq("lobby_id", lobbyId);
+		if (heartRows && heartRows.length) {
+			const minHearts = Math.min(...heartRows.map(r => (r.lives_remaining as number) ?? 0));
+			const maxHearts = Math.max(...heartRows.map(r => (r.lives_remaining as number) ?? 0));
+			const isUnderdog = heartRows.find(r => r.id === activity.playerId && (r.lives_remaining as number) === minHearts && minHearts < maxHearts);
+			if (isUnderdog) {
+				const templates = [
+					"Underdog swings back. {name} fights off elimination.",
+					"{name} climbing out of the basement — hearts on the line.",
+					"Lowest hearts, highest effort. {name} stays alive."
+				];
+				await insertQuipOnce({
+					lobbyId,
+					type: "SUMMARY",
+					rendered: templates[Math.floor(Math.random() * templates.length)],
+					payload: { underdog: true },
+					primaryPlayerId: activity.playerId,
+					visibility: "both",
+					dedupeMs: 12 * 60 * 60 * 1000
+				});
+			}
+		}
+
+		// Idle to active: first workout after 48h idle
+		const since48 = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+		const { data: prevAct } = await supabase
+			.from("manual_activities")
+			.select("date")
+			.eq("lobby_id", lobbyId)
+			.eq("player_id", activity.playerId)
+			.lt("date", since48)
+			.order("date", { ascending: false })
+			.limit(1);
+		const hadOld = (prevAct ?? []).length > 0;
+		const { data: recentWithin48 } = await supabase
+			.from("manual_activities")
+			.select("id")
+			.eq("lobby_id", lobbyId)
+			.eq("player_id", activity.playerId)
+			.gte("date", since48)
+			.limit(2);
+		const onlyThisOne = (recentWithin48?.length ?? 0) <= 1;
+		if (hadOld && onlyThisOne) {
+			const templates = [
+				"Back from the shadows — {name} returns after a pause.",
+				"48h idle breaker. {name} re-enters the arena.",
+				"Rust shaken. {name} clocks back in."
+			];
+			await insertQuipOnce({
+				lobbyId,
+				type: "SUMMARY",
+				rendered: templates[Math.floor(Math.random() * templates.length)],
+				payload: { idleBreak: true },
+				primaryPlayerId: activity.playerId,
+				visibility: "both",
+				dedupeMs: 24 * 60 * 60 * 1000
+			});
+		}
+
+		// Weekend opener / Monday motivation (once per day per lobby)
+		const weekday = now.getDay(); // 0 = Sun, 1 = Mon, 6 = Sat
+		if (weekday === 6) {
+			await insertQuipOnce({
+				lobbyId,
+				type: "SUMMARY",
+				rendered: "Weekend opener — {name} sets the tempo.",
+				payload: { weekend: true, day: dayKey },
+				primaryPlayerId: activity.playerId,
+				visibility: "both",
+				dedupeMs: 24 * 60 * 60 * 1000
+			});
+		} else if (weekday === 1) {
+			await insertQuipOnce({
+				lobbyId,
+				type: "SUMMARY",
+				rendered: "Monday motivation drop by {name}. Alarm clocks everywhere.",
+				payload: { monday: true, day: dayKey },
+				primaryPlayerId: activity.playerId,
+				visibility: "both",
+				dedupeMs: 24 * 60 * 60 * 1000
+			});
+		}
+
+		// Photo of the day: first photo comment each day
+		await insertQuipOnce({
+			lobbyId,
+			type: "SUMMARY",
+			rendered: "Photo of the day nominee from {name}.",
+			payload: { photoDay: dayKey },
+			primaryPlayerId: activity.playerId,
+			visibility: "feed",
+			dedupeMs: 24 * 60 * 60 * 1000
+		});
+	} catch {
+		// best-effort flavor; ignore errors
+	}
 }
 
 export async function onVoteResolved(lobbyId: string, activity: Activity, status: 'approved'|'rejected'): Promise<void> {
@@ -137,7 +371,19 @@ export async function onHeartsChanged(lobbyId: string, playerId: string, delta: 
 			.limit(1);
 		if (exists && exists.length) return;
 	}
-	const rendered = delta < 0 ? `{name} lost a heart. ${reason || ""}`.trim() : `New week, new life — {name} back in the fight ❤️`;
+	const lostTemplates = [
+		`Arena tax collected. {name} lost a heart. ${reason || ""}`.trim(),
+		`Ouch. {name} drops a heart — ${reason || "keep swinging"}`.trim(),
+		`{name} hands a heart to the void. ${reason || ""}`.trim()
+	];
+	const gainTemplates = [
+		`Borrowed heart returned — {name} back in the fight ❤️`,
+		`Refilled. {name} gains a heart and momentum.`,
+		`Second wind for {name}. Heart restored.`
+	];
+	const rendered = delta < 0
+		? lostTemplates[Math.floor(Math.random() * lostTemplates.length)]
+		: gainTemplates[Math.floor(Math.random() * gainTemplates.length)];
 	await insertQuips(lobbyId, [{ type: "HEARTS", rendered, payload: { delta, reason }, primaryPlayerId: playerId, visibility: "both" }]);
 }
 
@@ -164,7 +410,29 @@ export async function onPotChanged(lobbyId: string, delta: number): Promise<void
 			.limit(1);
 		if (exists && exists.length) return;
 	}
-	await insertQuips(lobbyId, [{ type: "POT", rendered, payload: { delta, pot: lobby?.cash_pool ?? 0 }, visibility: "feed" } as Quip]);
+	const receipts = ["🧾", "💸", "📜", "🏦"];
+	const flair = receipts[Math.floor(Math.random() * receipts.length)];
+	await insertQuips(lobbyId, [{ type: "POT", rendered: `${rendered} ${flair}`, payload: { delta, pot: lobby?.cash_pool ?? 0 }, visibility: "feed" } as Quip]);
+
+	// Milestone shout-outs
+	const potVal = Number(lobby?.cash_pool ?? 0);
+	const milestones = [50, 100, 250, 500];
+	const hit = milestones.find(m => potVal >= m && potVal - delta < m);
+	if (hit) {
+		const options = [
+			`Pot milestone: $${hit}+ on the board.`,
+			`Arena kitty hits $${hit}. Stakes rising.`,
+			`Bank rolls to $${hit}. Gloves tighter.`
+		];
+		await insertQuipOnce({
+			lobbyId,
+			type: "SUMMARY",
+			rendered: options[Math.floor(Math.random() * options.length)],
+			payload: { potMilestone: hit, pot: potVal },
+			visibility: "feed",
+			dedupeMs: 24 * 60 * 60 * 1000
+		});
+	}
 }
 
 export async function onKO(lobbyId: string, loserId: string, potAtKO: number): Promise<void> {
@@ -251,6 +519,81 @@ export async function onStreakMilestone(lobbyId: string, playerId: string, strea
 	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { streak }, primaryPlayerId: playerId, visibility: "both" }]);
 }
 
+export async function onGhostWeek(lobbyId: string, playerId: string, weekStart: string, weeklyTarget: number) {
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const rendered = `Ghost week warning: {name} is 0/${weeklyTarget} so far.`;
+	const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("primary_player_id", playerId)
+		.eq("type", "SUMMARY")
+		.eq("rendered", rendered)
+		.contains("payload", { weekStart } as any)
+		.gte("created_at", since)
+		.limit(1);
+	if (exists && exists.length) return;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { weekStart, weeklyTarget }, primaryPlayerId: playerId, visibility: "both" }]);
+}
+
+export async function onPerfectWeek(lobbyId: string, playerId: string, workouts: number) {
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const rendered = `Perfect week badge: {name} went ${workouts}/${workouts}.`;
+	const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("primary_player_id", playerId)
+		.eq("type", "SUMMARY")
+		.eq("rendered", rendered)
+		.gte("created_at", since)
+		.limit(1);
+	if (exists && exists.length) return;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { perfectWeek: workouts }, primaryPlayerId: playerId, visibility: "both" }]);
+}
+
+export async function onWeeklyHype(lobbyId: string, players: Array<{ id: string; name?: string | null }>, weeklyTarget: number) {
+	if (!players.length) return;
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const names = players.map(p => p.name || "Athlete").slice(0, 3).join(" • ");
+	const rendered = `Weekly hype: ${names} need 1 more to hit ${weeklyTarget}.`;
+	const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("type", "SUMMARY")
+		.eq("rendered", rendered)
+		.gte("created_at", since)
+		.limit(1);
+	if (exists && exists.length) return;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { hype: true }, visibility: "both" }]);
+}
+
+export async function onTightRace(lobbyId: string, playerNames: string[], pot: number) {
+	if (playerNames.length < 2) return;
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const names = playerNames.slice(0, 3).join(" • ");
+	const rendered = `Tight race: ${names} tied on hearts with a $${pot} pot.`;
+	const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+	const { data: exists } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("type", "SUMMARY")
+		.eq("rendered", rendered)
+		.gte("created_at", since)
+		.limit(1);
+	if (exists && exists.length) return;
+	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { tightRace: true, pot }, visibility: "feed" }]);
+}
+
 export async function onDailyReminder(lobbyId: string, playerId: string, playerName: string): Promise<void> {
 	// Check if we've already sent a reminder today (within last 24 hours)
 	const supabase = getServerSupabase();
@@ -319,6 +662,59 @@ export async function onSocialBurst(lobbyId: string, playerIdA: string, playerId
 		secondaryPlayerId: playerIdB,
 		visibility: "feed"
 	}]);
+}
+
+export async function onRivalryPulse(lobbyId: string, playerIdA: string, playerIdB: string) {
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	const key = [playerIdA, playerIdB].sort().join("-");
+	const sinceWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+	const { data: recent } = await supabase
+		.from("comments")
+		.select("id")
+		.eq("lobby_id", lobbyId)
+		.eq("type", "SUMMARY")
+		.contains("payload", { rivalryKey: key } as any)
+		.gte("created_at", sinceWeek);
+	const count = (recent ?? []).length;
+	if (count >= 2) {
+		const renderedOptions = [
+			"Rivalry watch: {a} vs {b}. Another close post.",
+			"{a} and {b} keep trading blows within minutes.",
+			"Smells like a duel — {a} and {b} stay neck and neck."
+		];
+		const rendered = renderedOptions[Math.floor(Math.random() * renderedOptions.length)];
+		const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+		const { data: exists } = await supabase
+			.from("comments")
+			.select("id")
+			.eq("lobby_id", lobbyId)
+			.eq("type", "SUMMARY")
+			.eq("rendered", rendered)
+			.contains("payload", { rivalryKey: key } as any)
+			.gte("created_at", since)
+			.limit(1);
+		if (exists && exists.length) return;
+		await insertQuips(lobbyId, [{
+			type: "SUMMARY",
+			rendered,
+			payload: { rivalryKey: key },
+			primaryPlayerId: playerIdA,
+			secondaryPlayerId: playerIdB,
+			visibility: "both"
+		}]);
+	} else {
+		await insertQuipOnce({
+			lobbyId,
+			type: "SUMMARY",
+			rendered: "Rivalry marker",
+			payload: { rivalryKey: key, marker: true },
+			primaryPlayerId: playerIdA,
+			secondaryPlayerId: playerIdB,
+			visibility: "history",
+			dedupeMs: 60 * 60 * 1000
+		});
+	}
 }
 
 export async function onThemeHour(lobbyId: string, type: string) {
