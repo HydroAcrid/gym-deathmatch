@@ -72,10 +72,11 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 	const [historyEvents, setHistoryEvents] = useState<EventRow[]>([]);
 	const [lobbyName, setLobbyName] = useState<string>("");
-	const [signedUrlByAct, setSignedUrlByAct] = useState<Record<string, string>>({});
-	const toast = useToast();
-	const [currentPot, setCurrentPot] = useState<number | null>(null);
-	const [potInput, setPotInput] = useState<string>("");
+const [signedUrlByAct, setSignedUrlByAct] = useState<Record<string, string>>({});
+const toast = useToast();
+const [currentPot, setCurrentPot] = useState<number | null>(null);
+const [potInput, setPotInput] = useState<string>("");
+	const isOwnerUser = ownerUserId && user?.id === ownerUserId;
 
 		const reloadActivities = useCallback(async (lid: string = lobbyId) => {
 		if (!lid) return;
@@ -517,13 +518,37 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 				if (ev.type === "WEEKLY_TARGET_MET" || ev.type === "WEEKLY_TARGET_MISSED") {
 					// Keep weekly logs in History, but skip them in the feed list if desired
 				}
-				return (
-							<div key={`ev-${ev.id}`} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
+						return (
+							<div key={`ev-${ev.id}`} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex items-start gap-3 sm:gap-4 relative">
 								<div className="text-lg sm:text-xl flex-shrink-0">📜</div>
 								<div className="flex-1 min-w-0">
 									<div className="text-[11px] sm:text-xs text-deepBrown/70 mb-1">{new Date(ev.created_at).toLocaleString()}</div>
 									<div className="text-sm sm:text-base leading-relaxed">{renderEventLine(ev, players)}</div>
 								</div>
+								{isOwner && (
+									<button
+										className="absolute top-2 right-2 text-[12px] text-deepBrown/60 hover:text-red-600"
+										onClick={async () => {
+											try {
+												const res = await fetch(`/api/history-events/${encodeURIComponent(ev.id)}`, {
+													method: "DELETE",
+													headers: { "x-user-id": user?.id || "" }
+												});
+												if (!res.ok) {
+													const j = await res.json().catch(() => ({}));
+													toast?.push?.(j.error || "Failed to delete");
+													return;
+												}
+												setHistoryEvents(prev => prev.filter(e => e.id !== ev.id));
+											} catch {
+												toast?.push?.("Failed to delete");
+											}
+										}}
+										title="Remove"
+									>
+										✕
+									</button>
+								)}
 							</div>
 						);
 					}
@@ -950,12 +975,14 @@ function renderEventLine(ev: EventRow, players: PlayerLite[]) {
 	if (ev.type === "WEEKLY_TARGET_MET") {
 		const wk = ev.payload?.weeklyTarget ?? "target";
 		const cnt = ev.payload?.workouts ?? "?";
-		return `Weekly target met: ${cnt}/${wk}`;
+		const name = ev.target_name || players.find(p => p.id === ev.target_player_id)?.name || "Athlete";
+		return `${name} met weekly target: ${cnt}/${wk}`;
 	}
 	if (ev.type === "WEEKLY_TARGET_MISSED") {
 		const wk = ev.payload?.weeklyTarget ?? "target";
 		const cnt = ev.payload?.workouts ?? "?";
-		return `Weekly target missed: ${cnt}/${wk}`;
+		const name = ev.target_name || players.find(p => p.id === ev.target_player_id)?.name || "Athlete";
+		return `${name} missed weekly target: ${cnt}/${wk}`;
 	}
 	if (ev.type === "OWNER_OVERRIDE_ACTIVITY") {
 		return `${actor} set an activity to ${String(ev.payload?.newStatus || "").toUpperCase()}${target ? ` for ${target}` : ""}`;
