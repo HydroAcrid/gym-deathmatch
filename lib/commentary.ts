@@ -155,13 +155,15 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 	try {
 		const supabase = getServerSupabase();
 		let actorUserId: string | undefined;
+		let actorName: string | undefined;
 		if (supabase && activity.playerId) {
-			const { data: pl } = await supabase.from("player").select("user_id").eq("id", activity.playerId).maybeSingle();
+			const { data: pl } = await supabase.from("player").select("user_id,name").eq("id", activity.playerId).maybeSingle();
 			actorUserId = pl?.user_id as string | undefined;
+			actorName = pl?.name as string | undefined;
 		}
 		await sendPushToLobby(lobbyId, {
-			title: "New workout posted",
-			body: "A teammate just logged a workout.",
+			title: actorName ? `${actorName} just logged a workout` : "New workout posted",
+			body: "Tap to see what they did.",
 			url: `/lobby/${lobbyId}/history`
 		}, { excludeUserId: actorUserId });
 	} catch { /* ignore */ }
@@ -403,7 +405,7 @@ export async function onHeartsChanged(lobbyId: string, playerId: string, delta: 
 
 	// Push: heart change
 	try {
-		const title = delta < 0 ? "Heart lost" : "Heart gained";
+		const title = delta < 0 ? "Heart dropped" : "Heart gained";
 		await sendPushToLobby(lobbyId, {
 			title,
 			body: rendered.replace("{name}", "An athlete"),
@@ -445,8 +447,8 @@ export async function onPotChanged(lobbyId: string, delta: number, potOverride?:
 	// Push: pot change alert to lobby
 	try {
 		await sendPushToLobby(lobbyId, {
-			title: "Pot updated",
-			body: renderedBase,
+			title: "Pot climbed",
+			body: `${renderedBase}. Stakes rising.`,
 			url: `/lobby/${lobbyId}/history`
 		});
 	} catch { /* ignore */ }
@@ -480,7 +482,7 @@ export async function onKO(lobbyId: string, loserId: string, potAtKO: number): P
 	try {
 		await sendPushToLobby(lobbyId, {
 			title: "KO in the arena",
-			body: "A player just hit 0 hearts. Season over.",
+			body: `A player just hit 0 hearts. Pot: $${potAtKO}.`,
 			url: `/lobby/${lobbyId}/history`
 		});
 	} catch { /* ignore */ }
@@ -669,8 +671,8 @@ export async function onDailyReminder(lobbyId: string, playerId: string, playerN
 		const userId = pl?.user_id as string | null | undefined;
 		if (userId) {
 			await sendPushToUser(userId, {
-				title: "Daily reminder",
-				body: `${playerName}, no workout logged yet today.`,
+				title: "Move check-in",
+				body: `${playerName}, no workout logged yet today. Tap to post.`,
 				url: `/lobby/${lobbyId}/history`
 			});
 		}

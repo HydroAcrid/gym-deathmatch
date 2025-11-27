@@ -196,7 +196,21 @@ export function ProfileAvatar() {
 										<span className="text-xs text-deepBrown/70 truncate">{url}</span>
 									</div>
 								)}
-								<PushToggle />
+								<div className="space-y-2">
+									<div className="rounded-md border border-deepBrown/20 bg-cream/60 dark:bg-[#1a1512] dark:border-white/10 px-3 py-2 text-xs space-y-1">
+										<div className="uppercase tracking-[0.12em] font-semibold text-[11px] text-deepBrown/80 dark:text-cream/80">How to enable notifications</div>
+										<div className="text-[11px] text-deepBrown/70 dark:text-cream/70 leading-relaxed">
+											<span className="font-semibold">iPhone:</span> add the app to Home Screen (Share → Add to Home Screen), open from the icon, then tap “Enable” below.
+										</div>
+										<div className="text-[11px] text-deepBrown/70 dark:text-cream/70 leading-relaxed">
+											<span className="font-semibold">Android / Desktop:</span> install the PWA or allow notifications when prompted, then tap “Enable” below.
+										</div>
+										<div className="text-[11px] text-deepBrown/60 dark:text-cream/60 leading-relaxed">
+											You’ll get alerts for workouts, pot changes, hearts, KO, daily reminders, and replies.
+										</div>
+									</div>
+									<PushToggle />
+								</div>
 								<div className="flex justify-end gap-2 mt-2">
 									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
 									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={async () => { await save(); setCurrent(url || current); }} disabled={busy}>{busy ? "Saving..." : "Save"}</button>
