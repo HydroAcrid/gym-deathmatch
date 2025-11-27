@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 
 function slugify(s: string) {
 	return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -14,6 +15,8 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 	const [location, setLocation] = useState("");
 	const [quip, setQuip] = useState("");
 	const [avatarUrl, setAvatarUrl] = useState("");
+	const [fileName, setFileName] = useState("");
+	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [existingPlayerId, setExistingPlayerId] = useState<string | null>(null);
 	const emailName = useMemo(() => (user?.email || "").split("@")[0], [user?.email]);
@@ -62,7 +65,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 		if (!user?.id) return;
 		setSubmitting(true);
 		try {
-			await fetch("/api/profile", {
+			await fetch("/api/user/profile", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -73,6 +76,50 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 					quip
 				})
 			});
+			// Sync all player rows for this user to the updated profile
+			await fetch("/api/user/sync", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: user.id, overwriteAll: true })
+			});
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		if (!file || !user?.id) return;
+		setFileName(file.name);
+		setSubmitting(true);
+		try {
+			const supabase = getBrowserSupabase();
+			if (!supabase) {
+				alert("Upload not configured. Paste an image URL instead.");
+				return;
+			}
+			const path = `${user.id}/${Date.now()}_${file.name}`;
+			const bucket = supabase.storage.from("avatars");
+			const { error } = await bucket.upload(path, file, {
+				upsert: true,
+				cacheControl: "3600",
+				contentType: file.type || "image/*"
+			});
+			if (error) {
+				const msg = (error as any)?.message || String(error);
+				if (msg.includes("Bucket not found")) {
+					alert("Storage bucket 'avatars' not found. Create a public bucket named 'avatars' in Supabase → Storage.");
+				} else if (msg.toLowerCase().includes("row-level security")) {
+					alert("Upload blocked by Storage RLS. Add storage policies for bucket 'avatars' to allow authenticated insert/update.");
+				} else {
+					alert("Upload failed: " + msg);
+				}
+				return;
+			}
+			const { data } = bucket.getPublicUrl(path);
+			if (data?.publicUrl) {
+				setAvatarUrl(data.publicUrl);
+			}
 		} finally {
 			setSubmitting(false);
 		}
@@ -137,17 +184,17 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 					<label className="text-xs">
 						<span className="block mb-1">Display name</span>
 						<input
-							className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+							className="arena-input"
 							value={displayName}
 							onChange={(e) => setDisplayName(e.target.value)}
 							placeholder="Your name"
 						/>
 					</label>
-					<div className="grid grid-cols-2 gap-3">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 						<label className="text-xs">
 							<span className="block mb-1">Location</span>
 							<input
-								className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+								className="arena-input"
 								value={location}
 								onChange={(e) => setLocation(e.target.value)}
 								placeholder="City, State"
@@ -156,7 +203,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 						<label className="text-xs">
 							<span className="block mb-1">Quip</span>
 							<input
-								className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+								className="arena-input"
 								value={quip}
 								onChange={(e) => setQuip(e.target.value)}
 								placeholder="Short tagline"
@@ -164,14 +211,31 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 						</label>
 					</div>
 					<label className="text-xs">
-						<span className="block mb-1">Avatar URL (optional)</span>
+						<span className="block mb-1">Paste image URL</span>
 						<input
-							className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+							className="arena-input"
 							value={avatarUrl}
 							onChange={(e) => setAvatarUrl(e.target.value)}
 							placeholder="https://..."
 						/>
 					</label>
+					<div className="text-center text-xs text-deepBrown/70">— or —</div>
+					<div className="block text-xs">
+						<span className="block mb-1">Upload image (Supabase Storage ‘avatars’ bucket)</span>
+						<div className="flex items-center gap-2">
+							<button type="button" className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => fileInputRef.current?.click()} disabled={submitting}>
+								Choose file
+							</button>
+							<span className="text-[11px] text-deepBrown/70 truncate max-w-[220px]">{fileName}</span>
+						</div>
+						<input ref={fileInputRef} className="hidden" type="file" accept="image/*" onChange={onUpload} />
+					</div>
+					{avatarUrl && (
+						<div className="mt-2 flex items-center gap-3">
+							<img src={avatarUrl} alt="preview" className="h-12 w-12 rounded-full object-cover border border-deepBrown/30" />
+							<span className="text-xs text-deepBrown/70 truncate">{avatarUrl}</span>
+						</div>
+					)}
 					<div className="flex gap-2">
 						<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={saveProfile} disabled={submitting}>
 							Save profile
