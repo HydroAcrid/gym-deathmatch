@@ -28,6 +28,7 @@ type ActivityRow = {
 	duration_minutes: number | null;
 	distance_km: number | null;
 	caption: string | null;
+	notes?: string | null;
 	photo_url: string | null;
 	status: string;
 	vote_deadline: string | null;
@@ -103,7 +104,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 					date: a.date ?? a.createdAt ?? a.created_at ?? "",
 					duration_minutes: a.duration_minutes ?? a.duration ?? null,
 					distance_km: a.distance_km ?? a.distance ?? null,
-					caption: a.caption ?? a.notes ?? null,
+					caption: a.caption ?? null,
+					notes: a.notes ?? null,
 					photo_url: a.photo_url ?? a.imageUrl ?? null,
 					vote_deadline: a.vote_deadline ?? a.voteDeadline ?? null,
 					decided_at: a.decided_at ?? a.decidedAt ?? null
@@ -510,9 +512,12 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 
 			<div className="flex flex-col gap-4 sm:gap-6">
 				{items.map(item => {
-					if (item.kind === "event") {
-						const ev = item.e as EventRow;
-						return (
+			if (item.kind === "event") {
+				const ev = item.e as EventRow;
+				if (ev.type === "WEEKLY_TARGET_MET" || ev.type === "WEEKLY_TARGET_MISSED") {
+					// Keep weekly logs in History, but skip them in the feed list if desired
+				}
+				return (
 							<div key={`ev-${ev.id}`} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
 								<div className="text-lg sm:text-xl flex-shrink-0">📜</div>
 								<div className="flex-1 min-w-0">
@@ -542,6 +547,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 							</div>
 
 							{a.caption ? <div className="text-sm">{a.caption}</div> : null}
+							{a.notes ? <div className="text-sm text-deepBrown/80 dark:text-cream/80 whitespace-pre-wrap">{a.notes}</div> : null}
 
 							{a.photo_url ? (
 								<button
@@ -988,6 +994,16 @@ function renderEventLine(ev: EventRow, players: PlayerLite[]) {
 	if (ev.type === "VOTE_RESULT") {
 		const result = ev.payload?.result || "decision";
 		return `Vote result: ${result.replace(/_/g, " ")} (${ev.payload?.legit ?? 0} legit · ${ev.payload?.sus ?? 0} sus)`;
+	}
+	if (ev.type === "WEEKLY_TARGET_MET") {
+		const wk = ev.payload?.weeklyTarget ?? "target";
+		const cnt = ev.payload?.workouts ?? "?";
+		return `Weekly target met: ${cnt}/${wk}`;
+	}
+	if (ev.type === "WEEKLY_TARGET_MISSED") {
+		const wk = ev.payload?.weeklyTarget ?? "target";
+		const cnt = ev.payload?.workouts ?? "?";
+		return `Weekly target missed: ${cnt}/${wk}`;
 	}
 	if (ev.type === "OWNER_OVERRIDE_ACTIVITY") {
 		return `${actor} set an activity to ${String(ev.payload?.newStatus || "").toUpperCase()}${target ? ` for ${target}` : ""}`;
