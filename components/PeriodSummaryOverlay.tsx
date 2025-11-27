@@ -22,6 +22,11 @@ type SummaryData = {
 		max: number;
 		min: number;
 	};
+	heartsDebug?: {
+		playerCount: number;
+		leadersRaw: Array<{ name: string; lives: number }>;
+		lowRaw: Array<{ name: string; lives: number }>;
+	};
 	quips?: Array<{ text: string; created_at: string }>;
 };
 
