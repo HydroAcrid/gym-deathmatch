@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./AuthProvider";
 import { getBrowserSupabase } from "@/lib/supabaseBrowser";
+import { PushToggle } from "./PushToggle";
 
 export function ProfileAvatar() {
 	const { user } = useAuth();
@@ -195,6 +196,7 @@ export function ProfileAvatar() {
 										<span className="text-xs text-deepBrown/70 truncate">{url}</span>
 									</div>
 								)}
+								<PushToggle />
 								<div className="flex justify-end gap-2 mt-2">
 									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
 									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={async () => { await save(); setCurrent(url || current); }} disabled={busy}>{busy ? "Saving..." : "Save"}</button>
@@ -207,4 +209,3 @@ export function ProfileAvatar() {
 		</>
 	);
 }
-

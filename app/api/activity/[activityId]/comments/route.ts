@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
+import { sendPushToUser } from "@/lib/push";
 
 type CommentResponse = {
 	id: string;
@@ -14,7 +15,7 @@ type CommentResponse = {
 	authorAvatarUrl?: string | null;
 };
 
-async function requireMembership(supabase: ReturnType<typeof getServerSupabase>, lobbyId: string, userId: string) {
+async function requireMembership(supabase: NonNullable<ReturnType<typeof getServerSupabase>>, lobbyId: string, userId: string) {
 	const { data: member } = await supabase
 		.from("player")
 		.select("id")
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ acti
 
 	const { data: activity } = await supabase
 		.from("manual_activities")
-		.select("id,lobby_id")
+		.select("id,lobby_id,player_id")
 		.eq("id", activityId)
 		.maybeSingle();
 	if (!activity) return NextResponse.json({ error: "Activity not found" }, { status: 404 });
@@ -88,23 +89,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 
 	const { data: player } = await supabase
 		.from("player")
-		.select("id,name,avatar_url")
+		.select("id,name,avatar_url,user_id")
 		.eq("lobby_id", activity.lobby_id)
 		.eq("user_id", userId)
 		.maybeSingle();
 	if (!player) return NextResponse.json({ error: "Not a lobby member" }, { status: 403 });
 
 	let threadRootId: string | null = null;
+	let parentAuthorUserId: string | null = null;
+	let parentAuthorName: string | null = null;
 	if (parentId) {
 		const { data: parent } = await supabase
 			.from("post_comments")
-			.select("id,lobby_id,activity_id,thread_root_id")
+			.select("id,lobby_id,activity_id,thread_root_id,author_player_id")
 			.eq("id", parentId)
 			.maybeSingle();
 		if (!parent || parent.activity_id !== activity.id || parent.lobby_id !== activity.lobby_id) {
 			return NextResponse.json({ error: "Invalid parent" }, { status: 400 });
 		}
 		threadRootId = (parent.thread_root_id as string | null) ?? parent.id;
+		if (parent.author_player_id) {
+			const { data: parentAuthor } = await supabase.from("player").select("user_id,name").eq("id", parent.author_player_id as string).maybeSingle();
+			parentAuthorUserId = parentAuthor?.user_id ?? null;
+			parentAuthorName = parentAuthor?.name ?? null;
+		}
 	}
 
 	const { data: inserted, error } = await supabase
@@ -149,6 +157,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		  }
 		: null;
 
+	// Push notify activity owner or parent comment author (if different from poster)
+	try {
+		const { data: ownerPlayer } = await supabase.from("player").select("user_id,name").eq("id", activity.player_id as string).maybeSingle();
+		const targets: Array<{ userId: string; name?: string | null }> = [];
+		if (parentAuthorUserId && parentAuthorUserId !== player.user_id) {
+			targets.push({ userId: parentAuthorUserId, name: parentAuthorName });
+		} else if (ownerPlayer?.user_id && ownerPlayer.user_id !== player.user_id) {
+			targets.push({ userId: ownerPlayer.user_id as string, name: ownerPlayer.name });
+		}
+		const bodyText = text.slice(0, 120);
+		for (const t of targets) {
+			await sendPushToUser(t.userId, {
+				title: t.name ? `${t.name}, new comment` : "New comment",
+				body: bodyText,
+				url: `/lobby/${activity.lobby_id}/history`
+			});
+		}
+	} catch {
+		// best-effort
+	}
+
 	return NextResponse.json({ comment }, { status: 201 });
 }
-

@@ -320,6 +320,34 @@ create unique index if not exists comments_activity_dedupe_idx on comments (lobb
 -- Prevent duplicate tight-race summaries (rendered string encodes pot)
 create unique index if not exists comments_tight_race_once_idx on comments (lobby_id, type, rendered) where type = 'SUMMARY' and payload ? 'tightRace';
 
+-- Web push subscriptions (per user)
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  subscription jsonb not null,
+  created_at timestamptz default now(),
+  unique(endpoint)
+);
+alter table push_subscriptions enable row level security;
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'push_subscriptions' and policyname = 'push_sub_select_own') then
+    create policy push_sub_select_own on push_subscriptions
+    for select using (user_id::text = auth.uid()::text);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'push_subscriptions' and policyname = 'push_sub_insert_own') then
+    create policy push_sub_insert_own on push_subscriptions
+    for insert with check (user_id::text = auth.uid()::text);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'push_subscriptions' and policyname = 'push_sub_delete_own') then
+    create policy push_sub_delete_own on push_subscriptions
+    for delete using (user_id::text = auth.uid()::text);
+  end if;
+end $$;
+
 -- User-generated comments on manual activities
 create table if not exists post_comments (
   id uuid primary key default gen_random_uuid(),

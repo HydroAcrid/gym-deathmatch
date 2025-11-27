@@ -1,5 +1,6 @@
 import { getServerSupabase } from "./supabaseClient";
 import type { Activity } from "@/lib/types";
+import { sendPushToLobby, sendPushToUser } from "./push";
 
 export type QuipType = 'ACTIVITY'|'VOTE'|'HEARTS'|'POT'|'KO'|'SUMMARY';
 export type Quip = {
@@ -150,6 +151,20 @@ async function insertQuips(lobbyId: string, quips: Quip[]) {
 export async function onActivityLogged(lobbyId: string, activity: Activity): Promise<void> {
 	const quips = generateQuips({ now: new Date(), lobbyId, activity });
 	await insertQuips(lobbyId, quips);
+	// Push: let lobby know someone posted (exclude the poster)
+	try {
+		const supabase = getServerSupabase();
+		let actorUserId: string | undefined;
+		if (supabase && activity.playerId) {
+			const { data: pl } = await supabase.from("player").select("user_id").eq("id", activity.playerId).maybeSingle();
+			actorUserId = pl?.user_id as string | undefined;
+		}
+		await sendPushToLobby(lobbyId, {
+			title: "New workout posted",
+			body: "A teammate just logged a workout.",
+			url: `/lobby/${lobbyId}/history`
+		}, { excludeUserId: actorUserId });
+	} catch { /* ignore */ }
 
 	// Extra flavor scenarios to keep the feed lively
 	try {
@@ -385,6 +400,16 @@ export async function onHeartsChanged(lobbyId: string, playerId: string, delta: 
 		? lostTemplates[Math.floor(Math.random() * lostTemplates.length)]
 		: gainTemplates[Math.floor(Math.random() * gainTemplates.length)];
 	await insertQuips(lobbyId, [{ type: "HEARTS", rendered, payload: { delta, reason }, primaryPlayerId: playerId, visibility: "both" }]);
+
+	// Push: heart change
+	try {
+		const title = delta < 0 ? "Heart lost" : "Heart gained";
+		await sendPushToLobby(lobbyId, {
+			title,
+			body: rendered.replace("{name}", "An athlete"),
+			url: `/lobby/${lobbyId}/history`
+		});
+	} catch { /* ignore */ }
 }
 
 export async function onWeeklyRollover(lobbyId: string): Promise<void> {
@@ -417,6 +442,15 @@ export async function onPotChanged(lobbyId: string, delta: number, potOverride?:
 	const flair = receipts[(Math.abs(Math.floor(potVal)) + receipts.length) % receipts.length];
 	await insertQuips(lobbyId, [{ type: "POT", rendered: `${renderedBase} ${flair}`, payload: { delta, pot: potVal }, visibility: "feed" } as Quip]);
 
+	// Push: pot change alert to lobby
+	try {
+		await sendPushToLobby(lobbyId, {
+			title: "Pot updated",
+			body: renderedBase,
+			url: `/lobby/${lobbyId}/history`
+		});
+	} catch { /* ignore */ }
+
 	// Milestone shout-outs
 	const milestones = [50, 100, 250, 500];
 	const hit = milestones.find(m => potVal >= m && potVal - delta < m);
@@ -441,6 +475,15 @@ export async function onKO(lobbyId: string, loserId: string, potAtKO: number): P
 	const ev = { type: "KO", loserId, pot: potAtKO };
 	const quips = generateQuips({ now: new Date(), lobbyId, event: ev });
 	await insertQuips(lobbyId, quips);
+
+	// Push: KO event to lobby
+	try {
+		await sendPushToLobby(lobbyId, {
+			title: "KO in the arena",
+			body: "A player just hit 0 hearts. Season over.",
+			url: `/lobby/${lobbyId}/history`
+		});
+	} catch { /* ignore */ }
 }
 
 export async function onSpin(lobbyId: string, text: string): Promise<void> {
@@ -614,11 +657,26 @@ export async function onDailyReminder(lobbyId: string, playerId: string, playerN
 	if (exists && exists.length) return;
 	await insertQuips(lobbyId, [{ 
 		type: "SUMMARY", 
-		rendered: rendered.replace("{name}", playerName), 
-		payload: { reminder: true }, 
-		primaryPlayerId: playerId, 
-		visibility: "both" 
-	}]);
+			rendered: rendered.replace("{name}", playerName), 
+			payload: { reminder: true }, 
+			primaryPlayerId: playerId, 
+			visibility: "both" 
+		}]);
+
+	// Push: nudge the player only
+	try {
+		const { data: pl } = await supabase.from("player").select("user_id").eq("id", playerId).maybeSingle();
+		const userId = pl?.user_id as string | null | undefined;
+		if (userId) {
+			await sendPushToUser(userId, {
+				title: "Daily reminder",
+				body: `${playerName}, no workout logged yet today.`,
+				url: `/lobby/${lobbyId}/history`
+			});
+		}
+	} catch {
+		// ignore
+	}
 }
 
 export async function onStreakPR(lobbyId: string, playerId: string, streak: number): Promise<void> {

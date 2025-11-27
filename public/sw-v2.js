@@ -9,6 +9,7 @@
  */
 
 const CACHE_NAME = "arena-assets-v2";
+const FALLBACK_ICON = "/icons/icon-192.png";
 
 // Install event: force immediate activation
 self.addEventListener('install', (event) => {
@@ -94,3 +95,41 @@ self.addEventListener('fetch', (event) => {
 	// (don't call event.respondWith, just return)
 });
 
+// Push notifications
+self.addEventListener('push', (event) => {
+	let payload = {};
+	try {
+		payload = event.data ? event.data.json() : {};
+	} catch (e) {
+		payload = { body: event.data ? event.data.text() : "" };
+	}
+	const title = payload.title || "Gym Deathmatch";
+	const body = payload.body || "New activity in the arena.";
+	const url = payload.url || "/";
+	const options = {
+		body,
+		icon: payload.icon || FALLBACK_ICON,
+		badge: payload.badge || FALLBACK_ICON,
+		data: { url },
+		// Prefer silent = false to ensure audible notification where allowed
+		silent: payload.silent || false
+	};
+	event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const targetUrl = event.notification?.data?.url || "/";
+	event.waitUntil(
+		clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+			for (const client of clientList) {
+				if (client.url.includes(targetUrl) && "focus" in client) {
+					return client.focus();
+				}
+			}
+			if (clients.openWindow) {
+				return clients.openWindow(targetUrl);
+			}
+		})
+	);
+});
