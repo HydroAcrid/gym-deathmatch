@@ -500,42 +500,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						}
 					}
 				} catch { /* ignore */ }
-				// Persist the most recent weekly result into history_events if not already recorded,
-				// so the History page mirrors the feed at least for weekly outcomes.
-				try {
-					const supabase = getServerSupabase();
-						if (supabase && events.length) {
-							const last = events[events.length - 1];
-							const type = last.met ? "WEEKLY_TARGET_MET" : "WEEKLY_TARGET_MISSED";
-							// Dedupe by latest event payload weekStart to avoid re-logging every poll
-							const { data: existing } = await supabase
-								.from("history_events")
-								.select("id,payload,type")
-								.eq("lobby_id", lobby.id)
-								.eq("target_player_id", p.id)
-								.in("type", ["WEEKLY_TARGET_MET", "WEEKLY_TARGET_MISSED"])
-								.order("created_at", { ascending: false })
-								.limit(1);
-							const alreadyLogged = existing?.[0] && (existing[0].payload as any)?.weekStart === last.weekStart;
-							if (alreadyLogged) {
-								const prev = existing?.[0];
-								if (prev && prev.type !== type) {
-									await supabase.from("history_events").update({
-										type,
-										payload: { weekStart: last.weekStart, workouts: last.count, weeklyTarget }
-									}).eq("id", prev.id);
-								}
-							} else {
-								await supabase.from("history_events").insert({
-									lobby_id: lobby.id,
-									actor_player_id: null,
-									target_player_id: p.id,
-									type,
-									payload: { weekStart: last.weekStart, workouts: last.count, weeklyTarget }
-								});
-							}
-						}
-					} catch { /* ignore */ }
+					// Skip logging weekly target met/missed into history to avoid feed spam
 				const recentActivities = (combined as any[]).slice(0, 5).map(a => {
 					const s = toActivitySummary(a);
 					return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };

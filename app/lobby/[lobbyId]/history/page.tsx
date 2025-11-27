@@ -468,7 +468,7 @@ const [potInput, setPotInput] = useState<string>("");
 								<label className="text-[11px] sm:text-xs text-deepBrown/70 uppercase tracking-wide">Pot</label>
 								<input
 									type="number"
-									className="w-full md:w-28 rounded-md border border-deepBrown/20 bg-[#fdf8f4] text-deepBrown placeholder:text-deepBrown/50 px-3 py-1.5 text-sm shadow-inner dark:bg-[#1a1512] dark:text-cream dark:placeholder:text-cream/50 focus:outline-none focus:ring-1 focus:ring-accent-primary/60"
+									className="w-full md:w-28 rounded-md border border-deepBrown/20 bg-cream text-deepBrown placeholder:text-deepBrown/50 px-3 py-1.5 text-sm shadow-inner dark:bg-[#1a1512] dark:text-cream dark:placeholder:text-cream/50 focus:outline-none focus:ring-1 focus:ring-accent-primary/60"
 									value={potInput}
 									onChange={e => setPotInput(e.target.value)}
 									onBlur={async () => {

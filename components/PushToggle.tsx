@@ -120,7 +120,7 @@ export function PushToggle() {
 
 	return (
 		<div className="w-full">
-			<div className="w-full rounded-lg border border-deepBrown/20 bg-[#fdf8f4] text-deepBrown shadow-inner dark:bg-[#1a1512] dark:text-cream dark:border-white/10 px-3 py-3">
+			<div className="w-full rounded-lg border border-deepBrown/20 bg-cream text-deepBrown shadow-inner dark:bg-[#1a1512] dark:text-cream dark:border-white/10 px-3 py-3">
 				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 					<div className="text-deepBrown/80 dark:text-cream/80">
 						<div className="uppercase tracking-[0.12em] font-semibold text-[11px]">Notifications</div>
