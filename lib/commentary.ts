@@ -401,7 +401,17 @@ export async function onHeartsChanged(lobbyId: string, playerId: string, delta: 
 	const rendered = delta < 0
 		? lostTemplates[Math.floor(Math.random() * lostTemplates.length)]
 		: gainTemplates[Math.floor(Math.random() * gainTemplates.length)];
-	await insertQuips(lobbyId, [{ type: "HEARTS", rendered, payload: { delta, reason }, primaryPlayerId: playerId, visibility: "both" }]);
+	// Stronger dedupe using insertQuipOnce to avoid races
+	await insertQuipOnce({
+		lobbyId,
+		type: "HEARTS",
+		rendered,
+		payload: { delta, reason },
+		primaryPlayerId: playerId,
+		visibility: "both",
+		dedupeMs: 7 * 24 * 60 * 60 * 1000,
+		dedupeKey: { delta, reason }
+	});
 
 	// Push: heart change
 	try {

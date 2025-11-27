@@ -888,7 +888,7 @@ const canComment = Boolean(user?.id && myPlayerId);
 						{replyOpen[c.id] && canComment && (
 							<div className="mt-2 space-y-1">
 								<textarea
-									className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-white text-deepBrown dark:bg-[#1a1512] dark:text-cream p-2 text-sm placeholder:text-deepBrown/40 dark:placeholder:text-cream/50"
+									className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-cream text-deepBrown placeholder:text-deepBrown/50 dark:bg-[#1a1512] dark:text-cream dark:placeholder:text-cream/50 p-2 text-sm focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
 									rows={2}
 									value={replyText[c.id] ?? ""}
 									maxLength={500}
@@ -936,7 +936,7 @@ const canComment = Boolean(user?.id && myPlayerId);
 			{canComment && (
 				<div className="space-y-1">
 					<textarea
-						className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-white text-deepBrown dark:bg-[#1a1512] dark:text-cream p-2 text-sm placeholder:text-deepBrown/40 dark:placeholder:text-cream/50"
+						className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-cream text-deepBrown placeholder:text-deepBrown/50 dark:bg-[#1a1512] dark:text-cream dark:placeholder:text-cream/50 p-2 text-sm focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
 						rows={3}
 						value={newBody}
 						maxLength={500}
