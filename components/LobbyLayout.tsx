@@ -119,7 +119,9 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 		(async () => {
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/summary`, { cache: "no-store" });
+				const headers: Record<string, string> = {};
+				if (user?.id) headers["x-user-id"] = user.id;
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/summary`, { cache: "no-store", headers });
 				if (!res.ok) return;
 				const j = await res.json();
 				const data = j.summary;

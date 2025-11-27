@@ -437,13 +437,13 @@ const [potInput, setPotInput] = useState<string>("");
 
 	return (
 		<div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-8">
-			<div className="paper-card paper-grain ink-edge p-5 sm:p-6 mb-6 sm:mb-8 border-b-4" style={{ borderColor: "#E1542A" }}>
+			<div className="paper-block-bleed" style={{ borderColor: "#E1542A" }}>
 				<div className="poster-headline text-lg sm:text-xl mb-2">HISTORY</div>
 				<div className="text-deepBrown/70 text-xs sm:text-sm">Manual posts and decisions • Lobby: {lobbyName || lobbyId}</div>
 			</div>
 
 			{isOwner ? (
-				<div className="paper-card paper-grain ink-edge p-4 sm:p-5 mb-6 sm:mb-8">
+				<div className="paper-block mb-6 sm:mb-8">
 					<div className="poster-headline text-base sm:text-lg mb-3 sm:mb-4">Owner tools</div>
 					<div className="flex flex-col md:flex-row gap-2 md:gap-3 items-start md:items-center md:justify-start flex-wrap">
 						<div className="w-full md:w-auto">
@@ -468,7 +468,7 @@ const [potInput, setPotInput] = useState<string>("");
 								<label className="text-[11px] sm:text-xs text-deepBrown/70 uppercase tracking-wide">Pot</label>
 								<input
 									type="number"
-									className="w-full md:w-28 rounded-md border border-deepBrown/20 bg-cream text-deepBrown placeholder:text-deepBrown/50 px-3 py-1.5 text-sm shadow-inner dark:bg-[#1a1512] dark:text-cream dark:placeholder:text-cream/50 focus:outline-none focus:ring-1 focus:ring-accent-primary/60"
+									className="arena-input arena-input-compact w-full md:w-28 text-sm"
 									value={potInput}
 									onChange={e => setPotInput(e.target.value)}
 									onBlur={async () => {
@@ -519,7 +519,7 @@ const [potInput, setPotInput] = useState<string>("");
 					// Keep weekly logs in History, but skip them in the feed list if desired
 				}
 						return (
-							<div key={`ev-${ev.id}`} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex items-start gap-3 sm:gap-4 relative">
+							<div key={`ev-${ev.id}`} className="paper-block flex items-start gap-3 sm:gap-4 relative">
 								<div className="text-lg sm:text-xl flex-shrink-0">📜</div>
 								<div className="flex-1 min-w-0">
 									<div className="text-[11px] sm:text-xs text-deepBrown/70 mb-1">{new Date(ev.created_at).toLocaleString()}</div>
@@ -559,7 +559,7 @@ const [potInput, setPotInput] = useState<string>("");
 					const pending = a.status === "pending";
 
 					return (
-						<div key={a.id} className="paper-card paper-grain ink-edge p-4 sm:p-5 flex flex-col gap-4 sm:gap-5">
+						<div key={a.id} className="paper-block flex flex-col gap-4 sm:gap-5">
 							<div className="flex items-center gap-3">
 								<div className="h-10 w-10 rounded-full overflow-hidden bg-tan border border-deepBrown/20 flex items-center justify-center">
 									{p?.avatar_url ? <img src={p.avatar_url} alt={p?.name || "athlete"} className="h-full w-full object-cover" /> : <span className="text-xl">🏋️‍♂️</span>}
@@ -888,7 +888,7 @@ const canComment = Boolean(user?.id && myPlayerId);
 						{replyOpen[c.id] && canComment && (
 							<div className="mt-2 space-y-1">
 								<textarea
-									className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-cream text-deepBrown placeholder:text-deepBrown/50 dark:bg-[#1a1512] dark:text-cream dark:placeholder:text-cream/50 p-2 text-sm focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
+									className="arena-textarea text-sm"
 									rows={2}
 									value={replyText[c.id] ?? ""}
 									maxLength={500}
@@ -936,7 +936,7 @@ const canComment = Boolean(user?.id && myPlayerId);
 			{canComment && (
 				<div className="space-y-1">
 					<textarea
-						className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-cream text-deepBrown placeholder:text-deepBrown/50 dark:bg-[#1a1512] dark:text-cream dark:placeholder:text-cream/50 p-2 text-sm focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
+						className="arena-textarea text-sm"
 						rows={3}
 						value={newBody}
 						maxLength={500}

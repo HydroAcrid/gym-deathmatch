@@ -245,6 +245,86 @@ button.border:not(.btn-vintage):hover {
   transition-duration: 20ms;
 }
 
+@layer components {
+  .paper-block,
+  .paper-block-loose,
+  .paper-block-bleed {
+    background: var(--bg-elevated);
+    border-radius: 0.35rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25), 0 0 0 1px var(--border-strong),
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      inset 0 -2px 0 rgba(0,0,0,0.25);
+    position: relative;
+  }
+  .paper-block::before,
+  .paper-block-loose::before,
+  .paper-block-bleed::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.15;
+    mix-blend-mode: overlay;
+    background-image:
+      radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 1px, transparent 2px, transparent 3px);
+    background-size: 8px 8px, 100% 3px;
+    border-radius: inherit;
+  }
+  .paper-block { padding: 1rem; }
+  @media (min-width: 640px) {
+    .paper-block { padding: 1.25rem; }
+  }
+  .paper-block-loose { padding: 1.25rem; }
+  @media (min-width: 640px) {
+    .paper-block-loose { padding: 1.5rem; }
+  }
+  .paper-block-bleed {
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 4px solid var(--border-strong);
+  }
+  @media (min-width: 640px) {
+    .paper-block-bleed {
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+  }
+  /* Unified form controls (light/dark via CSS vars) */
+  .arena-input,
+  .arena-textarea {
+    width: 100%;
+    background: var(--bg-elevated);
+    color: var(--text-main);
+    border: 1px solid color-mix(in srgb, var(--border-strong) 70%, transparent);
+    border-radius: 0.35rem;
+    padding: 0.55rem 0.7rem;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.08);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .arena-input::placeholder,
+  .arena-textarea::placeholder {
+    color: color-mix(in srgb, var(--text-main) 55%, transparent);
+    opacity: 0.9;
+  }
+  .arena-input:focus,
+  .arena-textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent-primary) 70%, transparent),
+      inset 0 1px 2px rgba(0,0,0,0.12);
+  }
+  .arena-textarea {
+    min-height: 110px;
+    resize: vertical;
+  }
+  .arena-input-compact {
+    padding: 0.4rem 0.55rem;
+    font-size: 0.95rem;
+  }
+}
+
 /* Subtle vignette behind scoreboard */
 .scoreboard-vignette {
   position: relative;
