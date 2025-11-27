@@ -47,7 +47,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			.select("player_id,date")
 			.eq("lobby_id", lobbyId)
 			.gte("date", startOfWeek.toISOString()),
-		supabase.from("player").select("id,name,lives_remaining").eq("lobby_id", lobbyId),
+		supabase.from("player").select("id,name,lives_remaining,hearts").eq("lobby_id", lobbyId),
 		supabase
 			.from("comments")
 			.select("rendered,created_at,type")
@@ -60,7 +60,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 
 	const playerMap = new Map<string, { name: string; lives: number }>();
 	for (const p of (playersRes.data ?? [])) {
-		playerMap.set(p.id as string, { name: p.name as string, lives: Number(p.lives_remaining ?? 0) });
+		const lives = Number(p.lives_remaining ?? p.hearts ?? 0);
+		playerMap.set(p.id as string, { name: p.name as string, lives });
 	}
 
 	const countMap = (rows: any[]) => {

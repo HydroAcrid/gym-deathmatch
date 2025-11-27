@@ -55,6 +55,7 @@ period: "daily" | "weekly";
 	const heartsLowArr = data.hearts?.low && data.hearts.low.length ? data.hearts.low : [];
 	const heartsLeaders = heartsLeadersArr.length ? heartsLeadersArr.slice(0, 3).join(" • ") + (heartsLeadersArr.length > 3 ? ` +${heartsLeadersArr.length - 3}` : "") : "—";
 	const heartsLow = heartsLowArr.length ? heartsLowArr.slice(0, 3).join(" • ") + (heartsLowArr.length > 3 ? ` +${heartsLowArr.length - 3}` : "") : "—";
+	const heartsValue = heartsLeadersArr.length ? heartsLeaders : "No data";
 	const spotlight = (data.quips || []).find(q => q.text.toLowerCase().includes("photo of the day"));
 
 	const containerVariants = {
@@ -92,7 +93,7 @@ period: "daily" | "weekly";
 				initial={{ opacity: 0, scale: 1.02 }}
 				animate={{ opacity: 1, scale: 1 }}
 				exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.25, ease: "easeIn" } }}
-				className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+				className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm"
 				onClick={onClose}
 			>
 				<motion.div
@@ -100,7 +101,7 @@ period: "daily" | "weekly";
 					initial="hidden"
 					animate="show"
 					exit="exit"
-					className="paper-card paper-grain ink-edge max-w-4xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 border-4 relative"
+					className="paper-card paper-grain ink-edge w-full max-w-3xl sm:max-w-4xl max-h-[calc(100vh-140px)] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6 pb-20 border-4 relative mt-10 sm:mt-0"
 					style={{
 						borderColor: "#E1542A",
 						boxShadow: "0 0 32px rgba(225,84,42,0.35)",
@@ -110,19 +111,19 @@ period: "daily" | "weekly";
 				>
 					<div className="absolute inset-0 pointer-events-none mix-blend-screen opacity-[0.06] bg-[radial-gradient(circle_at_top_left,#f3a93e,transparent_40%)]" />
 					<div className="text-center mb-4 space-y-1 relative">
-						<div className="poster-headline text-3xl sm:text-4xl tracking-[0.2em]">{heading}</div>
-						<div className="text-deepBrown/80 dark:text-cream/80 text-sm uppercase tracking-[0.16em]">{sub}</div>
+						<div className="poster-headline text-2xl sm:text-4xl tracking-[0.2em]">{heading}</div>
+						<div className="text-deepBrown/80 dark:text-cream/80 text-xs sm:text-sm uppercase tracking-[0.16em]">{sub}</div>
 						<div className="mx-auto w-16 h-[2px] bg-gradient-to-r from-accent-primary/0 via-accent-primary to-accent-primary/0" />
 					</div>
 
 					<motion.div
 						initial="hidden"
 						animate="show"
-						className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5"
+						className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3"
 					>
 						<StatPill icon="🏋️" label="WORKOUTS" value={`${pData?.totalWorkouts ?? 0}`} />
 						<StatPill icon="💰" label="POT" value={`$${data.pot ?? 0}`} />
-						<StatPill icon="❤️" label="HEARTS" value={heartsLeaders !== "—" ? heartsLeaders : "—"} />
+						<StatPill icon="❤️" label="HEARTS" value={heartsValue} />
 						<StatPill icon="⚔️" label="ARENA EVENTS" value={`${eventsCount}`} />
 					</motion.div>
 

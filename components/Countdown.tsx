@@ -23,10 +23,12 @@ export function Countdown({
 }) {
 	const end = useMemo(() => new Date(endIso), [endIso]);
 	const [remaining, setRemaining] = useState(() => getRemaining(end));
+	const [mounted, setMounted] = useState(false);
 	const prefersReduced = useReducedMotion();
 	const hasFiredRef = useRef<boolean>(false);
 	
 	useEffect(() => {
+		setMounted(true);
 		// Reset the fired flag when the end time changes
 		hasFiredRef.current = false;
 		setRemaining(getRemaining(end));
@@ -49,6 +51,7 @@ export function Countdown({
 		animate: prefersReduced ? {} : { opacity: 1, rotateX: 0, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
 		exit: prefersReduced ? {} : { opacity: 0, rotateX: 90, y: 6, transition: { duration: 0.3, ease: "easeIn" } }
 	};
+	if (!mounted) return null;
 	return (
 		<div className="inline-flex items-center gap-3 px-3 py-2 bg-elevated rounded-md border border-strong ink-edge">
 			<div className="text-[10px] text-muted">{label}</div>
@@ -88,5 +91,4 @@ export function Countdown({
 		</div>
 	);
 }
-
 
