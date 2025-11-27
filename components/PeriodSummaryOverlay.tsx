@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/Button";
 
@@ -48,68 +48,171 @@ export function PeriodSummaryOverlay({
 	const heading = isWeekly ? "WEEKLY WRAP" : "DAILY WRAP";
 	const sub = isWeekly ? "One week in the arena" : "Today in the arena";
 	const pData = isWeekly ? data.weekly : data.daily;
+	const eventsCount = data.quips?.length ?? 0;
+	const [showHeartsFull, setShowHeartsFull] = useState(false);
+	const heartsLeadersArr = data.hearts?.leaders && data.hearts.leaders.length ? data.hearts.leaders : [];
+	const heartsLowArr = data.hearts?.low && data.hearts.low.length ? data.hearts.low : [];
+	const heartsLeaders = heartsLeadersArr.length ? heartsLeadersArr.slice(0, 3).join(" • ") + (heartsLeadersArr.length > 3 ? ` +${heartsLeadersArr.length - 3}` : "") : "—";
+	const heartsLow = heartsLowArr.length ? heartsLowArr.slice(0, 3).join(" • ") + (heartsLowArr.length > 3 ? ` +${heartsLowArr.length - 3}` : "") : "—";
+	const spotlight = (data.quips || []).find(q => q.text.toLowerCase().includes("photo of the day"));
+
+	const containerVariants = {
+		hidden: { opacity: 0, scale: 0.96, y: 24 },
+		show: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
+		exit: { opacity: 0, scale: 0.9, y: 24, transition: { duration: 0.25, ease: "easeIn" } }
+	};
+
+	const cardVariants = {
+		hidden: { opacity: 0, y: 12 },
+		show: (i: number) => ({
+			opacity: 1,
+			y: 0,
+			transition: { delay: 0.1 + i * 0.05, duration: 0.25, ease: "easeOut" }
+		})
+	};
+
+	const StatPill = ({ icon, label, value }: { icon: string; label: string; value: string }) => (
+		<motion.div
+			custom={0}
+			variants={cardVariants}
+			className="flex items-center gap-3 px-3 py-2 rounded-full border border-accent-primary/40 bg-[#1a1512]/70 text-cream shadow-[0_0_24px_rgba(225,84,42,0.18)]"
+		>
+			<span className="text-lg">{icon}</span>
+			<div className="text-left">
+				<div className="uppercase tracking-[0.14em] text-[10px] text-cream/70">{label}</div>
+				<div className="text-base font-semibold">{value}</div>
+			</div>
+		</motion.div>
+	);
 
 	return (
 		<AnimatePresence>
 			<motion.div
-				initial={{ opacity: 0 }}
-				animate={{ opacity: 1 }}
-				exit={{ opacity: 0 }}
+				initial={{ opacity: 0, scale: 1.02 }}
+				animate={{ opacity: 1, scale: 1 }}
+				exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.25, ease: "easeIn" } }}
 				className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
 				onClick={onClose}
 			>
 				<motion.div
-					initial={{ opacity: 0, scale: 0.96, y: 20 }}
-					animate={{ opacity: 1, scale: 1, y: 0 }}
-					exit={{ opacity: 0, scale: 0.96, y: 20 }}
-					transition={{ duration: 0.25, ease: "easeOut" }}
-					className="paper-card paper-grain ink-edge max-w-4xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 border-4"
-					style={{ borderColor: "#E1542A" }}
+					variants={containerVariants}
+					initial="hidden"
+					animate="show"
+					exit="exit"
+					className="paper-card paper-grain ink-edge max-w-4xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 border-4 relative"
+					style={{
+						borderColor: "#E1542A",
+						boxShadow: "0 0 32px rgba(225,84,42,0.35)",
+						background: "radial-gradient(circle at 20% 20%, rgba(225,84,42,0.06), transparent 25%), #1a0f0a"
+					}}
 					onClick={(e) => e.stopPropagation()}
 				>
-					<div className="text-center mb-4">
-						<div className="poster-headline text-2xl sm:text-3xl mb-1">{heading}</div>
-						<div className="text-deepBrown/80 dark:text-cream/80 text-sm">{sub}</div>
+					<div className="absolute inset-0 pointer-events-none mix-blend-screen opacity-[0.06] bg-[radial-gradient(circle_at_top_left,#f3a93e,transparent_40%)]" />
+					<div className="text-center mb-4 space-y-1 relative">
+						<div className="poster-headline text-3xl sm:text-4xl tracking-[0.2em]">{heading}</div>
+						<div className="text-deepBrown/80 dark:text-cream/80 text-sm uppercase tracking-[0.16em]">{sub}</div>
+						<div className="mx-auto w-16 h-[2px] bg-gradient-to-r from-accent-primary/0 via-accent-primary to-accent-primary/0" />
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<div className="rounded-lg border border-deepBrown/15 dark:border-white/10 bg-cream/40 dark:bg-[#1a1512]/80 p-4 space-y-2">
-							<div className="poster-headline text-base">WORKOUTS</div>
-							<div className="text-3xl font-bold text-accent-primary">{pData?.totalWorkouts ?? 0}</div>
-							<div className="text-sm text-deepBrown/70 dark:text-cream/70">
-								Top: {pData?.topPerformer ? `${pData.topPerformer.name} (${pData.topPerformer.count})` : "—"}
-							</div>
-						</div>
+					<motion.div
+						initial="hidden"
+						animate="show"
+						className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5"
+					>
+						<StatPill icon="🏋️" label="WORKOUTS" value={`${pData?.totalWorkouts ?? 0}`} />
+						<StatPill icon="💰" label="POT" value={`$${data.pot ?? 0}`} />
+						<StatPill icon="❤️" label="HEARTS" value={heartsLeaders !== "—" ? heartsLeaders : "—"} />
+						<StatPill icon="⚔️" label="ARENA EVENTS" value={`${eventsCount}`} />
+					</motion.div>
 
-						<div className="rounded-lg border border-deepBrown/15 dark:border-white/10 bg-cream/40 dark:bg-[#1a1512]/80 p-4 space-y-2">
-							<div className="poster-headline text-base">POT</div>
-							<div className="text-3xl font-bold text-accent-primary">${data.pot ?? 0}</div>
-							<div className="text-sm text-deepBrown/70 dark:text-cream/70">Stakes climbing.</div>
-						</div>
-
-						<div className="rounded-lg border border-deepBrown/15 dark:border-white/10 bg-cream/40 dark:bg-[#1a1512]/80 p-4 space-y-2">
-							<div className="poster-headline text-base">HEARTS</div>
-							<div className="text-sm text-deepBrown/80 dark:text-cream/80">
-								Leaders: {data.hearts?.leaders && data.hearts.leaders.length ? data.hearts.leaders.join(" • ") : "—"}
+					{spotlight && (
+						<motion.div
+							variants={cardVariants}
+							initial="hidden"
+							animate="show"
+							custom={0}
+							className="mb-4 rounded-xl border border-accent-primary/40 bg-gradient-to-r from-[#2a1811] via-[#1a0f0a] to-[#2a1811] text-cream p-4 shadow-[0_0_24px_rgba(225,84,42,0.25)]"
+						>
+							<div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.14em] text-cream/80">
+								<span>🔥 Spotlight</span>
 							</div>
-							<div className="text-sm text-deepBrown/80 dark:text-cream/80">
-								Lowest: {data.hearts?.low && data.hearts.low.length ? data.hearts.low.join(" • ") : "—"}
-							</div>
-						</div>
+							<div className="poster-headline text-xl mt-1">ATHLETE SPOTLIGHT</div>
+							<div className="text-sm mt-1 opacity-90">{spotlight.text}</div>
+						</motion.div>
+					)}
 
-						<div className="rounded-lg border border-deepBrown/15 dark:border-white/10 bg-cream/40 dark:bg-[#1a1512]/80 p-4 space-y-2">
-							<div className="poster-headline text-base">QUIPS</div>
-							<div className="space-y-1 text-sm text-deepBrown/80 dark:text-cream/80">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+						<motion.div
+							variants={cardVariants}
+							initial="hidden"
+							animate="show"
+							custom={1}
+							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+						>
+							<div className="flex items-center gap-2 mb-2">
+								<span className="text-lg">💰</span>
+								<div className="poster-headline text-lg tracking-[0.12em]">Pot</div>
+							</div>
+							<div className="text-4xl font-bold text-accent-primary mb-1">${data.pot ?? 0}</div>
+							<div className="text-sm text-cream/80">Stakes climbing.</div>
+						</motion.div>
+
+						<motion.div
+							variants={cardVariants}
+							initial="hidden"
+							animate="show"
+							custom={2}
+							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+						>
+							<div className="flex items-center gap-2 mb-2">
+								<span className="text-lg">❤️</span>
+								<div className="poster-headline text-lg tracking-[0.12em]">Hearts</div>
+							</div>
+							<div className="text-sm text-cream/80">Leaders: {heartsLeaders}</div>
+							<div className="text-sm text-cream/80">Lowest: {heartsLow}</div>
+							{(heartsLeadersArr.length > 3 || heartsLowArr.length > 3) && (
+								<button
+									className="text-[11px] mt-1 text-cream/60 underline underline-offset-2"
+									onClick={() => setShowHeartsFull(!showHeartsFull)}
+								>
+									{showHeartsFull ? "Hide full list" : "Show full list"}
+								</button>
+							)}
+							{showHeartsFull && (
+								<div className="mt-2 text-xs space-y-1">
+									<div className="text-cream/70">Leaders: {heartsLeadersArr.join(" • ") || "—"}</div>
+									<div className="text-cream/70">Lowest: {heartsLowArr.join(" • ") || "—"}</div>
+								</div>
+							)}
+						</motion.div>
+
+						<motion.div
+							variants={cardVariants}
+							initial="hidden"
+							animate="show"
+							custom={3}
+							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] lg:col-span-2"
+						>
+							<div className="flex items-center gap-2 mb-2">
+								<span className="text-lg">⚔️</span>
+								<div className="poster-headline text-lg tracking-[0.12em]">Battle Log</div>
+							</div>
+							<div className="space-y-1 text-sm text-cream/85">
 								{data.quips && data.quips.length
-									? data.quips.slice(0, 3).map((q, i) => <div key={i}>• {q.text}</div>)
-									: "No callouts yet."}
+									? data.quips.slice(0, 5).map((q, i) => (
+										<div key={i} className="flex items-start gap-2">
+											<span className="text-cream/60">⚔️</span>
+											<span className="leading-relaxed">{q.text}</span>
+										</div>
+									))
+									: <div className="text-cream/60">Arena was quiet.</div>}
 							</div>
-						</div>
+						</motion.div>
 					</div>
 
-					<div className="flex justify-center mt-5">
-						<Button variant="primary" size="md" onClick={onClose}>
-							Continue
+					<div className="flex justify-center mt-6">
+						<Button variant="primary" size="md" onClick={onClose} className="px-6 py-3 text-sm uppercase tracking-[0.16em] shadow-[0_0_24px_rgba(225,84,42,0.4)]">
+							Return
 						</Button>
 					</div>
 				</motion.div>
