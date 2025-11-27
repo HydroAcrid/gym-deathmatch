@@ -107,7 +107,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		if (!parent || parent.activity_id !== activity.id || parent.lobby_id !== activity.lobby_id) {
 			return NextResponse.json({ error: "Invalid parent" }, { status: 400 });
 		}
-		threadRootId = (parent.thread_root_id as string | null) ?? parent.id;
+		const root = (parent.thread_root_id as string | null) ?? parent.id;
+		threadRootId = root;
 		if (parent.author_player_id) {
 			const { data: parentAuthor } = await supabase.from("player").select("user_id,name").eq("id", parent.author_player_id as string).maybeSingle();
 			parentAuthorUserId = parentAuthor?.user_id ?? null;

@@ -16,6 +16,7 @@ import { useAuth } from "./AuthProvider";
 import { ChallengeHero } from "./ChallengeHero";
 import { WeekSetup } from "./WeekSetup";
 import { LAST_LOBBY_STORAGE_KEY } from "@/lib/localStorageKeys";
+import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
 
 type LobbyLayoutProps = {
 	lobby: Lobby;
@@ -49,6 +50,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const [editOpen, setEditOpen] = useState(false);
 	const { user } = useAuth();
 	const toast = useToast();
+	const [periodSummary, setPeriodSummary] = useState<any | null>(null);
+	const [summaryOpen, setSummaryOpen] = useState(false);
+	const [summaryPeriod, setSummaryPeriod] = useState<"daily"|"weekly">("daily");
+	const [summarySeenKey, setSummarySeenKey] = useState<string | null>(null);
 	const [potAmount, setPotAmount] = useState<number>(currentPot);
 
 	// Determine owner
@@ -90,6 +95,50 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			}
 		}
 	}, [koEvent]);
+
+	// Period summary overlay (daily/weekly)
+	useEffect(() => {
+		if (!user?.id || !lobbyData?.id) return;
+		const keyDaily = `period-summary-daily-${lobbyData.id}`;
+		const keyWeekly = `period-summary-weekly-${lobbyData.id}`;
+		const today = new Date();
+		const pad = (n: number) => String(n).padStart(2, "0");
+		const dayKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+		const weekKey = (() => {
+			const d = new Date(today);
+			const dow = d.getDay();
+			const diff = d.getDate() - dow + (dow === 0 ? -6 : 1);
+			d.setDate(diff);
+			return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+		})();
+		const seenDaily = typeof window !== "undefined" ? localStorage.getItem(keyDaily) : null;
+		const seenWeekly = typeof window !== "undefined" ? localStorage.getItem(keyWeekly) : null;
+		const shouldShowWeekly = seenWeekly !== weekKey;
+		const shouldShowDaily = seenDaily !== dayKey;
+		if (!shouldShowWeekly && !shouldShowDaily) return;
+
+		(async () => {
+			try {
+				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/summary`, { cache: "no-store" });
+				if (!res.ok) return;
+				const j = await res.json();
+				const data = j.summary;
+					if (!data) return;
+					setPeriodSummary(data);
+					if (shouldShowWeekly && data.weekly) {
+						setSummaryPeriod("weekly");
+						setSummaryOpen(true);
+						setSummarySeenKey(`${keyWeekly}|${weekKey}`);
+					} else if (shouldShowDaily && data.daily) {
+						setSummaryPeriod("daily");
+						setSummaryOpen(true);
+						setSummarySeenKey(`${keyDaily}|${dayKey}`);
+					}
+				} catch {
+					// ignore
+				}
+			})();
+	}, [user?.id, lobbyData?.id]);
 
 	// Show connection errors
 	useEffect(() => {
@@ -358,6 +407,18 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				winnerAvatar={players.find(p => p.id === koEvent?.winnerPlayerId)?.avatarUrl || undefined}
 				pot={currentPot}
 				lobbyId={lobbyData.id}
+			/>
+			<PeriodSummaryOverlay
+				open={summaryOpen}
+				onClose={() => {
+					setSummaryOpen(false);
+					if (summarySeenKey && typeof window !== "undefined") {
+						const [k, v] = summarySeenKey.split("|");
+						if (k && v) localStorage.setItem(k, v);
+					}
+				}}
+				data={periodSummary}
+				period={summaryPeriod}
 			/>
 			{/* Owner Celebrate Again button */}
 			{isOwner && seasonStatus === "completed" && !!koEvent?.winnerPlayerId && (

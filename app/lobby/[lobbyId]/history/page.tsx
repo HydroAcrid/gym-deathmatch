@@ -827,7 +827,74 @@ function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { ac
 		return acc;
 	}, {});
 
-	const canComment = Boolean(user?.id && myPlayerId);
+const canComment = Boolean(user?.id && myPlayerId);
+
+	const renderComment = (c: PostComment, level: number) => {
+		const children = repliesByParent[c.id] || [];
+		const canDelete = (myPlayerId && c.authorPlayerId === myPlayerId) || (ownerUserId && ownerUserId === user?.id);
+		const leftPad = Math.min(level * 12, 48);
+		return (
+			<div key={c.id} className={`space-y-2 ${level > 0 ? "border-l border-deepBrown/15 dark:border-white/10 pl-3" : ""}`} style={{ marginLeft: leftPad ? `${leftPad}px` : undefined }}>
+				<div className="flex gap-2">
+					<div className="h-8 w-8 rounded-full overflow-hidden bg-tan border border-deepBrown/15 dark:border-white/10 flex items-center justify-center">
+						{c.authorAvatarUrl ? <img src={c.authorAvatarUrl} alt={c.authorName ?? "author"} className="h-full w-full object-cover" /> : <span className="text-sm">💬</span>}
+					</div>
+					<div className="flex-1 min-w-0">
+						<div className="flex items-center gap-2 text-[12px] text-deepBrown/80 dark:text-cream/80">
+							<span className="font-semibold">{c.authorName || "Athlete"}</span>
+							<span className="text-deepBrown/50 dark:text-cream/50">{new Date(c.createdAt).toLocaleString()}</span>
+						</div>
+						<div className="text-sm text-deepBrown/90 dark:text-cream whitespace-pre-wrap">{c.body}</div>
+						<div className="flex items-center gap-3 mt-1 text-[12px] text-deepBrown/70 dark:text-cream/70">
+							{canComment && (
+								<button
+									className="hover:text-deepBrown/90"
+									onClick={() => setReplyOpen(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
+								>
+									Reply
+								</button>
+							)}
+							{canDelete && (
+								<button className="hover:text-red-600" onClick={() => remove(c.id)}>
+									Delete
+								</button>
+							)}
+						</div>
+						{replyOpen[c.id] && canComment && (
+							<div className="mt-2 space-y-1">
+								<textarea
+									className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-white text-deepBrown dark:bg-[#1a1512] dark:text-cream p-2 text-sm placeholder:text-deepBrown/40 dark:placeholder:text-cream/50"
+									rows={2}
+									value={replyText[c.id] ?? ""}
+									maxLength={500}
+									placeholder="Write a reply..."
+									onChange={e => setReplyText(prev => ({ ...prev, [c.id]: e.target.value }))}
+								/>
+								<div className="flex gap-2">
+									<Button
+										variant="secondary"
+										size="sm"
+										disabled={submittingId !== null}
+										onClick={() => submit(replyText[c.id] ?? "", c.id)}
+									>
+										{submittingId ? "Posting..." : "Reply"}
+									</Button>
+									<Button variant="secondary" size="sm" onClick={() => setReplyOpen(prev => ({ ...prev, [c.id]: false }))}>
+										Cancel
+									</Button>
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
+				{children.length > 0 && (
+					<div className="space-y-2">
+						{children.map(child => renderComment(child, level + 1))}
+					</div>
+				)}
+			</div>
+		);
+	};
 
 	return (
 		<div className="mt-2 border-t border-deepBrown/15 pt-3 space-y-3">
@@ -839,122 +906,7 @@ function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { ac
 				<div className="text-[12px] text-deepBrown/70 dark:text-cream/80">No comments yet — be the first.</div>
 			)}
 
-			{topLevel.map(c => {
-				const replies = repliesByParent[c.id] || [];
-				const canDelete = (myPlayerId && c.authorPlayerId === myPlayerId) || (ownerUserId && ownerUserId === user?.id);
-				return (
-					<div key={c.id} className="space-y-2">
-						<div className="flex gap-2">
-							<div className="h-8 w-8 rounded-full overflow-hidden bg-tan border border-deepBrown/15 dark:border-white/10 flex items-center justify-center">
-								{c.authorAvatarUrl ? <img src={c.authorAvatarUrl} alt={c.authorName ?? "author"} className="h-full w-full object-cover" /> : <span className="text-sm">💬</span>}
-							</div>
-							<div className="flex-1 min-w-0">
-								<div className="flex items-center gap-2 text-[12px] text-deepBrown/80 dark:text-cream/80">
-									<span className="font-semibold">{c.authorName || "Athlete"}</span>
-									<span className="text-deepBrown/50 dark:text-cream/50">{new Date(c.createdAt).toLocaleString()}</span>
-								</div>
-								<div className="text-sm text-deepBrown/90 dark:text-cream whitespace-pre-wrap">{c.body}</div>
-								<div className="flex items-center gap-3 mt-1 text-[12px] text-deepBrown/70 dark:text-cream/70">
-									{canComment && (
-										<button
-											className="hover:text-deepBrown/90"
-											onClick={() => setReplyOpen(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
-										>
-											Reply
-										</button>
-									)}
-									{canDelete && (
-										<button className="hover:text-red-600" onClick={() => remove(c.id)}>
-											Delete
-										</button>
-									)}
-								</div>
-								{replyOpen[c.id] && canComment && (
-									<div className="mt-2 space-y-1">
-										<textarea
-											className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-white text-deepBrown dark:bg-[#1a1512] dark:text-cream p-2 text-sm placeholder:text-deepBrown/40 dark:placeholder:text-cream/50"
-											rows={2}
-											value={replyText[c.id] ?? ""}
-											maxLength={500}
-											placeholder="Write a reply..."
-											onChange={e => setReplyText(prev => ({ ...prev, [c.id]: e.target.value }))}
-										/>
-										<div className="flex gap-2">
-											<Button
-												variant="secondary"
-												size="sm"
-												disabled={submittingId !== null}
-												onClick={() => submit(replyText[c.id] ?? "", c.id)}
-											>
-												{submittingId ? "Posting..." : "Reply"}
-											</Button>
-											<Button variant="secondary" size="sm" onClick={() => setReplyOpen(prev => ({ ...prev, [c.id]: false }))}>
-												Cancel
-											</Button>
-										</div>
-									</div>
-								)}
-								{replies.length > 0 && (
-					<div className="mt-3 space-y-2 border-l border-deepBrown/15 dark:border-white/10 pl-3">
-										{replies.map(r => {
-											const canDeleteReply = (myPlayerId && r.authorPlayerId === myPlayerId) || (ownerUserId && ownerUserId === user?.id);
-											return (
-												<div key={r.id} className="space-y-1">
-													<div className="flex items-center gap-2 text-[12px] text-deepBrown/80 dark:text-cream/80">
-														<span className="font-semibold">{r.authorName || "Athlete"}</span>
-														<span className="text-deepBrown/50 dark:text-cream/50">{new Date(r.createdAt).toLocaleString()}</span>
-													</div>
-													<div className="text-sm text-deepBrown/90 dark:text-cream whitespace-pre-wrap">{r.body}</div>
-													<div className="flex items-center gap-3 text-[12px] text-deepBrown/70 dark:text-cream/70">
-														{canComment && (
-															<button
-																className="hover:text-deepBrown/90"
-																onClick={() => setReplyOpen(prev => ({ ...prev, [r.id]: !prev[r.id] }))}
-															>
-																Reply
-															</button>
-														)}
-														{canDeleteReply && (
-															<button className="hover:text-red-600" onClick={() => remove(r.id)}>
-																Delete
-															</button>
-														)}
-													</div>
-													{replyOpen[r.id] && canComment && (
-														<div className="space-y-1">
-															<textarea
-																className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-white text-deepBrown dark:bg-[#1a1512] dark:text-cream p-2 text-sm placeholder:text-deepBrown/40 dark:placeholder:text-cream/50"
-																rows={2}
-																value={replyText[r.id] ?? ""}
-																maxLength={500}
-																placeholder="Write a reply..."
-																onChange={e => setReplyText(prev => ({ ...prev, [r.id]: e.target.value }))}
-															/>
-															<div className="flex gap-2">
-																<Button
-																	variant="secondary"
-																	size="sm"
-																	disabled={submittingId !== null}
-																	onClick={() => submit(replyText[r.id] ?? "", r.id)}
-																>
-																	{submittingId ? "Posting..." : "Reply"}
-																</Button>
-																<Button variant="secondary" size="sm" onClick={() => setReplyOpen(prev => ({ ...prev, [r.id]: false }))}>
-																	Cancel
-																</Button>
-															</div>
-														</div>
-													)}
-												</div>
-											);
-										})}
-									</div>
-								)}
-							</div>
-						</div>
-					</div>
-				);
-			})}
+			{topLevel.map(c => renderComment(c, 0))}
 
 			{canComment && (
 				<div className="space-y-1">
