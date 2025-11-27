@@ -32,10 +32,12 @@ export function PeriodSummaryOverlay({
 	period
 }: {
 	open: boolean;
-	onClose: () => void;
-	data: SummaryData | null;
-	period: "daily" | "weekly";
+onClose: () => void;
+data: SummaryData | null;
+period: "daily" | "weekly";
 }) {
+	const [showHeartsFull, setShowHeartsFull] = useState(false);
+
 	useEffect(() => {
 		if (open) document.body.style.overflow = "hidden";
 		return () => {
@@ -49,7 +51,6 @@ export function PeriodSummaryOverlay({
 	const sub = isWeekly ? "One week in the arena" : "Today in the arena";
 	const pData = isWeekly ? data.weekly : data.daily;
 	const eventsCount = data.quips?.length ?? 0;
-	const [showHeartsFull, setShowHeartsFull] = useState(false);
 	const heartsLeadersArr = data.hearts?.leaders && data.hearts.leaders.length ? data.hearts.leaders : [];
 	const heartsLowArr = data.hearts?.low && data.hearts.low.length ? data.hearts.low : [];
 	const heartsLeaders = heartsLeadersArr.length ? heartsLeadersArr.slice(0, 3).join(" • ") + (heartsLeadersArr.length > 3 ? ` +${heartsLeadersArr.length - 3}` : "") : "—";
