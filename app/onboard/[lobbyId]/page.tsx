@@ -82,12 +82,10 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 		if (!canSubmit) return;
 		setSubmitting(true);
 		try {
-			const playerId = user!.id || slugify(displayName || emailName || "me");
 			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					id: playerId,
 					name: displayName || emailName || "Me",
 					avatarUrl: avatarUrl || null,
 					location: location || null,
@@ -99,7 +97,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 			if (!res.ok) {
 				throw new Error(data?.error || "Failed to join lobby");
 			}
-			const resultingPlayerId = data?.playerId || playerId;
+			const resultingPlayerId = data?.playerId || crypto.randomUUID();
 			setExistingPlayerId(resultingPlayerId);
 			window.location.replace(`/lobby/${encodeURIComponent(lobbyId)}?joined=1`);
 		} catch (err) {
