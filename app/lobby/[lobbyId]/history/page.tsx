@@ -61,6 +61,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [lobbyId, setLobbyId] = useState<string>("");
 	const [players, setPlayers] = useState<PlayerLite[]>([]);
 	const [ownerPlayerId, setOwnerPlayerId] = useState<string | null>(null);
+	const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 	const [activities, setActivities] = useState<ActivityRow[]>([]);
 	const [votesByAct, setVotesByAct] = useState<Record<string, { legit: number; sus: number; mine?: "legit" | "sus" }>>({});
 	const { user, isHydrated } = useAuth();
@@ -72,6 +73,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [lobbyName, setLobbyName] = useState<string>("");
 	const [signedUrlByAct, setSignedUrlByAct] = useState<Record<string, string>>({});
 	const toast = useToast();
+	const [currentPot, setCurrentPot] = useState<number | null>(null);
+	const [potInput, setPotInput] = useState<string>("");
 
 		const reloadActivities = useCallback(async (lid: string = lobbyId) => {
 		if (!lid) return;
@@ -120,6 +123,11 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 				}
 				const lobbyRow = data?.lobby as any;
 				setLobbyName(lobbyRow?.name || lid);
+				setOwnerUserId(lobbyRow?.owner_user_id ?? lobbyRow?.ownerUserId ?? null);
+				if (typeof lobbyRow?.cash_pool === "number") {
+					setCurrentPot(lobbyRow.cash_pool);
+					setPotInput(String(lobbyRow.cash_pool));
+				}
 
 				const comments = (data?.comments ?? []) as CommentRow[];
 				const commentEvents: EventRow[] = comments.map(c => ({
@@ -452,6 +460,50 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 							</Button>
 						</div>
 						<div className="text-[11px] sm:text-xs text-deepBrown/70 w-full md:w-auto">Logged publicly in history.</div>
+						{typeof currentPot === "number" && (
+							<div className="flex items-center gap-2 w-full md:w-auto">
+								<label className="text-[11px] sm:text-xs text-deepBrown/70 uppercase tracking-wide">Pot</label>
+								<input
+									type="number"
+									className="w-full md:w-28 rounded-md border border-deepBrown/20 bg-[#fdf8f4] text-deepBrown placeholder:text-deepBrown/50 px-3 py-1.5 text-sm shadow-inner dark:bg-[#1a1512] dark:text-cream dark:placeholder:text-cream/50 focus:outline-none focus:ring-1 focus:ring-accent-primary/60"
+									value={potInput}
+									onChange={e => setPotInput(e.target.value)}
+									onBlur={async () => {
+										if (!user?.id) return;
+										const val = Number(potInput);
+										if (!Number.isFinite(val) || val < 0) {
+											toast?.push?.("Enter a non-negative number.");
+											setPotInput(String(currentPot));
+											return;
+										}
+										if (val === currentPot) return;
+										setBusy(true);
+										try {
+											const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/pot`, {
+												method: "POST",
+												headers: { "Content-Type": "application/json", "x-user-id": user.id },
+												body: JSON.stringify({ targetPot: val })
+											});
+											const data = await res.json().catch(() => ({}));
+											if (!res.ok) {
+												toast?.push?.(data.error || "Failed to update pot");
+												setPotInput(String(currentPot));
+												return;
+											}
+											setCurrentPot(val);
+											setPotInput(String(val));
+											toast?.push?.("Pot updated");
+											reloadActivities();
+										} catch {
+											toast?.push?.("Failed to update pot");
+											setPotInput(String(currentPot));
+										} finally {
+											setBusy(false);
+										}
+									}}
+								/>
+							</div>
+						)}
 					</div>
 				</div>
 			) : null}
@@ -634,7 +686,12 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 								</div>
 							) : null}
 
-							<ActivityComments activityId={a.id} />
+							<ActivityComments
+								activityId={a.id}
+								lobbyId={lobbyId}
+								myPlayerId={myPlayerId}
+								ownerUserId={ownerUserId}
+							/>
 						</div>
 					);
 				})}
@@ -646,29 +703,270 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	);
 }
 
-function ActivityComments({ activityId }: { activityId: string }) {
-	const [comments, setComments] = useState<Array<{ id: string; type: string; rendered: string; created_at: string }>>([]);
+type PostComment = {
+	id: string;
+	lobbyId: string;
+	activityId: string;
+	parentId: string | null;
+	threadRootId: string | null;
+	body: string;
+	createdAt: string;
+	authorPlayerId: string;
+	authorName: string | null;
+	authorAvatarUrl?: string | null;
+};
+
+function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { activityId: string; lobbyId: string; myPlayerId: string | null; ownerUserId: string | null }) {
+	const { user } = useAuth();
+	const toast = useToast();
+	const [comments, setComments] = useState<PostComment[]>([]);
+	const [loading, setLoading] = useState(false);
+	const [newBody, setNewBody] = useState("");
+	const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({});
+	const [replyText, setReplyText] = useState<Record<string, string>>({});
+	const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+	const headers = useMemo(() => {
+		const h: Record<string, string> = { "Content-Type": "application/json" };
+		if (user?.id) h["x-user-id"] = user.id;
+		return h;
+	}, [user?.id]);
+
+	const loadComments = useCallback(async () => {
+		if (!user?.id) return;
+		setLoading(true);
+		try {
+			const res = await fetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, {
+				cache: "no-store",
+				headers
+			});
+			if (!res.ok) throw new Error("Failed");
+			const j = await res.json();
+			setComments(j.comments ?? []);
+		} catch {
+			toast?.push?.("Unable to load comments right now.");
+		} finally {
+			setLoading(false);
+		}
+	}, [activityId, headers, user?.id, toast]);
+
 	useEffect(() => {
-		(async () => {
-			try {
-				const res = await fetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, { cache: "no-store" });
-				if (!res.ok) return;
-				const j = await res.json();
-				setComments(j.comments ?? []);
-			} catch {
-				// ignore
+		loadComments();
+	}, [loadComments]);
+
+	async function submit(body: string, parentId: string | null) {
+		if (!user?.id) {
+			toast?.push?.("Sign in to comment.");
+			return;
+		}
+		const trimmed = body.trim();
+		if (!trimmed) return;
+		setSubmittingId(parentId || "root");
+		try {
+			const res = await fetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, {
+				method: "POST",
+				headers,
+				body: JSON.stringify({ body: trimmed, parentId })
+			});
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				toast?.push?.(data.error || "Failed to post comment.");
+				return;
 			}
-		})();
-	}, [activityId]);
-	if (!comments.length) return null;
+			if (parentId) {
+				setReplyText(prev => ({ ...prev, [parentId]: "" }));
+				setReplyOpen(prev => ({ ...prev, [parentId]: false }));
+			} else {
+				setNewBody("");
+			}
+			if (data.comment) {
+				setComments(prev => [...prev, data.comment as PostComment]);
+			} else {
+				loadComments();
+			}
+		} catch {
+			toast?.push?.("Failed to post comment.");
+		} finally {
+			setSubmittingId(null);
+		}
+	}
+
+	async function remove(commentId: string) {
+		if (!user?.id) {
+			toast?.push?.("Sign in to delete comments.");
+			return;
+		}
+		try {
+			const res = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, {
+				method: "DELETE",
+				headers
+			});
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				toast?.push?.(data.error || "Failed to delete");
+				return;
+			}
+			setComments(prev => prev.filter(c => c.id !== commentId));
+		} catch {
+			toast?.push?.("Failed to delete");
+		}
+	}
+
+	const topLevel = comments.filter(c => !c.parentId);
+	const repliesByParent = comments.reduce<Record<string, PostComment[]>>((acc, c) => {
+		if (c.parentId) {
+			if (!acc[c.parentId]) acc[c.parentId] = [];
+			acc[c.parentId].push(c);
+		}
+		return acc;
+	}, {});
+
+	const canComment = Boolean(user?.id && myPlayerId);
+
 	return (
-		<div className="mt-2 border-t border-deepBrown/20 pt-2 space-y-1">
-			{comments.map(c => (
-				<div key={c.id} className="text-[12px] text-deepBrown/90">
-					{c.rendered}
-					<span className="ml-2 text-[11px] text-deepBrown/60">{new Date(c.created_at).toLocaleString()}</span>
+		<div className="mt-2 border-t border-deepBrown/15 pt-3 space-y-3">
+			<div className="text-[11px] uppercase font-semibold tracking-wide text-deepBrown/70">Comments {comments.length ? `(${comments.length})` : ""}</div>
+			{!canComment && <div className="text-[12px] text-deepBrown/60 dark:text-cream/70">Sign in and join this lobby to comment.</div>}
+
+			{topLevel.length === 0 && loading && <div className="text-[12px] text-deepBrown/60 dark:text-cream/70">Loading comments…</div>}
+			{topLevel.length === 0 && !loading && canComment && (
+				<div className="text-[12px] text-deepBrown/70 dark:text-cream/80">No comments yet — be the first.</div>
+			)}
+
+			{topLevel.map(c => {
+				const replies = repliesByParent[c.id] || [];
+				const canDelete = (myPlayerId && c.authorPlayerId === myPlayerId) || (ownerUserId && ownerUserId === user?.id);
+				return (
+					<div key={c.id} className="space-y-2">
+						<div className="flex gap-2">
+							<div className="h-8 w-8 rounded-full overflow-hidden bg-tan border border-deepBrown/15 dark:border-white/10 flex items-center justify-center">
+								{c.authorAvatarUrl ? <img src={c.authorAvatarUrl} alt={c.authorName ?? "author"} className="h-full w-full object-cover" /> : <span className="text-sm">💬</span>}
+							</div>
+							<div className="flex-1 min-w-0">
+								<div className="flex items-center gap-2 text-[12px] text-deepBrown/80 dark:text-cream/80">
+									<span className="font-semibold">{c.authorName || "Athlete"}</span>
+									<span className="text-deepBrown/50 dark:text-cream/50">{new Date(c.createdAt).toLocaleString()}</span>
+								</div>
+								<div className="text-sm text-deepBrown/90 dark:text-cream whitespace-pre-wrap">{c.body}</div>
+								<div className="flex items-center gap-3 mt-1 text-[12px] text-deepBrown/70 dark:text-cream/70">
+									{canComment && (
+										<button
+											className="hover:text-deepBrown/90"
+											onClick={() => setReplyOpen(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
+										>
+											Reply
+										</button>
+									)}
+									{canDelete && (
+										<button className="hover:text-red-600" onClick={() => remove(c.id)}>
+											Delete
+										</button>
+									)}
+								</div>
+								{replyOpen[c.id] && canComment && (
+									<div className="mt-2 space-y-1">
+										<textarea
+											className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-white text-deepBrown dark:bg-[#1a1512] dark:text-cream p-2 text-sm placeholder:text-deepBrown/40 dark:placeholder:text-cream/50"
+											rows={2}
+											value={replyText[c.id] ?? ""}
+											maxLength={500}
+											placeholder="Write a reply..."
+											onChange={e => setReplyText(prev => ({ ...prev, [c.id]: e.target.value }))}
+										/>
+										<div className="flex gap-2">
+											<Button
+												variant="secondary"
+												size="sm"
+												disabled={submittingId !== null}
+												onClick={() => submit(replyText[c.id] ?? "", c.id)}
+											>
+												{submittingId ? "Posting..." : "Reply"}
+											</Button>
+											<Button variant="secondary" size="sm" onClick={() => setReplyOpen(prev => ({ ...prev, [c.id]: false }))}>
+												Cancel
+											</Button>
+										</div>
+									</div>
+								)}
+								{replies.length > 0 && (
+					<div className="mt-3 space-y-2 border-l border-deepBrown/15 dark:border-white/10 pl-3">
+										{replies.map(r => {
+											const canDeleteReply = (myPlayerId && r.authorPlayerId === myPlayerId) || (ownerUserId && ownerUserId === user?.id);
+											return (
+												<div key={r.id} className="space-y-1">
+													<div className="flex items-center gap-2 text-[12px] text-deepBrown/80 dark:text-cream/80">
+														<span className="font-semibold">{r.authorName || "Athlete"}</span>
+														<span className="text-deepBrown/50 dark:text-cream/50">{new Date(r.createdAt).toLocaleString()}</span>
+													</div>
+													<div className="text-sm text-deepBrown/90 dark:text-cream whitespace-pre-wrap">{r.body}</div>
+													<div className="flex items-center gap-3 text-[12px] text-deepBrown/70 dark:text-cream/70">
+														{canComment && (
+															<button
+																className="hover:text-deepBrown/90"
+																onClick={() => setReplyOpen(prev => ({ ...prev, [r.id]: !prev[r.id] }))}
+															>
+																Reply
+															</button>
+														)}
+														{canDeleteReply && (
+															<button className="hover:text-red-600" onClick={() => remove(r.id)}>
+																Delete
+															</button>
+														)}
+													</div>
+													{replyOpen[r.id] && canComment && (
+														<div className="space-y-1">
+															<textarea
+																className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-white text-deepBrown dark:bg-[#1a1512] dark:text-cream p-2 text-sm placeholder:text-deepBrown/40 dark:placeholder:text-cream/50"
+																rows={2}
+																value={replyText[r.id] ?? ""}
+																maxLength={500}
+																placeholder="Write a reply..."
+																onChange={e => setReplyText(prev => ({ ...prev, [r.id]: e.target.value }))}
+															/>
+															<div className="flex gap-2">
+																<Button
+																	variant="secondary"
+																	size="sm"
+																	disabled={submittingId !== null}
+																	onClick={() => submit(replyText[r.id] ?? "", r.id)}
+																>
+																	{submittingId ? "Posting..." : "Reply"}
+																</Button>
+																<Button variant="secondary" size="sm" onClick={() => setReplyOpen(prev => ({ ...prev, [r.id]: false }))}>
+																	Cancel
+																</Button>
+															</div>
+														</div>
+													)}
+												</div>
+											);
+										})}
+									</div>
+								)}
+							</div>
+						</div>
+					</div>
+				);
+			})}
+
+			{canComment && (
+				<div className="space-y-1">
+					<textarea
+						className="w-full rounded-md border border-deepBrown/20 dark:border-white/15 bg-white text-deepBrown dark:bg-[#1a1512] dark:text-cream p-2 text-sm placeholder:text-deepBrown/40 dark:placeholder:text-cream/50"
+						rows={3}
+						value={newBody}
+						maxLength={500}
+						placeholder="Add a comment..."
+						onChange={e => setNewBody(e.target.value)}
+					/>
+					<div className="flex justify-end">
+						<Button variant="secondary" size="sm" disabled={submittingId !== null} onClick={() => submit(newBody, null)}>
+							{submittingId ? "Posting..." : "Post comment"}
+						</Button>
+					</div>
 				</div>
-			))}
+			)}
 		</div>
 	);
 }

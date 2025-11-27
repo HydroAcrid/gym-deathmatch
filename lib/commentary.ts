@@ -402,20 +402,20 @@ export async function onPotChanged(lobbyId: string, delta: number, potOverride?:
 		potVal = lobby?.cash_pool ?? 0;
 	}
 	potVal = Number(potVal ?? 0);
-	const rendered = `Ante collected. Pot climbs to $${potVal}`;
+	const renderedBase = `Ante collected. Pot climbs to $${potVal}`;
 	const { data: exists } = await supabase
 		.from("comments")
 		.select("id")
 		.eq("lobby_id", lobbyId)
 		.eq("type", "POT")
-		.eq("rendered", rendered)
 		.contains("payload", { delta, pot: potVal } as any)
 		.gte("created_at", since)
 		.limit(1);
 	if (exists && exists.length) return;
 	const receipts = ["🧾", "💸", "📜", "🏦"];
-	const flair = receipts[Math.floor(Math.random() * receipts.length)];
-	await insertQuips(lobbyId, [{ type: "POT", rendered: `${rendered} ${flair}`, payload: { delta, pot: potVal }, visibility: "feed" } as Quip]);
+	// Deterministic flair to keep dedupe stable
+	const flair = receipts[(Math.abs(Math.floor(potVal)) + receipts.length) % receipts.length];
+	await insertQuips(lobbyId, [{ type: "POT", rendered: `${renderedBase} ${flair}`, payload: { delta, pot: potVal }, visibility: "feed" } as Quip]);
 
 	// Milestone shout-outs
 	const milestones = [50, 100, 250, 500];

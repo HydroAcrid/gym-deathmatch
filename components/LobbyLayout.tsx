@@ -49,6 +49,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const [editOpen, setEditOpen] = useState(false);
 	const { user } = useAuth();
 	const toast = useToast();
+	const [potAmount, setPotAmount] = useState<number>(currentPot);
 
 	// Determine owner
 	const myPlayerId = useMemo(() => {
@@ -63,6 +64,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		if (user?.id && ownerPlayer?.userId) return ownerPlayer.userId === user.id;
 		return !!(lobbyData.ownerId && myPlayerId && lobbyData.ownerId === myPlayerId);
 	}, [user?.id, (lobbyData as any).ownerUserId, lobbyData.ownerId, players, myPlayerId]);
+
+	useEffect(() => {
+		setPotAmount(currentPot);
+	}, [currentPot]);
 	
 	// Notify parent of owner/stage status
 	useEffect(() => {
@@ -269,7 +274,38 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						<>
 							{String(mode || "").startsWith("MONEY_") ? (
 								<div className="mb-4">
-									<Scoreboard amount={currentPot} endIso={lobbyData.seasonEnd} />
+									<Scoreboard
+										amount={potAmount}
+										endIso={lobbyData.seasonEnd}
+										canEdit={isOwner}
+										onEdit={async () => {
+											if (!isOwner || !user?.id) return;
+											const input = window.prompt("Set pot amount", String(potAmount));
+											if (input === null) return;
+											const target = Number(input);
+											if (!Number.isFinite(target) || target < 0) {
+												toast.push("Enter a valid non-negative number.");
+												return;
+											}
+											try {
+												const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/pot`, {
+													method: "POST",
+													headers: { "Content-Type": "application/json", "x-user-id": user.id },
+													body: JSON.stringify({ targetPot: target })
+												});
+												const data = await res.json().catch(() => ({}));
+												if (!res.ok) {
+													toast.push(data.error || "Failed to update pot");
+													return;
+												}
+												setPotAmount(target);
+												toast.push("Pot updated");
+												onRefresh?.();
+											} catch {
+												toast.push("Failed to update pot");
+											}
+										}}
+									/>
 								</div>
 							) : (
 								<div className="mb-4">

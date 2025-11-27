@@ -84,7 +84,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
         .limit(limit),
       supabase.from("comments").select("id,type,rendered,created_at,primary_player_id").eq("lobby_id", lobbyId).in("visibility", visibilityFilters).order("created_at", { ascending: false }).limit(limit),
       supabase.from("player").select("id,name,avatar_url,user_id,hearts,lives_remaining").eq("lobby_id", lobbyId),
-      supabase.from("lobby").select("id,name,owner_id,owner_user_id").eq("id", lobbyId).maybeSingle(),
+      supabase.from("lobby").select("id,name,owner_id,owner_user_id,cash_pool").eq("id", lobbyId).maybeSingle(),
     ]);
 
 		let voteRows: VoteRow[] = [];

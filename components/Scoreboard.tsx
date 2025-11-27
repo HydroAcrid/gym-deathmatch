@@ -57,10 +57,14 @@ function SplitFlapNumber({ amount }: { amount: number }) {
 
 export function Scoreboard({
 	amount,
-	endIso
+	endIso,
+	canEdit = false,
+	onEdit
 }: {
 	amount: number;
 	endIso: string;
+	canEdit?: boolean;
+	onEdit?: () => void;
 }) {
 	const router = useRouter();
 	
@@ -79,9 +83,18 @@ export function Scoreboard({
 				Current Pot
 			</div>
 			<div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
-				<div className="poster-headline text-5xl sm:text-6xl md:text-7xl leading-none text-accent-primary text-print-error animate-stamp" data-text={`$${amount}`}>
+				<button
+					type="button"
+					disabled={!canEdit}
+					onClick={() => canEdit && onEdit?.()}
+					className={`poster-headline text-5xl sm:text-6xl md:text-7xl leading-none text-accent-primary text-print-error animate-stamp transition transform ${
+						canEdit ? "hover:scale-[1.01] focus:scale-[1.01] focus:outline-none" : ""
+					}`}
+					title={canEdit ? "Click to adjust pot" : undefined}
+					data-text={`$${amount}`}
+				>
 					<SplitFlapNumber amount={amount} />
-				</div>
+				</button>
 				<div className="countdown-wrap mt-2 md:mt-0 transform rotate-1 group-hover:rotate-0 transition-transform duration-300">
 					<Countdown endIso={endIso} label="SEASON ENDS IN" onReachedZero={handleSeasonEnd} />
 				</div>

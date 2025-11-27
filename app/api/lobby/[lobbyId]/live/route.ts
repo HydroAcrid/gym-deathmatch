@@ -793,6 +793,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			}
 		} catch { /* ignore */ }
 		currentPot = (lobby.initialPot ?? 0) + contributionsSum;
+		if (Number.isFinite((lobby as any).cashPool)) {
+			currentPot = (lobby as any).cashPool as number;
+		}
 		if (supabase && newContributions.length) {
 			const existingPot = currentPot - newContributions.reduce((s, n) => s + n, 0);
 			let rollingPot = existingPot;

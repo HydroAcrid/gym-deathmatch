@@ -320,6 +320,70 @@ create unique index if not exists comments_activity_dedupe_idx on comments (lobb
 -- Prevent duplicate tight-race summaries (rendered string encodes pot)
 create unique index if not exists comments_tight_race_once_idx on comments (lobby_id, type, rendered) where type = 'SUMMARY' and payload ? 'tightRace';
 
+-- User-generated comments on manual activities
+create table if not exists post_comments (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  activity_id uuid not null references manual_activities(id) on delete cascade,
+  author_player_id text not null references player(id) on delete cascade,
+  parent_id uuid null references post_comments(id) on delete cascade,
+  thread_root_id uuid null references post_comments(id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now(),
+  check (char_length(body) between 1 and 500)
+);
+alter table post_comments enable row level security;
+create index if not exists post_comments_activity_created_idx on post_comments (activity_id, created_at);
+create index if not exists post_comments_parent_idx on post_comments (parent_id);
+create index if not exists post_comments_lobby_created_idx on post_comments (lobby_id, created_at);
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'post_comments' and policyname = 'post_comments_select_lobby_member'
+  ) then
+    create policy post_comments_select_lobby_member on post_comments
+    for select using (
+      exists (
+        select 1 from player p
+        where p.lobby_id = post_comments.lobby_id
+          and p.user_id::text = auth.uid()::text
+      )
+    );
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'post_comments' and policyname = 'post_comments_insert_self'
+  ) then
+    create policy post_comments_insert_self on post_comments
+    for insert with check (
+      exists (
+        select 1 from player p
+        where p.id = post_comments.author_player_id
+          and p.lobby_id = post_comments.lobby_id
+          and p.user_id::text = auth.uid()::text
+      )
+    );
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'post_comments' and policyname = 'post_comments_delete_self_or_owner'
+  ) then
+    create policy post_comments_delete_self_or_owner on post_comments
+    for delete using (
+      exists (
+        select 1
+        from player p
+        where p.id = post_comments.author_player_id
+          and p.user_id::text = auth.uid()::text
+      )
+      or exists (
+        select 1
+        from lobby l
+        where l.id = post_comments.lobby_id
+          and l.owner_user_id::text = auth.uid()::text
+      )
+    );
+  end if;
+end $$;
+
 -- Idempotent add: per-player sudden death toggle
 do $$
 begin
