@@ -56,6 +56,7 @@ period: "daily" | "weekly";
 	const heartsLeaders = heartsLeadersArr.length ? heartsLeadersArr.slice(0, 3).join(" • ") + (heartsLeadersArr.length > 3 ? ` +${heartsLeadersArr.length - 3}` : "") : "—";
 	const heartsLow = heartsLowArr.length ? heartsLowArr.slice(0, 3).join(" • ") + (heartsLowArr.length > 3 ? ` +${heartsLowArr.length - 3}` : "") : "—";
 	const heartsValue = heartsLeadersArr.length ? heartsLeaders : "No data";
+	const heartsDebug = data.heartsDebug;
 	const spotlight = (data.quips || []).find(q => q.text.toLowerCase().includes("photo of the day"));
 
 	const containerVariants = {
@@ -184,6 +185,11 @@ period: "daily" | "weekly";
 								<div className="mt-2 text-xs space-y-1">
 									<div className="text-cream/70">Leaders: {heartsLeadersArr.join(" • ") || "—"}</div>
 									<div className="text-cream/70">Lowest: {heartsLowArr.join(" • ") || "—"}</div>
+								</div>
+							)}
+							{heartsDebug && (
+								<div className="mt-2 text-[11px] text-cream/50">
+									<span>Players counted: {heartsDebug.playerCount}</span>
 								</div>
 							)}
 						</motion.div>

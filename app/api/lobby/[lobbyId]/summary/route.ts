@@ -19,13 +19,24 @@ type SummaryPayload = {
 		max: number;
 		min: number;
 	};
+	heartsDebug?: {
+		playerCount: number;
+		leadersRaw: Array<{ name: string; lives: number }>;
+		lowRaw: Array<{ name: string; lives: number }>;
+	};
 	quips?: Array<{ text: string; created_at: string }>;
 };
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+
+	// Membership check via x-user-id header (same pattern as history route)
+	const userId = req.headers.get("x-user-id") || "";
+	if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
+	const { data: member } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
+	if (!member) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
 
 	const now = new Date();
 	const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -95,6 +106,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		return { leaders, low, max, min };
 	})();
 
+	const heartsDebug = (() => {
+		const playersArr = Array.from(playerMap.entries()).map(([id, v]) => ({ name: v.name, lives: v.lives }));
+		if (!playersArr.length) return { playerCount: 0, leadersRaw: [], lowRaw: [] };
+		const maxLives = Math.max(...playersArr.map(p => p.lives));
+		const minLives = Math.min(...playersArr.map(p => p.lives));
+		return {
+			playerCount: playersArr.length,
+			leadersRaw: playersArr.filter(p => p.lives === maxLives),
+			lowRaw: playersArr.filter(p => p.lives === minLives)
+		};
+	})();
+
 	const quips = (quipsRes.data ?? []).map(q => ({ text: q.rendered as string, created_at: q.created_at as string }));
 
 	const payload: SummaryPayload = {
@@ -110,6 +133,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		},
 		pot: Number(lobbyRes.data?.cash_pool ?? 0),
 		hearts,
+		heartsDebug,
 		quips
 	};
 
