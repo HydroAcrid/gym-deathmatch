@@ -82,7 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 
 	const { data: activity } = await supabase
 		.from("manual_activities")
-		.select("id,lobby_id")
+		.select("id,lobby_id,player_id")
 		.eq("id", activityId)
 		.maybeSingle();
 	if (!activity) return NextResponse.json({ error: "Activity not found" }, { status: 404 });
@@ -159,7 +159,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 
 	// Push notify activity owner or parent comment author (if different from poster)
 	try {
-		const { data: ownerPlayer } = await supabase.from("player").select("user_id,name").eq("id", activity.player_id as string).maybeSingle();
+		const ownerPlayerId = (activity as any)?.player_id as string | undefined;
+		const { data: ownerPlayer } = ownerPlayerId
+			? await supabase.from("player").select("user_id,name").eq("id", ownerPlayerId).maybeSingle()
+			: { data: null };
 		const targets: Array<{ userId: string; name?: string | null }> = [];
 		if (parentAuthorUserId && parentAuthorUserId !== player.user_id) {
 			targets.push({ userId: parentAuthorUserId, name: parentAuthorName });
