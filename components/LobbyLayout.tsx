@@ -125,22 +125,41 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				if (!res.ok) return;
 				const j = await res.json();
 				const data = j.summary;
-					if (!data) return;
-					setPeriodSummary(data);
-					if (shouldShowWeekly && data.weekly) {
-						setSummaryPeriod("weekly");
-						setSummaryOpen(true);
-						setSummarySeenKey(`${keyWeekly}|${weekKey}`);
-					} else if (shouldShowDaily && data.daily) {
-						setSummaryPeriod("daily");
-						setSummaryOpen(true);
-						setSummarySeenKey(`${keyDaily}|${dayKey}`);
-					}
-				} catch {
-					// ignore
+				if (!data) return;
+
+				// Fallback: if hearts missing, derive from current live data
+				if ((!data.hearts || (data.heartsDebug?.playerCount ?? 0) === 0) && (liveData?.players?.length ?? 0) > 0) {
+					const lives = (liveData?.players ?? []).map((p: any) => ({
+						name: p.name ?? "Athlete",
+						lives: p.livesRemaining ?? p.lives_remaining ?? 0
+					}));
+					const max = Math.max(...lives.map(l => l.lives));
+					const min = Math.min(...lives.map(l => l.lives));
+					const leaders = lives.filter(l => l.lives === max).map(l => l.name);
+					const low = lives.filter(l => l.lives === min).map(l => l.name);
+					data.hearts = { leaders, low, max, min };
+					data.heartsDebug = {
+						playerCount: lives.length,
+						leadersRaw: lives.filter(l => l.lives === max),
+						lowRaw: lives.filter(l => l.lives === min)
+					};
 				}
-			})();
-	}, [user?.id, lobbyData?.id]);
+
+				setPeriodSummary(data);
+				if (shouldShowWeekly && data.weekly) {
+					setSummaryPeriod("weekly");
+					setSummaryOpen(true);
+					setSummarySeenKey(`${keyWeekly}|${weekKey}`);
+				} else if (shouldShowDaily && data.daily) {
+					setSummaryPeriod("daily");
+					setSummaryOpen(true);
+					setSummarySeenKey(`${keyDaily}|${dayKey}`);
+				}
+			} catch {
+				// ignore
+			}
+		})();
+	}, [user?.id, lobbyData?.id, liveData?.players]);
 
 	// Show connection errors
 	useEffect(() => {

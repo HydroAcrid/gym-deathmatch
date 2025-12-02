@@ -107,7 +107,7 @@ period: "daily" | "weekly";
 					initial="hidden"
 					animate="show"
 					exit="exit"
-					className="paper-card paper-grain ink-edge w-full max-w-3xl sm:max-w-4xl max-h-[calc(100vh-140px)] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6 pb-20 border-4 relative mt-10 sm:mt-0"
+					className="paper-card paper-grain ink-edge w-full max-w-3xl sm:max-w-4xl max-h-[calc(100vh-140px)] sm:max-h-[90vh] overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-3 sm:p-6 pb-20 border-4 relative mt-10 sm:mt-0"
 					style={{
 						borderColor: "#E1542A",
 						boxShadow: "0 0 32px rgba(225,84,42,0.35)",

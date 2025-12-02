@@ -70,7 +70,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	]);
 
 	const playerMap = new Map<string, { name: string; lives: number }>();
-	for (const p of (playersRes.data ?? [])) {
+	let playersData = (playersRes.data ?? []) as Array<{ id: string; name: string; lives_remaining?: number | null; hearts?: number | null }>;
+	if ((!playersData || playersData.length === 0) && playersRes.error) {
+		console.error("summary players error", playersRes.error);
+	}
+	if (!playersData || playersData.length === 0) {
+		// Defensive retry in case a policy blocked the first query
+		const { data: retry } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
+		playersData = retry as any[] ?? [];
+	}
+	for (const p of playersData) {
 		const lives = Number(p.lives_remaining ?? p.hearts ?? 0);
 		playerMap.set(p.id as string, { name: p.name as string, lives });
 	}

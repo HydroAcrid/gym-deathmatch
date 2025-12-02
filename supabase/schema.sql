@@ -25,6 +25,17 @@ create table if not exists player (
   user_id text
 );
 
+-- Idempotent player state columns used by app logic
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='player' and column_name='hearts') then
+    alter table player add column hearts int not null default 3;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='player' and column_name='lives_remaining') then
+    alter table player add column lives_remaining int not null default 3;
+  end if;
+end $$;
+
 create table if not exists strava_token (
   player_id text primary key references player(id) on delete cascade,
   access_token text not null,
@@ -37,6 +48,23 @@ create table if not exists strava_token (
 alter table lobby enable row level security;
 alter table player enable row level security;
 alter table strava_token enable row level security;
+-- Allow lobby members (and owner) to read player rows; service role still bypasses RLS
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'player' and policyname = 'player_select_member') then
+    create policy player_select_member on player
+    for select using (
+      exists (
+        select 1 from player p2
+        where p2.lobby_id = player.lobby_id
+          and p2.user_id::text = auth.uid()::text
+      )
+      or exists (
+        select 1 from lobby l where l.id = player.lobby_id and l.owner_user_id::text = auth.uid()::text
+      )
+    );
+  end if;
+end $$;
 
 -- User profile (per auth user)
 create table if not exists user_profile (
