@@ -128,8 +128,9 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				if (!data) return;
 
 				// Fallback: if hearts missing, derive from current live data
-				if ((!data.hearts || (data.heartsDebug?.playerCount ?? 0) === 0) && (liveData?.players?.length ?? 0) > 0) {
-					const lives = (liveData?.players ?? []).map((p: any) => ({
+				const livePlayers = ((liveData as any)?.players ?? liveData?.lobby?.players ?? lobbyData.players ?? []) as any[];
+				if ((!data.hearts || (data.heartsDebug?.playerCount ?? 0) === 0) && livePlayers.length > 0) {
+					const lives = livePlayers.map((p: any) => ({
 						name: p.name ?? "Athlete",
 						lives: p.livesRemaining ?? p.lives_remaining ?? 0
 					}));
@@ -159,7 +160,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				// ignore
 			}
 		})();
-	}, [user?.id, lobbyData?.id, liveData?.players]);
+	}, [user?.id, lobbyData?.id, liveData?.lobby?.players?.length]);
 
 	// Show connection errors
 	useEffect(() => {
