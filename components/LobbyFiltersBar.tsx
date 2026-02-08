@@ -40,7 +40,7 @@ export function LobbyFiltersBar({
 	const [showFilters, setShowFilters] = useState<boolean>(false);
 
 	return (
-		<div className="paper-card paper-grain ink-edge p-4 mb-6">
+		<div className="scoreboard-panel p-4 mb-6">
 			{/* Search Bar */}
 			<div className="mb-4">
 				<input
@@ -48,7 +48,7 @@ export function LobbyFiltersBar({
 					placeholder="Search lobbies…"
 					value={searchQuery}
 					onChange={(e) => onSearchChange(e.target.value)}
-					className="w-full px-4 py-2 rounded-md border border-deepBrown/30 bg-cream text-deepBrown placeholder:text-deepBrown/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
+					className="w-full px-4 py-2 rounded-md border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
 				/>
 			</div>
 
@@ -56,11 +56,11 @@ export function LobbyFiltersBar({
 			<div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
 				{/* Sort Dropdown */}
 				<div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
-					<label className="text-xs text-deepBrown/70 whitespace-nowrap shrink-0">Sort by:</label>
+					<label className="text-xs text-muted-foreground whitespace-nowrap shrink-0">Sort by:</label>
 					<select
 						value={sortBy}
 						onChange={(e) => onSortChange(e.target.value as SortOption)}
-						className="flex-1 sm:flex-initial min-w-0 px-3 py-2 rounded-md border border-deepBrown/30 bg-cream text-deepBrown text-xs focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary"
+						className="flex-1 sm:flex-initial min-w-0 px-3 py-2 rounded-md border border-border bg-input text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
 					>
 						<option value="newest">Date created (newest first)</option>
 						<option value="oldest">Date created (oldest first)</option>
@@ -74,13 +74,13 @@ export function LobbyFiltersBar({
 				{/* Filter Toggle Button (Mobile) */}
 				<button
 					onClick={() => setShowFilters(!showFilters)}
-					className="sm:hidden px-3 py-2 rounded-md border border-deepBrown/30 text-xs text-deepBrown/70 hover:bg-cream/50"
+					className="sm:hidden arena-badge px-3 py-2 text-xs"
 				>
 					{showFilters ? "Hide Filters" : "Show Filters"} {showFilters ? "▲" : "▼"}
 				</button>
 
 				{/* Results Count */}
-				<div className="text-xs text-deepBrown/70">
+				<div className="text-xs text-muted-foreground">
 					{filteredCount === totalCount ? (
 						<span>{totalCount} {totalCount === 1 ? "lobby" : "lobbies"}</span>
 					) : (
@@ -92,14 +92,14 @@ export function LobbyFiltersBar({
 			</div>
 
 			{/* Filter Checkboxes */}
-			<div className={`mt-4 pt-4 border-t border-deepBrown/20 ${showFilters ? "block" : "hidden sm:block"}`}>
+			<div className={`mt-4 pt-4 border-t border-border ${showFilters ? "block" : "hidden sm:block"}`}>
 				<div className="flex flex-wrap gap-3 sm:gap-4 text-xs">
 					<label className="inline-flex items-center gap-2 cursor-pointer">
 						<input
 							type="checkbox"
 							checked={filters.showMine}
 							onChange={(e) => onFiltersChange({ ...filters, showMine: e.target.checked })}
-							className="w-4 h-4 rounded border-deepBrown/30 text-accent-primary focus:ring-2 focus:ring-accent-primary/50"
+							className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/40"
 						/>
 						<span>Show only lobbies I own</span>
 					</label>
@@ -108,7 +108,7 @@ export function LobbyFiltersBar({
 							type="checkbox"
 							checked={filters.showActive}
 							onChange={(e) => onFiltersChange({ ...filters, showActive: e.target.checked })}
-							className="w-4 h-4 rounded border-deepBrown/30 text-accent-primary focus:ring-2 focus:ring-accent-primary/50"
+							className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/40"
 						/>
 						<span>Show active only</span>
 					</label>
@@ -117,7 +117,7 @@ export function LobbyFiltersBar({
 							type="checkbox"
 							checked={filters.showCompleted}
 							onChange={(e) => onFiltersChange({ ...filters, showCompleted: e.target.checked })}
-							className="w-4 h-4 rounded border-deepBrown/30 text-accent-primary focus:ring-2 focus:ring-accent-primary/50"
+							className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/40"
 						/>
 						<span>Show completed</span>
 					</label>
@@ -126,7 +126,7 @@ export function LobbyFiltersBar({
 							type="checkbox"
 							checked={filters.showMoney}
 							onChange={(e) => onFiltersChange({ ...filters, showMoney: e.target.checked })}
-							className="w-4 h-4 rounded border-deepBrown/30 text-accent-primary focus:ring-2 focus:ring-accent-primary/50"
+							className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/40"
 						/>
 						<span>Money mode only</span>
 					</label>
@@ -135,7 +135,7 @@ export function LobbyFiltersBar({
 							type="checkbox"
 							checked={filters.showChallenge}
 							onChange={(e) => onFiltersChange({ ...filters, showChallenge: e.target.checked })}
-							className="w-4 h-4 rounded border-deepBrown/30 text-accent-primary focus:ring-2 focus:ring-accent-primary/50"
+							className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/40"
 						/>
 						<span>Challenge mode only</span>
 					</label>

@@ -34,18 +34,18 @@ export function Navbar() {
 		return tab;
 	});
 	return (
-		<div className="sticky top-0 z-50 bg-main">
+		<div className="sticky top-0 z-50 bg-background text-foreground">
 			<div className="mx-auto max-w-6xl">
-				<div className="flex items-center justify-between py-1.5 sm:py-2 px-2 sm:px-3 border-b-4" style={{ borderColor: "var(--accent-primary)" }}>
-					<div className="poster-headline text-xl sm:text-2xl text-main">GYM DEATHMATCH</div>
+				<div className="flex items-center justify-between py-1.5 sm:py-2 px-2 sm:px-3 border-b border-border">
+					<div className="font-display text-xl sm:text-2xl text-primary">GYM DEATHMATCH</div>
 					<div className="flex items-center gap-2">
 						<div className="flex items-center gap-2">
 							{user ? (
-								<button onClick={signOut} className="px-3 py-1 rounded-full border border-deepBrown/30 text-[10px] sm:text-xs font-medium hover:bg-deepBrown/5 transition-colors">
+								<button type="button" onClick={signOut} className="arena-badge px-3 py-1 text-[10px] sm:text-xs">
 									Sign out
 								</button>
 							) : (
-								<button onClick={signInWithGoogle} className="px-3 py-1 rounded-full border border-deepBrown/30 text-[10px] sm:text-xs font-medium hover:bg-deepBrown/5 transition-colors">
+								<button type="button" onClick={signInWithGoogle} className="arena-badge px-3 py-1 text-[10px] sm:text-xs">
 									Sign in
 								</button>
 							)}
@@ -54,7 +54,7 @@ export function Navbar() {
 						{/* Theme toggle */}
 						<button
 							aria-label="Toggle theme"
-							className="w-7 h-7 flex items-center justify-center rounded-md border border-[var(--accent-primary)] text-xs hover:bg-[var(--accent-primary)] hover:text-white transition-colors"
+							className="w-7 h-7 flex items-center justify-center rounded-md border border-border text-xs hover:bg-primary hover:text-primary-foreground transition-colors"
 							onClick={toggleTheme}
 							title={theme === "dark" ? "Switch to light" : "Switch to dark"}
 						>
@@ -76,15 +76,15 @@ export function Navbar() {
 						}
 						return (
 							<Link key={t.href} href={t.href} className="relative min-h-[44px] flex items-center">
-								<motion.span className="poster-headline text-[11px] sm:text-sm tracking-wide relative block px-0.5"
+								<motion.span className="font-display text-[11px] sm:text-sm tracking-wide relative block px-0.5 text-foreground"
 									whileHover={{ y: -1, filter: "brightness(1.1)" }}
 								>
 									<span className="px-1">{t.label.toUpperCase()}</span>
 									{active && (
 										<motion.span
 											layoutId={`nav-underline`}
-											className="absolute left-0 -bottom-1 h-1 rounded-sm"
-											style={{ backgroundColor: "var(--accent-primary)", width: "100%" }}
+											className="absolute left-0 -bottom-1 h-1 rounded-sm bg-primary"
+											style={{ width: "100%" }}
 											transition={{ type: "spring", stiffness: 500, damping: 35 }}
 										/>
 									)}
@@ -94,7 +94,7 @@ export function Navbar() {
 					})}
 					<div className="ml-auto flex items-center gap-2">
 						<CreateLobby />
-						{user && <Link href="/lobbies" className="btn-secondary px-3 py-2 rounded-md text-xs min-h-[44px] flex items-center">My Lobbies</Link>}
+						{user && <Link href="/lobbies" className="arena-badge px-3 py-2 text-xs min-h-[44px] flex items-center">My Lobbies</Link>}
 						<IntroGuide />
 					</div>
 				</nav>

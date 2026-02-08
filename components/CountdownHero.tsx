@@ -70,15 +70,15 @@ export function CountdownHero({
 			<div className="stage-spotlight" />
 			<div className="stage-noise" />
 			<div className={`p-6 md:p-8 text-center ${nearStart ? "stage-warn" : ""}`}>
-				<div className="poster-headline text-2xl md:text-3xl mb-2 flex items-center justify-center gap-2">
+				<div className="font-display text-2xl md:text-3xl mb-2 flex items-center justify-center gap-2 text-foreground">
 					<span className="flicker-slow">⚡</span>
 					<span>DEATHMATCH BEGINS IN</span>
 					<span className="flicker-slow">⚡</span>
 				</div>
 
 				{/* Stage Info bar */}
-				<div className="text-[11px] tracking-widest uppercase text-deepBrown/80 mb-4">
-					{seasonLabel} • Hosted by {hostName || "Host"} • {numAthletes} Athletes Registered {warmup ? <span className="ml-2 px-2 py-0.5 rounded bg-[#75402f]/40 text-cream">🔥 Warm Up Mode Active</span> : null}
+				<div className="text-[11px] tracking-widest uppercase text-muted-foreground mb-4">
+					{seasonLabel} • Hosted by {hostName || "Host"} • {numAthletes} Athletes Registered {warmup ? <span className="ml-2 px-2 py-0.5 rounded bg-arena-gold/20 text-arena-gold border border-arena-gold/40">🔥 Warm Up Mode Active</span> : null}
 				</div>
 
 				{/* Big segmented countdown */}
@@ -99,7 +99,7 @@ export function CountdownHero({
 							initial={{ opacity: 0, scale: 0.9 }}
 							animate={{ opacity: 1, scale: 1 }}
 							exit={{ opacity: 0 }}
-							className="mt-4 poster-headline text-2xl md:text-3xl text-cream"
+							className="mt-4 font-display text-2xl md:text-3xl text-arena-gold"
 						>
 							DEATHMATCH BEGINS!
 						</motion.div>
@@ -111,7 +111,7 @@ export function CountdownHero({
 }
 
 function Colon() {
-	return <div className="poster-headline text-2xl sm:text-3xl md:text-5xl text-cream/80 mb-3 sm:mb-4">·</div>;
+	return <div className="font-display text-2xl sm:text-3xl md:text-5xl text-muted-foreground mb-3 sm:mb-4">·</div>;
 }
 
 function TimeBlock({ label, value }: { label: string; value: number }) {
@@ -121,12 +121,12 @@ function TimeBlock({ label, value }: { label: string; value: number }) {
 			initial={{ opacity: 0, y: 6 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.25 }}
-			className="bg-[#1f1a17]/70 border border-[#3a2d28] rounded-md px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
+			className="bg-muted/40 border border-border rounded-md px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3"
 		>
-			<div className="poster-headline text-3xl sm:text-4xl md:text-7xl leading-none text-cream">
+			<div className="font-display text-3xl sm:text-4xl md:text-7xl leading-none text-foreground">
 				{String(value).padStart(2, "0")}
 			</div>
-			<div className="text-[9px] sm:text-[10px] md:text-[11px] tracking-widest text-deepBrown/70 mt-1 text-center">{label}</div>
+			<div className="text-[9px] sm:text-[10px] md:text-[11px] tracking-widest text-muted-foreground mt-1 text-center">{label}</div>
 		</motion.div>
 	);
 }

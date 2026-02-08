@@ -210,3 +210,33 @@
 
 **What’s next**
 - Final sweep for any remaining legacy components and visual mismatches.
+
+---
+
+## Phase 2 Milestone 16 (Completed)
+
+**Countdown + overlays polish**
+- Updated `CountdownHero`, `Countdown`, `PunishmentBanner`, and `WinnerOverlay` to UI2 styling.
+
+**What’s next**
+- Final sweep for any remaining legacy components and visual mismatches.
+
+---
+
+## Phase 2 Milestone 17 (Completed)
+
+**Legacy nav + buttons polish**
+- Updated `Navbar`, `MobileNav`, `ToastProvider`, `AuthButtons`, and `components/ui/Button` to UI2 styling.
+
+**What’s next**
+- Final sweep for any remaining legacy components and visual mismatches.
+
+---
+
+## Phase 2 Milestone 18 (Completed)
+
+**Legacy list + feed polish**
+- Updated `LobbyFiltersBar` and legacy `RecentFeed` to UI2 styling.
+
+**What’s next**
+- Final sweep for any remaining legacy components and visual mismatches.

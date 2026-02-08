@@ -43,12 +43,12 @@ export function PunishmentBanner({ lobbyId }: { lobbyId: string }) {
 	const s = Math.floor((ms % 60000) / 1000);
 
 	return (
-		<div className="paper-card paper-grain ink-edge px-3 py-2 mb-3 border border-deepBrown/20">
+		<div className="scoreboard-panel px-3 py-2 mb-3">
 			<div className="flex flex-wrap items-center gap-2">
-				<div className="text-xs text-deepBrown/70">WEEKLY PUNISHMENT</div>
-				<div className="text-sm">“{text}”</div>
-				<div className="ml-auto text-xs text-deepBrown/70">{d}d {h}h {m}m {String(s).padStart(2, "0")}s · {tz || "local"}</div>
-				<a href="#suggest-punishment" className="text-xs underline ml-2">Suggest</a>
+				<div className="text-xs text-muted-foreground">WEEKLY PUNISHMENT</div>
+				<div className="text-sm text-foreground">“{text}”</div>
+				<div className="ml-auto text-xs text-muted-foreground">{d}d {h}h {m}m {String(s).padStart(2, "0")}s · {tz || "local"}</div>
+				<a href="#suggest-punishment" className="text-xs underline ml-2 text-primary">Suggest</a>
 			</div>
 		</div>
 	);

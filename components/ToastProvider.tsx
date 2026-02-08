@@ -29,7 +29,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 					{toasts.map((t) => (
 						<motion.div key={t.id}
 							initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-							className="paper-card paper-grain ink-edge px-3 py-2 text-sm bg-tan">
+							className="scoreboard-panel px-3 py-2 text-sm bg-card text-foreground">
 							{t.message}
 						</motion.div>
 					))}

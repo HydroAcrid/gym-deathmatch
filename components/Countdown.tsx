@@ -53,9 +53,9 @@ export function Countdown({
 	};
 	if (!mounted) return null;
 	return (
-		<div className="inline-flex items-center gap-3 px-3 py-2 bg-elevated rounded-md border border-strong ink-edge">
-			<div className="text-[10px] text-muted">{label}</div>
-			<div className="flex gap-2 items-baseline poster-headline text-2xl text-main">
+		<div className="inline-flex items-center gap-3 px-3 py-2 bg-muted/30 rounded-md border border-border">
+			<div className="text-[10px] text-muted-foreground">{label}</div>
+			<div className="flex gap-2 items-baseline font-display text-2xl text-foreground">
 				<AnimatePresence mode="popLayout" initial={false}>
 					<motion.span key={`d-${remaining.days}`} {...numVariants}>
 						{remaining.days} DAYS

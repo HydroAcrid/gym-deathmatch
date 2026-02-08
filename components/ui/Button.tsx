@@ -19,15 +19,15 @@ export function Button({
 	disabled,
 	...props 
 }: ButtonProps) {
-	const baseStyles = "inline-flex items-center justify-center font-medium transition-all duration-200 rounded-md";
+	const baseStyles = "inline-flex items-center justify-center transition-all duration-200 rounded-md";
 	
 	const variantStyles = {
 		primary: disabled 
-			? "bg-deepBrown/30 text-deepBrown/50 cursor-not-allowed"
-			: "bg-accent-primary text-white hover:brightness-110 active:brightness-95 shadow-sm uppercase tracking-wide font-medium",
+			? "bg-muted text-muted-foreground cursor-not-allowed"
+			: "arena-badge arena-badge-primary uppercase tracking-wide font-medium",
 		secondary: disabled
-			? "bg-transparent border border-deepBrown/20 text-deepBrown/50 cursor-not-allowed"
-			: "bg-transparent border border-accent-primary/50 text-deepBrown dark:text-cream hover:bg-accent-primary/10 hover:border-accent-primary active:bg-accent-primary/20 uppercase tracking-wide font-normal"
+			? "bg-transparent border border-border text-muted-foreground cursor-not-allowed"
+			: "arena-badge uppercase tracking-wide font-normal"
 	};
 	
 	const sizeStyles = {
