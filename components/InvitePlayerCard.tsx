@@ -63,40 +63,40 @@ export function InvitePlayerCard({ onAdd, onReplace, lobbyId }: Props) {
 
 	if (!open) {
 		return (
-			<button onClick={() => setOpen(true)} className="paper-card paper-grain ink-edge p-6 text-left rounded-md">
-				<div className="poster-headline text-sm">ENLIST A NEW CHALLENGER</div>
-				<div className="text-xs text-deepBrown/70 mt-1">Add a player to this lobby</div>
+			<button onClick={() => setOpen(true)} className="scoreboard-panel p-6 text-left">
+				<div className="font-display text-sm text-primary">ENLIST A NEW CHALLENGER</div>
+				<div className="text-xs text-muted-foreground mt-1">Add a player to this lobby</div>
 			</button>
 		);
 	}
 
 	return (
-		<div className="paper-card paper-grain ink-edge p-4 rounded-md">
-			<div className="poster-headline text-sm mb-2">INVITE PLAYER</div>
+		<div className="scoreboard-panel p-4">
+			<div className="font-display text-sm text-primary mb-2">INVITE PLAYER</div>
 			<div className="grid gap-2">
 				<input
 					value={name}
 					onChange={e => setName(e.target.value)}
 					placeholder="Name"
-					className="px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown placeholder:text-deepBrown/50"
+					className="px-3 py-2 rounded-md border border-border bg-input text-foreground placeholder:text-muted-foreground"
 				/>
 				<input
 					value={avatarUrl}
 					onChange={e => setAvatarUrl(e.target.value)}
 					placeholder="Avatar URL"
-					className="px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown placeholder:text-deepBrown/50"
+					className="px-3 py-2 rounded-md border border-border bg-input text-foreground placeholder:text-muted-foreground"
 				/>
 				<input
 					value={quip}
 					onChange={e => setQuip(e.target.value)}
 					placeholder="Quip (optional)"
-					className="px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown placeholder:text-deepBrown/50"
+					className="px-3 py-2 rounded-md border border-border bg-input text-foreground placeholder:text-muted-foreground"
 				/>
 				<div className="flex gap-2 mt-2">
-					<button onClick={submit} className="btn-vintage px-3 py-2 rounded-md text-[10px]" disabled={saving}>
+					<button onClick={submit} className="arena-badge arena-badge-primary px-3 py-2 text-[10px]" disabled={saving}>
 						{saving ? "Saving..." : "Add"}
 					</button>
-					<button onClick={() => setOpen(false)} className="px-3 py-2 rounded-md border border-deepBrown/40 text-deepBrown text-[10px]">
+					<button onClick={() => setOpen(false)} className="arena-badge px-3 py-2 text-[10px]">
 						Cancel
 					</button>
 				</div>

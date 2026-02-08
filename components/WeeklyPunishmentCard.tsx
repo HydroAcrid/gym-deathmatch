@@ -178,7 +178,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
   const hasActive = !!active;
   const title = hasActive ? "CURRENT WEEK DETAILS" : "SUGGEST A PUNISHMENT";
   return (
-    <div className="paper-card paper-grain ink-edge p-4 relative overflow-hidden">
+    <div className="scoreboard-panel p-4 relative overflow-hidden">
       {showConfetti && (
         <div className="pointer-events-none absolute inset-0 animate-[fall_1.5s_ease-in-out]">
           <div className="absolute top-0 left-1/4">🎊</div>
@@ -187,33 +187,33 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
         </div>
       )}
       <div className="flex items-start gap-3">
-        <div className="poster-headline text-sm uppercase tracking-wide">{title}</div>
-        <div className="ml-auto text-xs text-deepBrown/70">{week ? `Week ${week}` : ""}</div>
+        <div className="font-display text-sm uppercase tracking-wide text-primary">{title}</div>
+        <div className="ml-auto text-xs text-muted-foreground">{week ? `Week ${week}` : ""}</div>
       </div>
-      {errorMsg && <div className="mt-2 text-[12px] text-[#a13535]">⚠ {errorMsg}</div>}
+      {errorMsg && <div className="mt-2 text-[12px] text-destructive">⚠ {errorMsg}</div>}
       {hasActive ? (
         <div className="mt-2">
           <div className="text-sm">“{active?.text}”</div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setReady(true)}>Ready ✅</button>
-            <button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setReady(false)}>Not ready ⏳</button>
+            <button className="arena-badge arena-badge-primary px-3 py-2 text-xs" onClick={() => setReady(true)}>Ready ✅</button>
+            <button className="arena-badge px-3 py-2 text-xs" onClick={() => setReady(false)}>Not ready ⏳</button>
           </div>
         </div>
       ) : (
         <div className="mt-2">
-          <div id="suggest-punishment" className="text-xs text-deepBrown/70 mb-2">Each player may submit one idea (50 chars). Owner can spin.</div>
+          <div id="suggest-punishment" className="text-xs text-muted-foreground mb-2">Each player may submit one idea (50 chars). Owner can spin.</div>
           <div className="flex gap-2">
             <input
-              className="flex-1 px-3 py-2 rounded-md border border-deepBrown/30 bg-cream text-deepBrown"
+              className="flex-1 px-3 py-2 rounded-md border border-border bg-input text-foreground"
               placeholder="e.g., Run a 5K in a costume 🎃"
               value={text}
               maxLength={50}
               onChange={e => setText(e.target.value)}
               disabled={locked}
             />
-            <button className="btn-secondary px-3 py-2 rounded-md text-xs" disabled={busy || !text.trim() || locked} onClick={suggest}>Submit</button>
+            <button className="arena-badge px-3 py-2 text-xs" disabled={busy || !text.trim() || locked} onClick={suggest}>Submit</button>
           </div>
-          <div className="mt-3 text-xs text-deepBrown/70">Submissions:</div>
+          <div className="mt-3 text-xs text-muted-foreground">Submissions:</div>
           <ul className="mt-1 text-sm list-disc pl-5">
             {items.map(i => (
               <li key={i.id} className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
                 {/* Resolve for self; approve for owner */}
                 {(user?.id || isOwner) && (
                   <button
-                    className="px-2 py-1 rounded-md border border-deepBrown/30 text-[11px]"
+                    className="arena-badge px-2 py-1 text-[11px]"
                     onClick={async () => {
                       try {
                         const r = await fetch(`/api/punishments/${encodeURIComponent(i.id)}/resolve`, {
@@ -245,13 +245,13 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
                 )}
               </li>
             ))}
-            {!items.length && <li className="text-deepBrown/60">No submissions yet.</li>}
+            {!items.length && <li className="text-muted-foreground">No submissions yet.</li>}
           </ul>
           <div className="mt-3 flex gap-2 items-center">
-            <button className="btn-vintage px-3 py-2 rounded-md text-xs" disabled={busy || items.length === 0 || locked} onClick={spin}>Spin roulette 🎡</button>
+            <button className="arena-badge arena-badge-primary px-3 py-2 text-xs" disabled={busy || items.length === 0 || locked} onClick={spin}>Spin roulette 🎡</button>
             {isOwner && (
               <button
-                className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
+                className="arena-badge px-3 py-2 text-xs"
                 onClick={async () => {
                   try {
                     const r = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments/lock`, {
@@ -281,7 +281,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
       {isOwner && (
         <div className="mt-4 flex flex-wrap gap-2 items-center">
           <button
-            className={`btn-secondary px-3 py-2 rounded-md text-xs ${!allReady ? "opacity-60" : ""}`}
+            className={`arena-badge px-3 py-2 text-xs ${!allReady ? "opacity-60" : ""}`}
             disabled={!allReady}
             onClick={async () => {
               if (!confirm("Start the match now? All players are marked Ready.")) return;
@@ -295,7 +295,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
             Start match
           </button>
           <button
-            className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
+            className="arena-badge px-3 py-2 text-xs"
             onClick={async () => {
               if (!confirm("Owner override: start match now?")) return;
               await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
@@ -307,7 +307,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
           >
             Override start (owner)
           </button>
-          <div className="text-[11px] text-deepBrown/70">{allReady ? "All players ready" : `Waiting for players… ${(window as any).__gymdm_ready || ""}`}</div>
+          <div className="text-[11px] text-muted-foreground">{allReady ? "All players ready" : `Waiting for players… ${(window as any).__gymdm_ready || ""}`}</div>
         </div>
       )}
       {/* Spinning wheel overlay */}
@@ -322,7 +322,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
             <div className="relative h-64 w-64">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl">▼</div>
               <motion.div
-                className="h-full w-full rounded-full overflow-hidden border-4 border-cream"
+                className="h-full w-full rounded-full overflow-hidden border-4 border-border"
                 animate={{ rotate: wheelAngle }}
                 transition={{ duration: 2.2, ease: [0.17, 0.67, 0.22, 0.99] }}
                 style={{ background: wheelBg }}
@@ -332,7 +332,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
                   {wheelSegs.map((t, i) => {
                     const angle = (360 / wheelSegs.length) * i;
                     return (
-                      <div key={i} className="absolute left-1/2 top-1/2 origin-left text-[10px] text-cream drop-shadow"
+                      <div key={i} className="absolute left-1/2 top-1/2 origin-left text-[10px] text-foreground drop-shadow"
                         style={{ transform: `rotate(${angle}deg) translateX(14px)` }}>
                         {t.slice(0, 24)}
                       </div>

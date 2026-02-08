@@ -32,12 +32,12 @@ export function CashPool({ amount }: { amount: number }) {
 	}, [amount, prefersReduced]);
 
 	return (
-		<motion.div className="paper-card paper-grain ink-edge p-0 overflow-hidden text-center ring-1" style={{ boxShadow: "0 12px 30px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)", borderColor: "rgba(225,84,42,0.35)" }}>
-			<div className="bg-burntOrange text-cream pt-5 pb-3 md:pt-6 md:pb-4">
+		<motion.div className="scoreboard-panel p-0 overflow-hidden text-center">
+			<div className="bg-arena-gold/15 text-arena-gold pt-5 pb-3 md:pt-6 md:pb-4 border-b border-border">
 				<div className="text-[11px] tracking-[0.14em] opacity-95">CURRENT POT</div>
-				<div className="poster-headline text-6xl md:text-7xl leading-none mt-1">${displayAmount}</div>
+				<div className="font-display text-6xl md:text-7xl leading-none mt-1">${displayAmount}</div>
 			</div>
-			<div className="py-1 text-deepBrown text-s tracking-wide">
+			<div className="py-2 text-muted-foreground text-[11px] tracking-wide">
 				ANTE +$10 WEEKLY ★ FIRST TO 0 LIVES PAYS
 			</div>
 		</motion.div>

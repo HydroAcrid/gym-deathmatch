@@ -51,11 +51,11 @@ export function ChallengeSettingsCard({
 	if (!isChallenge) return null;
 	return (
 		<div className="mt-4">
-			<div className="poster-headline text-sm mb-2">CHALLENGE SETTINGS</div>
+			<div className="font-display text-sm mb-2 text-primary">CHALLENGE SETTINGS</div>
 			{/* Punishment selection */}
 			<div className="text-xs mb-1 flex items-center gap-2">
 				<span>Punishment selection</span>
-				<button type="button" title="How each week’s punishment is chosen." className="text-deepBrown/70" aria-label="Help">
+				<button type="button" title="How each week’s punishment is chosen." className="text-muted-foreground" aria-label="Help">
 					<svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
 						<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-1c0-1.657 2-1.5 2-3 0-.552-.448-1-1-1s-1 .448-1 1H9c0-1.657 1.343-3 3-3s3 1.343 3 3c0 1.858-2 1.917-2 3v1Zm-2-8h2v2h-2V9Z"/>
 					</svg>
@@ -63,7 +63,7 @@ export function ChallengeSettingsCard({
 			</div>
 			<div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
 				{(["ROULETTE","VOTING","HOST_DECIDES"] as PunishmentSelection[]).map(opt => (
-					<label key={opt} className={`text-xs flex items-center gap-2 px-2 py-2 rounded-md border ${selection===opt?"border-deepBrown":"border-deepBrown/30"}`}>
+					<label key={opt} className={`text-xs flex items-center gap-2 px-2 py-2 rounded-md border ${selection===opt?"border-border":"border-border/50"}`}>
 						<input type="radio" name="selection" checked={selection===opt} onChange={() => onChange({ ...value, selection: opt })} />
 						<span>{opt === "ROULETTE" ? "Roulette" : opt === "VOTING" ? "Voting" : "Host decides"}</span>
 					</label>
@@ -73,7 +73,7 @@ export function ChallengeSettingsCard({
 			{/* Spin frequency */}
 			<div className="text-xs mb-1 flex items-center gap-2">
 				<span>Spin frequency</span>
-				<button type="button" title="How often the roulette/vote runs." className="text-deepBrown/70" aria-label="Help">
+				<button type="button" title="How often the roulette/vote runs." className="text-muted-foreground" aria-label="Help">
 					<svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
 						<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-1c0-1.657 2-1.5 2-3 0-.552-.448-1-1-1s-1 .448-1 1H9c0-1.657 1.343-3 3-3s3 1.343 3 3c0 1.858-2 1.917-2 3v1Zm-2-8h2v2h-2V9Z"/>
 					</svg>
@@ -81,7 +81,7 @@ export function ChallengeSettingsCard({
 			</div>
 			<div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
 				{(["WEEKLY","BIWEEKLY","SEASON_ONLY"] as SpinFrequency[]).map(opt => (
-					<label key={opt} className={`text-xs flex items-center gap-2 px-2 py-2 rounded-md border ${value.spinFrequency===opt?"border-deepBrown":"border-deepBrown/30"}`}>
+					<label key={opt} className={`text-xs flex items-center gap-2 px-2 py-2 rounded-md border ${value.spinFrequency===opt?"border-border":"border-border/50"}`}>
 						<input type="radio" name="spinFrequency" checked={value.spinFrequency===opt} onChange={() => onChange({ ...value, spinFrequency: opt })} />
 						<span>{opt === "WEEKLY" ? "Weekly" : opt === "BIWEEKLY" ? "Biweekly" : "Once per season"}</span>
 					</label>
@@ -91,7 +91,7 @@ export function ChallengeSettingsCard({
 			{/* Visibility */}
 			<div className="text-xs mb-1 flex items-center gap-2">
 				<span>Visibility</span>
-				<button type="button" title="Whether punishments are visible to all or revealed only to the player who failed." className="text-deepBrown/70" aria-label="Help">
+				<button type="button" title="Whether punishments are visible to all or revealed only to the player who failed." className="text-muted-foreground" aria-label="Help">
 					<svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
 						<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-1c0-1.657 2-1.5 2-3 0-.552-.448-1-1-1s-1 .448-1 1H9c0-1.657 1.343-3 3-3s3 1.343 3 3c0 1.858-2 1.917-2 3v1Zm-2-8h2v2h-2V9Z"/>
 					</svg>
@@ -99,7 +99,7 @@ export function ChallengeSettingsCard({
 			</div>
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
 				{(["PUBLIC","HIDDEN_ON_FAIL"] as PunishmentVisibility[]).map(opt => (
-					<label key={opt} className={`text-xs flex items-center gap-2 px-2 py-2 rounded-md border ${value.visibility===opt?"border-deepBrown":"border-deepBrown/30"}`}>
+					<label key={opt} className={`text-xs flex items-center gap-2 px-2 py-2 rounded-md border ${value.visibility===opt?"border-border":"border-border/50"}`}>
 						<input type="radio" name="visibility" checked={value.visibility===opt} onChange={() => onChange({ ...value, visibility: opt })} />
 						<span>{opt === "PUBLIC" ? "Public" : "Hidden on fail"}</span>
 					</label>
@@ -117,7 +117,7 @@ export function ChallengeSettingsCard({
 				<span title="Cumulative only: each failed week adds another punishment for that player.">Stack punishments each week</span>
 			</label>
 			{!isCumulative && (
-				<div className="text-[11px] text-deepBrown/70 mb-2">Cumulative only. In Roulette, punishments are weekly and don’t stack.</div>
+				<div className="text-[11px] text-muted-foreground mb-2">Cumulative only. In Roulette, punishments are weekly and don’t stack.</div>
 			)}
 
 			{/* Other toggles */}
@@ -151,7 +151,7 @@ export function ChallengeSettingsCard({
 						min={1}
 						max={140}
 						step={1}
-						className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+						className="w-full px-3 py-2 rounded-md border border-border bg-input text-foreground"
 						value={value.suggestionCharLimit}
 						onChange={e => onChange({ ...value, suggestionCharLimit: Math.min(140, Math.max(1, Number(e.target.value || 50))) })}
 					/>
@@ -159,7 +159,7 @@ export function ChallengeSettingsCard({
 			</div>
 
 			{/* Dynamic copy */}
-			<div className="text-[11px] text-deepBrown/70 mt-2">
+			<div className="text-[11px] text-muted-foreground mt-2">
 				{mode === "CHALLENGE_ROULETTE" && <div>Punishments are chosen by wheel unless host selects "Voting" or "Host decides."</div>}
 				{mode === "CHALLENGE_CUMULATIVE" && <div>Players who fail multiple weeks accumulate punishments.</div>}
 			</div>

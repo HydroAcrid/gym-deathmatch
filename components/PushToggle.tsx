@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
-import { Button } from "./ui/Button";
+import { Button } from "@/src/ui2/ui/button";
 import { useToast } from "./ToastProvider";
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -120,16 +120,16 @@ export function PushToggle() {
 
 	return (
 		<div className="w-full">
-			<div className="w-full rounded-lg border border-deepBrown/20 bg-cream text-deepBrown shadow-inner dark:bg-[#1a1512] dark:text-cream dark:border-white/10 px-3 py-3">
+			<div className="w-full rounded-lg border border-border bg-muted/30 text-foreground px-3 py-3">
 				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-					<div className="text-deepBrown/80 dark:text-cream/80">
+					<div className="text-muted-foreground">
 						<div className="uppercase tracking-[0.12em] font-semibold text-[11px]">Notifications</div>
-						<div className="text-[11px] text-deepBrown/60 dark:text-cream/60">Alerts about replies and activity.</div>
+						<div className="text-[11px] text-muted-foreground">Alerts about replies and activity.</div>
 					</div>
 					<div className="flex items-center gap-2 flex-wrap">
 						<span className="uppercase tracking-wide font-semibold text-[11px]">Alerts</span>
 						<Button
-							variant="secondary"
+							variant="outline"
 							size="sm"
 							className="min-w-[90px]"
 							disabled={loading || blocked}
@@ -138,7 +138,7 @@ export function PushToggle() {
 							{buttonLabel}
 						</Button>
 						{blocked && (
-							<span className="text-[11px] text-deepBrown/60 dark:text-cream/60 max-w-[160px]">
+							<span className="text-[11px] text-muted-foreground max-w-[160px]">
 								Unblock in browser settings
 							</span>
 						)}

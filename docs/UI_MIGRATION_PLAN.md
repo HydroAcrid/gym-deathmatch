@@ -190,3 +190,23 @@
 
 **What’s next**
 - Continue sweeping remaining legacy components (ProfileAvatar, PushToggle, WeeklyPunishmentCard, ChallengeSettingsCard, etc.).
+
+---
+
+## Phase 2 Milestone 14 (Completed)
+
+**Profile + punishments polish**
+- Updated `ProfileAvatar`, `PushToggle`, `WeeklyPunishmentCard`, and `ChallengeSettingsCard` to UI2 styling.
+
+**What’s next**
+- Final sweep for any remaining legacy components and visual mismatches.
+
+---
+
+## Phase 2 Milestone 15 (Completed)
+
+**Status + invite polish**
+- Updated `StatusPill`, `QuipBubble`, `InvitePlayerCard`, and `CashPool` to UI2 styling.
+
+**What’s next**
+- Final sweep for any remaining legacy components and visual mismatches.

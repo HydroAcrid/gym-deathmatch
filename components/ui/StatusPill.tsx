@@ -8,16 +8,16 @@ interface StatusPillProps {
 }
 
 export function StatusPill({ status, className = "" }: StatusPillProps) {
-	const baseStyles = "inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium";
+	const baseStyles = "inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-display tracking-widest uppercase border";
 	
 	const statusStyles: Record<StatusType, string> = {
-		approved: "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30",
-		pending: "bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30",
-		rejected: "bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30",
-		online: "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30",
-		offline: "bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30",
-		ready: "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30",
-		"not-ready": "bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+		approved: "bg-[hsl(var(--status-online))]/20 text-[hsl(var(--status-online))] border-[hsl(var(--status-online))]/40",
+		pending: "bg-primary/20 text-primary border-primary/40",
+		rejected: "bg-destructive/20 text-destructive border-destructive/40",
+		online: "bg-[hsl(var(--status-online))]/20 text-[hsl(var(--status-online))] border-[hsl(var(--status-online))]/40",
+		offline: "bg-destructive/20 text-destructive border-destructive/40",
+		ready: "bg-[hsl(var(--status-online))]/20 text-[hsl(var(--status-online))] border-[hsl(var(--status-online))]/40",
+		"not-ready": "bg-muted/30 text-muted-foreground border-border"
 	};
 	
 	const labels: Record<StatusType, string> = {
