@@ -18,23 +18,25 @@ export default function OnboardPage() {
 	// Show loading while auth hydrates
 	if (!isHydrated) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-main text-main">
-				<div className="text-center">
-					<div className="text-sm text-deepBrown/70">Loading…</div>
-				</div>
+			<div className="ui2-scope min-h-screen flex items-center justify-center">
+				<div className="text-muted-foreground">Loading…</div>
 			</div>
 		);
 	}
 
 	// Show sign-in page
 	return (
-		<div className="mx-auto max-w-2xl py-10 px-4">
-			<div className="paper-card paper-grain ink-edge p-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-				<div className="poster-headline text-xl mb-2">Welcome to Gym Deathmatch</div>
-				<div className="text-sm mb-3">Sign in to get started.</div>
-				<button className="btn-vintage px-4 py-2 rounded-md" onClick={signInWithGoogle}>
-					Continue with Google
-				</button>
+		<div className="ui2-scope min-h-screen">
+			<div className="container mx-auto max-w-2xl py-12 px-4">
+				<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
+					<div className="font-display text-xl tracking-widest text-primary">WELCOME TO GYM DEATHMATCH</div>
+					<div className="text-sm text-muted-foreground">Sign in to get started.</div>
+					<div>
+						<button className="arena-badge arena-badge-primary px-4 py-2" onClick={signInWithGoogle}>
+							CONTINUE WITH GOOGLE
+						</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	);

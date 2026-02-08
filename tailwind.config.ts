@@ -12,10 +12,10 @@ export default {
 	theme: {
 		extend: {
 			colors: {
-				cream: "#1E1714",       // dark cream (background)
-				tan: "#2B211D",         // dark tan (cards)
-				burntOrange: "#E1542A", // accent
-				deepBrown: "#F5E7D3",   // light text on dark surfaces
+				cream: "hsl(var(--foreground))",
+				tan: "hsl(var(--card))",
+				burntOrange: "hsl(var(--primary))",
+				deepBrown: "hsl(var(--foreground))",
 				mutedTeal: "#7FA39A",   // secondary accent
 				neonBlue: "#00FFFF",
 				neonPink: "#FF00FF",

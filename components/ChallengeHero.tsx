@@ -150,12 +150,12 @@ export function ChallengeHero({
 	const displayText = punishmentText || "No punishment selected yet";
 
 	return (
-		<div className="paper-card paper-grain ink-edge scoreboard-vignette px-4 sm:px-6 py-4 sm:py-5 text-center">
-			<div className="uppercase tracking-[0.14em] text-[10px] sm:text-[11px] text-deepBrown/70 mb-1">
+		<div className="scoreboard-panel scoreboard-vignette px-4 sm:px-6 py-4 sm:py-5 text-center">
+			<div className="uppercase tracking-[0.14em] text-[10px] sm:text-[11px] text-muted-foreground mb-1">
 				{label}
 			</div>
 			<div className="flex flex-col items-center justify-center gap-4">
-				<div className="poster-headline text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight text-cream break-words max-w-full px-2">
+				<div className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight text-primary break-words max-w-full px-2">
 					"{displayText}"
 				</div>
 				{nextSpinIso && (
@@ -165,7 +165,7 @@ export function ChallengeHero({
 				)}
 			</div>
 			{/* Meta row */}
-			<div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[10px] sm:text-[11px] text-deepBrown/70 uppercase tracking-wide">
+			<div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wide">
 				{week && <span>WEEK {week}</span>}
 				{week && tz && <span>•</span>}
 				{tz && <span>{tz.replace(/_/g, " ")}</span>}

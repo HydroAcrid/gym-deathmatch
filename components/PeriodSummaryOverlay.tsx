@@ -83,11 +83,11 @@ period: "daily" | "weekly";
 		<motion.div
 			custom={0}
 			variants={cardVariants}
-			className="flex items-center gap-3 px-3 py-2 rounded-full border border-accent-primary/40 bg-[#1a1512]/70 text-cream shadow-[0_0_24px_rgba(225,84,42,0.18)]"
+			className="flex items-center gap-3 px-3 py-2 rounded-full border border-primary/40 bg-muted/30 text-foreground"
 		>
 			<span className="text-lg">{icon}</span>
 			<div className="text-left">
-				<div className="uppercase tracking-[0.14em] text-[10px] text-cream/70">{label}</div>
+				<div className="uppercase tracking-[0.14em] text-[10px] text-muted-foreground">{label}</div>
 				<div className="text-base font-semibold">{value}</div>
 			</div>
 		</motion.div>
@@ -107,19 +107,14 @@ period: "daily" | "weekly";
 					initial="hidden"
 					animate="show"
 					exit="exit"
-					className="paper-card paper-grain ink-edge w-full max-w-3xl sm:max-w-4xl max-h-[calc(100vh-140px)] sm:max-h-[90vh] overflow-y-scroll overflow-x-hidden [scrollbar-gutter:stable_both-edges] p-3 sm:p-6 pb-20 border-4 relative mt-10 sm:mt-0"
-					style={{
-						borderColor: "#E1542A",
-						boxShadow: "0 0 32px rgba(225,84,42,0.35)",
-						background: "radial-gradient(circle at 20% 20%, rgba(225,84,42,0.06), transparent 25%), #1a0f0a"
-					}}
+					className="scoreboard-panel w-full max-w-3xl sm:max-w-4xl max-h-[calc(100vh-140px)] sm:max-h-[90vh] overflow-y-scroll overflow-x-hidden [scrollbar-gutter:stable_both-edges] p-3 sm:p-6 pb-20 border-2 relative mt-10 sm:mt-0"
 					onClick={(e) => e.stopPropagation()}
 				>
-					<div className="absolute inset-0 pointer-events-none mix-blend-screen opacity-[0.06] bg-[radial-gradient(circle_at_top_left,#f3a93e,transparent_40%)]" />
+					<div className="absolute inset-0 pointer-events-none mix-blend-screen opacity-[0.08] bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)),transparent_40%)]" />
 					<div className="text-center mb-4 space-y-1 relative">
-						<div className="poster-headline text-2xl sm:text-4xl tracking-[0.2em]">{heading}</div>
-						<div className="text-deepBrown/80 dark:text-cream/80 text-xs sm:text-sm uppercase tracking-[0.16em]">{sub}</div>
-						<div className="mx-auto w-16 h-[2px] bg-gradient-to-r from-accent-primary/0 via-accent-primary to-accent-primary/0" />
+						<div className="font-display text-2xl sm:text-4xl tracking-[0.2em] text-primary">{heading}</div>
+						<div className="text-muted-foreground text-xs sm:text-sm uppercase tracking-[0.16em]">{sub}</div>
+						<div className="mx-auto w-16 h-[2px] bg-gradient-to-r from-primary/0 via-primary to-primary/0" />
 					</div>
 
 					<motion.div
@@ -139,13 +134,13 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={0}
-							className="mb-4 rounded-xl border border-accent-primary/40 bg-gradient-to-r from-[#2a1811] via-[#1a0f0a] to-[#2a1811] text-cream p-4 shadow-[0_0_24px_rgba(225,84,42,0.25)]"
+							className="mb-4 rounded-xl border border-primary/40 bg-muted/30 text-foreground p-4"
 						>
-							<div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.14em] text-cream/80">
+							<div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.14em] text-muted-foreground">
 								<span>🔥 Spotlight</span>
 							</div>
-							<div className="poster-headline text-xl mt-1">ATHLETE SPOTLIGHT</div>
-							<div className="text-sm mt-1 opacity-90">{spotlight.text}</div>
+							<div className="font-display text-xl mt-1 text-primary">ATHLETE SPOTLIGHT</div>
+							<div className="text-sm mt-1">{spotlight.text}</div>
 						</motion.div>
 					)}
 
@@ -155,14 +150,14 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={1}
-							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+							className="rounded-xl border border-border bg-card text-foreground p-4"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">💰</span>
-								<div className="poster-headline text-lg tracking-[0.12em]">Pot</div>
+								<div className="font-display text-lg tracking-[0.12em] text-primary">Pot</div>
 							</div>
-							<div className="text-4xl font-bold text-accent-primary mb-1">${data.pot ?? 0}</div>
-							<div className="text-sm text-cream/80">Stakes climbing.</div>
+							<div className="text-4xl font-bold text-arena-gold mb-1">${data.pot ?? 0}</div>
+							<div className="text-sm text-muted-foreground">Stakes climbing.</div>
 						</motion.div>
 
 						<motion.div
@@ -170,17 +165,17 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={2}
-							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+							className="rounded-xl border border-border bg-card text-foreground p-4"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">❤️</span>
-								<div className="poster-headline text-lg tracking-[0.12em]">Hearts</div>
+								<div className="font-display text-lg tracking-[0.12em] text-primary">Hearts</div>
 							</div>
-							<div className="text-sm text-cream/80">Leaders: {heartsLeaders}</div>
-							<div className="text-sm text-cream/80">Lowest: {heartsLow}</div>
+							<div className="text-sm text-muted-foreground">Leaders: {heartsLeaders}</div>
+							<div className="text-sm text-muted-foreground">Lowest: {heartsLow}</div>
 							{(heartsLeadersArr.length > 3 || heartsLowArr.length > 3) && (
 								<button
-									className="text-[11px] mt-1 text-cream/60 underline underline-offset-2"
+									className="text-[11px] mt-1 text-muted-foreground underline underline-offset-2"
 									onClick={() => setShowHeartsFull(!showHeartsFull)}
 								>
 									{showHeartsFull ? "Hide full list" : "Show full list"}
@@ -188,12 +183,12 @@ period: "daily" | "weekly";
 							)}
 							{showHeartsFull && (
 								<div className="mt-2 text-xs space-y-1">
-									<div className="text-cream/70">Leaders: {heartsLeadersArr.join(" • ") || "—"}</div>
-									<div className="text-cream/70">Lowest: {heartsLowArr.join(" • ") || "—"}</div>
+									<div className="text-muted-foreground">Leaders: {heartsLeadersArr.join(" • ") || "—"}</div>
+									<div className="text-muted-foreground">Lowest: {heartsLowArr.join(" • ") || "—"}</div>
 								</div>
 							)}
 							{heartsDebug && (
-								<div className="mt-2 text-[11px] text-cream/50">
+								<div className="mt-2 text-[11px] text-muted-foreground">
 									<span>Players counted: {heartsDebug.playerCount}</span>
 								</div>
 							)}
@@ -204,17 +199,17 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={3}
-							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] lg:col-span-2"
+							className="rounded-xl border border-border bg-card text-foreground p-4 lg:col-span-2"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">⚔️</span>
-								<div className="poster-headline text-lg tracking-[0.12em]">Battle Log</div>
+								<div className="font-display text-lg tracking-[0.12em] text-primary">Battle Log</div>
 							</div>
-							<div className="space-y-1 text-sm text-cream/85">
+							<div className="space-y-1 text-sm text-muted-foreground">
 								{data.quips && data.quips.length
 									? data.quips.slice(0, 5).map((q, i) => (
 										<div key={i} className="flex items-start gap-2">
-											<span className="text-cream/60">⚔️</span>
+											<span className="text-muted-foreground">⚔️</span>
 											<span className="leading-relaxed">{q.text}</span>
 										</div>
 									))

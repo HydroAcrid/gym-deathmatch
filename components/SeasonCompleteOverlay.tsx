@@ -97,8 +97,7 @@ export function SeasonCompleteOverlay({
 						animate={{ opacity: 1, scale: 1, y: 0 }}
 						exit={{ opacity: 0, scale: 0.95, y: 20 }}
 						transition={{ duration: 0.3, ease: "easeOut" }}
-						className="paper-card paper-grain ink-edge max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 border-4"
-						style={{ borderColor: "#E1542A" }}
+						className="ui2-scope scoreboard-panel max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 border-2"
 						onClick={(e) => e.stopPropagation()}
 					>
 						{/* Header */}
@@ -106,7 +105,7 @@ export function SeasonCompleteOverlay({
 							<div className="poster-headline text-3xl sm:text-4xl md:text-5xl mb-2">
 								SEASON {seasonNumber} COMPLETE
 							</div>
-							<div className="text-deepBrown/80 text-sm sm:text-base">
+							<div className="text-muted-foreground text-sm sm:text-base">
 								{subheading}
 							</div>
 						</div>

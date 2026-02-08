@@ -100,3 +100,93 @@
 
 **What’s next**
 - Migrate voting + comments surfaces across remaining screens.
+
+---
+
+## Phase 2 Milestone 6 (Completed)
+
+**Stats + history landings**
+- Updated `app/stats/page.tsx` and `app/history/page.tsx` to UI2 panels.
+- Migrated `app/lobby/[lobbyId]/stats/page.tsx` to UI2 layout.
+- Added explicit desktop hide rules for `MobileBottomNav` to prevent it showing on large screens.
+
+**What’s next**
+- Finish remaining pages: home, rules, privacy, summary, admin/edit, and any legacy UI pieces.
+
+---
+
+## Phase 2 Milestone 7 (Completed)
+
+**Home + rules + privacy + summary**
+- Updated `app/home/page.tsx` to UI2 layout.
+- Updated `app/rules/page.tsx` and `app/privacy/page.tsx` to UI2 styling.
+- Migrated `app/lobby/[lobbyId]/summary/page.tsx` to UI2 layout.
+
+**What’s next**
+- Review remaining legacy UI components (admin/edit modals, on-boarding) and finish parity.
+
+---
+
+## Phase 2 Milestone 8 (Completed)
+
+**Onboarding + join flow**
+- Updated `app/onboard/page.tsx`, `app/onboard/[lobbyId]/page.tsx`, `app/join/[lobbyId]/page.tsx` to UI2 styling.
+- Updated `components/JoinLobby.tsx` to UI2 modal styles.
+- Updated root loading screen in `app/page.tsx` to UI2.
+
+**What’s next**
+- Finish admin/edit modals (OwnerSettingsModal, CreateLobby) and remaining legacy UI.
+
+---
+
+## Phase 2 Milestone 9 (Completed)
+
+**Admin + create flows**
+- Scoped UI2 overrides for legacy classes in `app/globals.css`.
+- Updated `CreateLobby`, `OwnerSettingsModal`, and `CreateLobbyInfo` to render under `ui2-scope`.
+- Ensured onboarding/join flows use UI2 styles end-to-end.
+
+**What’s next**
+- Final sweep for any remaining legacy components or pages.
+
+---
+
+## Phase 2 Milestone 10 (Completed)
+
+**Loading states**
+- Updated global, lobby, and lobbies loading screens to UI2 styling.
+
+**What’s next**
+- Final sweep for any remaining legacy UI (IntroGuide, modals, and edge-case pages).
+
+---
+
+## Phase 2 Milestone 11 (Completed)
+
+**Intro guide modal**
+- Scoped IntroGuide modal to UI2 to inherit new palette and buttons.
+
+**What’s next**
+- Final verification pass and polish for any remaining legacy-styled components.
+
+---
+
+## Phase 2 Milestone 12 (Completed)
+
+**Core active lobby visuals**
+- Restyled `PlayerCard`, `HeartDisplay`, `WeekSetup`, `ChallengeHero`, and `Scoreboard` to UI2 tokens.
+- Mapped legacy color tokens to UI2 variables in `tailwind.config.ts` and `app/globals.css`.
+
+**What’s next**
+- Continue polishing any remaining legacy-styled components and finalize visual parity.
+
+---
+
+## Phase 2 Milestone 13 (Completed)
+
+**Overlay + roulette polish**
+- Updated `PeriodSummaryOverlay`, `KoOverlay`, `SeasonCompleteOverlay`, and `RouletteTransitionPanel` to UI2 styling.
+- Expanded UI2 token overrides for legacy text/border/background helpers.
+
+**What’s next**
+- Continue sweeping remaining legacy components (ProfileAvatar, PushToggle, WeeklyPunishmentCard, ChallengeSettingsCard, etc.).

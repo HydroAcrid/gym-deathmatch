@@ -64,79 +64,85 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 	}
 
 	return (
-		<div className="mx-auto max-w-6xl">
-			<div className="paper-card paper-grain ink-edge p-5 mb-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-				<div className="poster-headline text-lg mb-1">LOBBY STATS</div>
-				<div className="text-deepBrown/70 text-xs">SEASON {seasonNumber}</div>
-			</div>
-
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-				<div className="paper-card paper-grain ink-edge p-4">
-					<div className="text-xs text-deepBrown/70">TOTAL WORKOUTS</div>
-					<div className="poster-headline text-4xl">{totals.totalWorkouts}</div>
-				</div>
-				<div className="paper-card paper-grain ink-edge p-4">
-					<div className="text-xs text-deepBrown/70">COMBINED STREAK DAYS</div>
-					<div className="poster-headline text-4xl">{totals.combinedStreaks}</div>
-				</div>
-				<div className="paper-card paper-grain ink-edge p-4">
-					<div className="text-xs text-deepBrown/70">MOST CONSISTENT</div>
-					<div className="poster-headline text-sm">{totals.mostConsistent?.name?.toUpperCase() ?? "-"}</div>
-					<div className="text-deepBrown/80 text-2xl font-semibold">
-						{totals.mostConsistent ? `${totals.mostConsistent.averageWorkoutsPerWeek.toFixed(1)} AVG/WK` : "--"}
+		<div className="ui2-scope min-h-screen">
+			<div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+				<div className="scoreboard-panel p-5 sm:p-6 text-center relative overflow-hidden">
+					<div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
+					<div className="relative z-10 space-y-1">
+						<div className="font-display text-xl tracking-widest text-primary">LOBBY STATS</div>
+						<div className="text-xs text-muted-foreground">SEASON {seasonNumber}</div>
 					</div>
 				</div>
-			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-				{players.map((p) => {
-					const s = perPlayerStats(p);
-					return (
-						<div key={p.name} className="paper-card paper-grain ink-edge p-4">
-							<div className="poster-headline text-base mb-1">{p.name.toUpperCase()}</div>
-							<div className="grid grid-cols-2 gap-3 text-sm">
-								<div>
-									<div className="text-xs text-deepBrown/70">TOTAL TIME</div>
-									<div className="font-semibold text-deepBrown">{s.totalMinutes} min</div>
-								</div>
-								<div>
-									<div className="text-xs text-deepBrown/70">TOTAL DISTANCE</div>
-									<div className="font-semibold text-deepBrown">{s.totalDistance.toFixed(1)} km</div>
-								</div>
-								<div>
-									<div className="text-xs text-deepBrown/70">AVG DURATION</div>
-									<div className="font-semibold text-deepBrown">{s.avgDuration} min</div>
-								</div>
-								<div>
-									<div className="text-xs text-deepBrown/70">MOST FREQUENT</div>
-									<div className="font-semibold text-deepBrown">{titleCase(s.mostFrequentType)}</div>
-								</div>
-								<div>
-									<div className="text-xs text-deepBrown/70">LONGEST WORKOUT</div>
-									<div className="font-semibold text-deepBrown">{s.longest ? `${s.longest.durationMinutes} min` : "-"}</div>
-								</div>
-								<div>
-									<div className="text-xs text-deepBrown/70">EARLIEST / LATEST</div>
-									<div className="font-semibold text-deepBrown">
-										{(s.earliest ?? "-")}h / {(s.latest ?? "-")}h
-									</div>
-								</div>
-							</div>
-							{/* Source breakdown (approved manual posts are included in totals) */}
-							{(p as any).activityCounts ? (
-								<div className="mt-3 text-xs text-deepBrown/80">
-									<div className="text-[11px] text-deepBrown/60 mb-1">ACTIVITY SOURCES</div>
-									<div className="flex flex-wrap gap-3">
-										<span>All: {(p as any).activityCounts.total}</span>
-										<span>📡 Strava: {(p as any).activityCounts.strava}</span>
-										<span>✍️ Manual: {(p as any).activityCounts.manual}</span>
-									</div>
-								</div>
-							) : null}
-							<div className="mt-2 text-xs text-deepBrown/80">{p.name} {s.variety}</div>
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<div className="scoreboard-panel p-4 text-center">
+						<div className="text-xs text-muted-foreground">TOTAL WORKOUTS</div>
+						<div className="font-display text-4xl text-primary">{totals.totalWorkouts}</div>
+					</div>
+					<div className="scoreboard-panel p-4 text-center">
+						<div className="text-xs text-muted-foreground">COMBINED STREAK DAYS</div>
+						<div className="font-display text-4xl text-primary">{totals.combinedStreaks}</div>
+					</div>
+					<div className="scoreboard-panel p-4 text-center">
+						<div className="text-xs text-muted-foreground">MOST CONSISTENT</div>
+						<div className="font-display text-sm text-foreground">
+							{totals.mostConsistent?.name?.toUpperCase() ?? "-"}
 						</div>
-					);
-				})}
+						<div className="text-2xl font-display text-primary">
+							{totals.mostConsistent ? `${totals.mostConsistent.averageWorkoutsPerWeek.toFixed(1)} AVG/WK` : "--"}
+						</div>
+					</div>
+				</div>
+
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					{players.map((p) => {
+						const s = perPlayerStats(p);
+						return (
+							<div key={p.name} className="scoreboard-panel p-4 space-y-3">
+								<div className="font-display text-base tracking-widest text-primary">{p.name.toUpperCase()}</div>
+								<div className="grid grid-cols-2 gap-3 text-sm">
+									<div>
+										<div className="text-xs text-muted-foreground">TOTAL TIME</div>
+										<div className="font-display">{s.totalMinutes} min</div>
+									</div>
+									<div>
+										<div className="text-xs text-muted-foreground">TOTAL DISTANCE</div>
+										<div className="font-display">{s.totalDistance.toFixed(1)} km</div>
+									</div>
+									<div>
+										<div className="text-xs text-muted-foreground">AVG DURATION</div>
+										<div className="font-display">{s.avgDuration} min</div>
+									</div>
+									<div>
+										<div className="text-xs text-muted-foreground">MOST FREQUENT</div>
+										<div className="font-display">{titleCase(s.mostFrequentType)}</div>
+									</div>
+									<div>
+										<div className="text-xs text-muted-foreground">LONGEST WORKOUT</div>
+										<div className="font-display">{s.longest ? `${s.longest.durationMinutes} min` : "-"}</div>
+									</div>
+									<div>
+										<div className="text-xs text-muted-foreground">EARLIEST / LATEST</div>
+										<div className="font-display">
+											{(s.earliest ?? "-")}h / {(s.latest ?? "-")}h
+										</div>
+									</div>
+								</div>
+								{(p as any).activityCounts ? (
+									<div className="text-xs text-muted-foreground">
+										<div className="text-[11px] mb-1">ACTIVITY SOURCES</div>
+										<div className="flex flex-wrap gap-3">
+											<span>All: {(p as any).activityCounts.total}</span>
+											<span>📡 Strava: {(p as any).activityCounts.strava}</span>
+											<span>✍️ Manual: {(p as any).activityCounts.manual}</span>
+										</div>
+									</div>
+								) : null}
+								<div className="text-xs text-muted-foreground">{p.name} {s.variety}</div>
+							</div>
+						);
+					})}
+				</div>
 			</div>
 		</div>
 	);

@@ -8,7 +8,7 @@ export function CreateLobbyInfo({ open, onClose }: { open: boolean; onClose: () 
 			{open && (
 				<motion.div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-black/70"
 					initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-					<motion.article className="ui-panel rounded-2xl shadow-2xl border px-5 sm:px-8 py-5 sm:py-6 w-full sm:max-w-[68ch] md:max-w-[72ch] max-w-full break-anywhere whitespace-normal" initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
+					<motion.article className="ui2-scope ui-panel rounded-2xl shadow-2xl border px-5 sm:px-8 py-5 sm:py-6 w-full sm:max-w-[68ch] md:max-w-[72ch] max-w-full break-anywhere whitespace-normal" initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 						<header className="mb-3">
 							<h2 className="text-xl font-black tracking-wide">Lobby Info</h2>
 						</header>
@@ -43,7 +43,7 @@ export function CreateLobbyInfo({ open, onClose }: { open: boolean; onClose: () 
 							</section>
 						</div>
 						<footer className="mt-5 flex justify-end">
-							<button className="btn-vintage px-4 py-2 rounded-md text-xs" onClick={onClose}>Got it</button>
+							<button className="arena-badge arena-badge-primary px-4 py-2" onClick={onClose}>Got it</button>
 						</footer>
 					</motion.article>
 				</motion.div>

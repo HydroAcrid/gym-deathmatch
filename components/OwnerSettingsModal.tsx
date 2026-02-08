@@ -289,7 +289,7 @@ export function OwnerSettingsModal({
 						<motion.div
 							role="dialog"
 							aria-modal="true"
-							className="ui-panel relative w-full sm:max-w-5xl h-full rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+							className="ui2-scope ui-panel relative w-full sm:max-w-5xl h-full rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
 								<div className="min-w-0">

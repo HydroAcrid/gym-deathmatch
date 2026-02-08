@@ -124,7 +124,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 						exit={{ opacity: 0 }}
 					>
 					<motion.div
-						className="paper-card paper-grain ink-edge w-full sm:max-w-lg sm:w-[92%] p-5 sm:p-6 text-deepBrown bg-tan"
+						className="ui2-scope paper-card paper-grain ink-edge w-full sm:max-w-lg sm:w-[92%] p-5 sm:p-6"
 							initial={{ scale: 0.96, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.96, opacity: 0 }}

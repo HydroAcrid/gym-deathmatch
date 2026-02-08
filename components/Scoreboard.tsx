@@ -74,12 +74,12 @@ export function Scoreboard({
 	};
 
 	return (
-		<div className="paper-card paper-grain ink-edge scoreboard-vignette px-4 sm:px-6 py-4 sm:py-5 text-center relative overflow-hidden group">
+		<div className="scoreboard-panel scoreboard-vignette px-4 sm:px-6 py-4 sm:py-5 text-center relative overflow-hidden group">
 			{/* Halftone/Noise accent in corners */}
 			<div className="absolute top-0 left-0 w-16 h-16 bg-[radial-gradient(circle_at_top_left,var(--accent-primary)_1px,transparent_1px)] bg-[length:4px_4px] opacity-[0.15] pointer-events-none" />
 			<div className="absolute bottom-0 right-0 w-16 h-16 bg-[radial-gradient(circle_at_bottom_right,var(--accent-primary)_1px,transparent_1px)] bg-[length:4px_4px] opacity-[0.15] pointer-events-none" />
 
-			<div className="uppercase tracking-[0.14em] text-[10px] sm:text-[11px] text-deepBrown/70 mb-2 font-bold border-b border-deepBrown/10 inline-block pb-1">
+			<div className="uppercase tracking-[0.14em] text-[10px] sm:text-[11px] text-muted-foreground mb-2 font-bold border-b border-border inline-block pb-1">
 				Current Pot
 			</div>
 			<div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
@@ -87,7 +87,7 @@ export function Scoreboard({
 					type="button"
 					disabled={!canEdit}
 					onClick={() => canEdit && onEdit?.()}
-					className={`poster-headline text-5xl sm:text-6xl md:text-7xl leading-none text-accent-primary text-print-error animate-stamp transition transform ${
+					className={`font-display text-5xl sm:text-6xl md:text-7xl leading-none text-primary animate-marquee transition transform ${
 						canEdit ? "hover:scale-[1.01] focus:scale-[1.01] focus:outline-none" : ""
 					}`}
 					title={canEdit ? "Click to adjust pot" : undefined}

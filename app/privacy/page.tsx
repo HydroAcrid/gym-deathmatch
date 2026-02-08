@@ -1,14 +1,14 @@
 export default function PrivacyPage() {
 	return (
-		<div className="min-h-screen bg-main text-main py-8 px-4">
+		<div className="ui2-scope min-h-screen py-8 px-4">
 			<div className="mx-auto max-w-3xl">
-				<div className="paper-card paper-grain ink-edge p-6 sm:p-8 border-b-4" style={{ borderColor: "#E1542A" }}>
-					<h1 className="poster-headline text-3xl sm:text-4xl mb-4">Privacy Policy</h1>
-					<p className="text-sm text-deepBrown/70 mb-8">Last updated: January 15, 2025</p>
+				<div className="scoreboard-panel p-6 sm:p-8">
+					<h1 className="font-display text-3xl sm:text-4xl tracking-widest text-primary mb-4">PRIVACY POLICY</h1>
+					<p className="text-sm text-muted-foreground mb-8">Last updated: January 15, 2025</p>
 
-					<div className="space-y-6 text-sm sm:text-base">
+					<div className="space-y-6 text-sm sm:text-base text-muted-foreground">
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Introduction</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">INTRODUCTION</h2>
 							<p className="mb-3">
 								Arena (also branded as "Gym Deathmatch") is a casual fitness challenge app where friends compete with workouts. 
 								This Privacy Policy explains what information we collect, how we use it, and how we protect your privacy when you use our service.
@@ -20,15 +20,15 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Information We Collect</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">INFORMATION WE COLLECT</h2>
 							
-							<h3 className="font-semibold text-lg mb-2 mt-4">Account Data</h3>
+							<h3 className="font-display text-lg text-foreground mb-2 mt-4">ACCOUNT DATA</h3>
 							<p className="mb-3">
 								When you sign in using Google OAuth, we collect your email address and basic profile information 
 								(name, profile picture) provided by Google through Supabase Authentication.
 							</p>
 
-							<h3 className="font-semibold text-lg mb-2 mt-4">Lobby & Profile Data</h3>
+							<h3 className="font-display text-lg text-foreground mb-2 mt-4">LOBBY & PROFILE DATA</h3>
 							<p className="mb-3">
 								To participate in lobbies and compete with friends, you may provide:
 							</p>
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
 								<li>Lobby membership and participation data</li>
 							</ul>
 
-							<h3 className="font-semibold text-lg mb-2 mt-4">Activity Data</h3>
+							<h3 className="font-display text-lg text-foreground mb-2 mt-4">ACTIVITY DATA</h3>
 							<p className="mb-3">
 								We collect workout information in two ways:
 							</p>
@@ -54,7 +54,7 @@ export default function PrivacyPage() {
 								</li>
 							</ul>
 
-							<h3 className="font-semibold text-lg mb-2 mt-4">Technical Data</h3>
+							<h3 className="font-display text-lg text-foreground mb-2 mt-4">TECHNICAL DATA</h3>
 							<p className="mb-3">
 								We automatically collect basic technical information such as IP address, browser type, device information, 
 								and usage logs. This data is used for security, debugging, and improving the service.
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">How We Use Your Information</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">HOW WE USE YOUR INFORMATION</h2>
 							<p className="mb-3">We use the information we collect to:</p>
 							<ul className="list-disc list-inside mb-3 ml-4 space-y-1">
 								<li>Operate the app, including authentication, lobby management, and feature functionality</li>
@@ -74,7 +74,7 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Data Sharing</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">DATA SHARING</h2>
 							<p className="mb-3">
 								<strong>We do not sell your personal data.</strong>
 							</p>
@@ -95,7 +95,7 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Strava Integration</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">STRAVA INTEGRATION</h2>
 							<p className="mb-3">
 								If you choose to connect your Strava account, we store access tokens securely in Supabase to sync your activities. 
 								We only read the activity data necessary for Arena features, such as workout summaries, streaks, and statistics.
@@ -107,7 +107,7 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Data Retention & Deletion</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">DATA RETENTION & DELETION</h2>
 							<p className="mb-3">
 								We retain your data for as long as necessary to operate the service and fulfill the purposes described in this policy. 
 								If you wish to delete your account and associated data, please contact us using the information provided below.
@@ -118,7 +118,7 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Security</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">SECURITY</h2>
 							<p className="mb-3">
 								We implement reasonable technical and organizational measures to protect your data, including HTTPS encryption, 
 								secure authentication through Supabase, and access controls. However, no method of transmission over the internet 
@@ -127,7 +127,7 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Children's Privacy</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">CHILDREN'S PRIVACY</h2>
 							<p className="mb-3">
 								Arena is not intended for children under 13 years of age. We do not knowingly collect personal information from 
 								children under 13. If you believe we have collected information from a child under 13, please contact us immediately 
@@ -136,7 +136,7 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Changes to This Policy</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">CHANGES TO THIS POLICY</h2>
 							<p className="mb-3">
 								We may update this Privacy Policy from time to time. When we make changes, we will update the "Last updated" date 
 								at the top of this page. We encourage you to review this policy periodically to stay informed about how we protect your information.
@@ -144,14 +144,14 @@ export default function PrivacyPage() {
 						</section>
 
 						<section>
-							<h2 className="poster-headline text-xl sm:text-2xl mb-3">Contact</h2>
+							<h2 className="font-display text-xl sm:text-2xl tracking-widest text-primary mb-3">CONTACT</h2>
 							<p className="mb-3">
 								If you have questions about this Privacy Policy or wish to request deletion of your account and data, please contact us at:
 							</p>
 							<p>
 								<a 
 									href="mailto:support@gym-deathmatch.vercel.app" 
-									className="text-accent-primary hover:underline"
+									className="text-primary hover:underline"
 								>
 									support@gym-deathmatch.vercel.app
 								</a>

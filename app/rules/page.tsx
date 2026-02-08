@@ -44,49 +44,51 @@ export default function RulesPage() {
 		"Have fun and don’t skip leg day."
 	];
 	return (
-		<div className="mx-auto max-w-6xl">
-			<div className="grid md:grid-cols-2 gap-4">
-				<div className="paper-card paper-grain ink-edge p-5">
-					<div className="poster-headline text-lg mb-2">RULES OF THE DEATHMATCH</div>
-					<ul className="space-y-2">
-						{rules.map((r, i) => (
-							<li key={i} className="bg-cream border border-deepBrown/20 rounded-md px-3 py-2">
-								{r}
-							</li>
-						))}
-					</ul>
-				</div>
-				<div className="paper-card paper-grain ink-edge p-5">
-					<div className="poster-headline text-lg mb-2">POT & LIVES</div>
-					<div className="text-sm text-deepBrown/80 space-y-1">
-						<div><span className="font-semibold">Starting pot:</span> ${info?.initialPot ?? 0}</div>
-						<div><span className="font-semibold">Weekly ante per player:</span> ${info?.weeklyAnte ?? 10}</div>
-						{info?.scalingEnabled ? (
-							<div><span className="font-semibold">Scaling:</span> +${info?.perPlayerBoost ?? 0} per additional player</div>
-						) : (
-							<div><span className="font-semibold">Scaling:</span> off</div>
-						)}
-						<div><span className="font-semibold">Weekly Target:</span> {info?.weeklyTarget ?? 3} workouts</div>
-						<div><span className="font-semibold">Starting Lives:</span> {info?.initialLives ?? 3}</div>
-						<div className="mt-2"><span className="font-semibold">Current mode:</span> First person KO ends the season.</div>
+		<div className="ui2-scope min-h-screen">
+			<div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
+				<div className="grid md:grid-cols-2 gap-4">
+					<div className="scoreboard-panel p-5 space-y-3">
+						<div className="font-display text-lg tracking-widest text-primary">RULES OF THE DEATHMATCH</div>
+						<ul className="space-y-2 text-sm">
+							{rules.map((r, i) => (
+								<li key={i} className="bg-muted/30 border border-border px-3 py-2">
+									{r}
+								</li>
+							))}
+						</ul>
 					</div>
-					{isOwner ? (
-						<div className="mt-3">
-							<OwnerSettingsModal
-								lobbyId={lobbyId}
-								ownerPlayerId={info?.ownerId ?? null}
-								defaultWeekly={info?.weeklyTarget ?? 3}
-								defaultLives={info?.initialLives ?? 3}
-								defaultSeasonEnd={info?.seasonEnd}
-								defaultInitialPot={info?.initialPot ?? 0}
-								defaultWeeklyAnte={info?.weeklyAnte ?? 10}
-								defaultScalingEnabled={info?.scalingEnabled ?? false}
-								defaultPerPlayerBoost={info?.perPlayerBoost ?? 0}
-								onSaved={loadLobby}
-								hideTrigger={false}
-							/>
+					<div className="scoreboard-panel p-5 space-y-3">
+						<div className="font-display text-lg tracking-widest text-primary">POT & LIVES</div>
+						<div className="text-sm text-muted-foreground space-y-1">
+							<div><span className="font-display text-foreground">Starting pot:</span> ${info?.initialPot ?? 0}</div>
+							<div><span className="font-display text-foreground">Weekly ante per player:</span> ${info?.weeklyAnte ?? 10}</div>
+							{info?.scalingEnabled ? (
+								<div><span className="font-display text-foreground">Scaling:</span> +${info?.perPlayerBoost ?? 0} per additional player</div>
+							) : (
+								<div><span className="font-display text-foreground">Scaling:</span> off</div>
+							)}
+							<div><span className="font-display text-foreground">Weekly Target:</span> {info?.weeklyTarget ?? 3} workouts</div>
+							<div><span className="font-display text-foreground">Starting Lives:</span> {info?.initialLives ?? 3}</div>
+							<div className="mt-2"><span className="font-display text-foreground">Current mode:</span> First person KO ends the season.</div>
 						</div>
-					) : null}
+						{isOwner ? (
+							<div className="pt-2">
+								<OwnerSettingsModal
+									lobbyId={lobbyId}
+									ownerPlayerId={info?.ownerId ?? null}
+									defaultWeekly={info?.weeklyTarget ?? 3}
+									defaultLives={info?.initialLives ?? 3}
+									defaultSeasonEnd={info?.seasonEnd}
+									defaultInitialPot={info?.initialPot ?? 0}
+									defaultWeeklyAnte={info?.weeklyAnte ?? 10}
+									defaultScalingEnabled={info?.scalingEnabled ?? false}
+									defaultPerPlayerBoost={info?.perPlayerBoost ?? 0}
+									onSaved={loadLobby}
+									hideTrigger={false}
+								/>
+							</div>
+						) : null}
+					</div>
 				</div>
 			</div>
 		</div>

@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { getBrowserSupabase } from "@/lib/supabaseBrowser";
+import { Button } from "@/src/ui2/ui/button";
+import { Input } from "@/src/ui2/ui/input";
+import { Label } from "@/src/ui2/ui/label";
 
 function slugify(s: string) {
 	return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -156,105 +159,107 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 
 	if (!isHydrated) {
 		return (
-			<div className="mx-auto max-w-2xl py-10 px-4">
-				<div className="paper-card paper-grain ink-edge p-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-					<div className="text-sm text-deepBrown/70">Loading…</div>
-				</div>
+			<div className="ui2-scope min-h-screen flex items-center justify-center">
+				<div className="text-muted-foreground">Loading…</div>
 			</div>
 		);
 	}
 
 	if (!user) {
 		return (
-			<div className="mx-auto max-w-2xl py-10 px-4">
-				<div className="paper-card paper-grain ink-edge p-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-					<div className="poster-headline text-xl mb-2">Welcome to Gym Deathmatch</div>
-					<div className="text-sm mb-3">You were invited to a lobby. Sign in to get started.</div>
-					<button className="btn-vintage px-4 py-2 rounded-md" onClick={signInWithGoogle}>Continue with Google</button>
+			<div className="ui2-scope min-h-screen">
+				<div className="container mx-auto max-w-2xl py-12 px-4">
+					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
+						<div className="font-display text-xl tracking-widest text-primary">WELCOME</div>
+						<div className="text-sm text-muted-foreground">You were invited to a lobby. Sign in to get started.</div>
+						<Button variant="arenaPrimary" onClick={signInWithGoogle}>Continue with Google</Button>
+					</div>
 				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="mx-auto max-w-2xl py-10 px-4">
-			<div className="paper-card paper-grain ink-edge p-6 border-b-4 mb-4" style={{ borderColor: "#E1542A" }}>
-				<div className="poster-headline text-xl mb-2">Set up your profile</div>
-				<div className="grid gap-3">
-					<label className="text-xs">
-						<span className="block mb-1">Display name</span>
-						<input
-							className="arena-input"
-							value={displayName}
-							onChange={(e) => setDisplayName(e.target.value)}
-							placeholder="Your name"
-						/>
-					</label>
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-						<label className="text-xs">
-							<span className="block mb-1">Location</span>
-							<input
-								className="arena-input"
-								value={location}
-								onChange={(e) => setLocation(e.target.value)}
-								placeholder="City, State"
+		<div className="ui2-scope min-h-screen">
+			<div className="container mx-auto max-w-2xl py-10 px-4 space-y-4">
+				<div className="scoreboard-panel p-6 space-y-4">
+					<div className="font-display text-xl tracking-widest text-primary">SET UP YOUR PROFILE</div>
+					<div className="grid gap-3">
+						<div className="space-y-2">
+							<Label className="text-xs uppercase tracking-wider">Display name</Label>
+							<Input
+								className="bg-input border-border"
+								value={displayName}
+								onChange={(e) => setDisplayName(e.target.value)}
+								placeholder="Your name"
 							/>
-						</label>
-						<label className="text-xs">
-							<span className="block mb-1">Quip</span>
-							<input
-								className="arena-input"
-								value={quip}
-								onChange={(e) => setQuip(e.target.value)}
-								placeholder="Short tagline"
+						</div>
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+							<div className="space-y-2">
+								<Label className="text-xs uppercase tracking-wider">Location</Label>
+								<Input
+									className="bg-input border-border"
+									value={location}
+									onChange={(e) => setLocation(e.target.value)}
+									placeholder="City, State"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label className="text-xs uppercase tracking-wider">Quip</Label>
+								<Input
+									className="bg-input border-border"
+									value={quip}
+									onChange={(e) => setQuip(e.target.value)}
+									placeholder="Short tagline"
+								/>
+							</div>
+						</div>
+						<div className="space-y-2">
+							<Label className="text-xs uppercase tracking-wider">Paste image URL</Label>
+							<Input
+								className="bg-input border-border"
+								value={avatarUrl}
+								onChange={(e) => setAvatarUrl(e.target.value)}
+								placeholder="https://..."
 							/>
-						</label>
-					</div>
-					<label className="text-xs">
-						<span className="block mb-1">Paste image URL</span>
-						<input
-							className="arena-input"
-							value={avatarUrl}
-							onChange={(e) => setAvatarUrl(e.target.value)}
-							placeholder="https://..."
-						/>
-					</label>
-					<div className="text-center text-xs text-deepBrown/70">— or —</div>
-					<div className="block text-xs">
-						<span className="block mb-1">Upload image (Supabase Storage ‘avatars’ bucket)</span>
-						<div className="flex items-center gap-2">
-							<button type="button" className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => fileInputRef.current?.click()} disabled={submitting}>
-								Choose file
-							</button>
-							<span className="text-[11px] text-deepBrown/70 truncate max-w-[220px]">{fileName}</span>
 						</div>
-						<input ref={fileInputRef} className="hidden" type="file" accept="image/*" onChange={onUpload} />
-					</div>
-					{avatarUrl && (
-						<div className="mt-2 flex items-center gap-3">
-							<img src={avatarUrl} alt="preview" className="h-12 w-12 rounded-full object-cover border border-deepBrown/30" />
-							<span className="text-xs text-deepBrown/70 truncate">{avatarUrl}</span>
+						<div className="text-center text-xs text-muted-foreground">— or —</div>
+						<div className="space-y-2">
+							<Label className="text-xs uppercase tracking-wider">Upload image (avatars bucket)</Label>
+							<div className="flex items-center gap-2">
+								<Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={submitting}>
+									Choose file
+								</Button>
+								<span className="text-[11px] text-muted-foreground truncate max-w-[220px]">{fileName}</span>
+							</div>
+							<input ref={fileInputRef} className="hidden" type="file" accept="image/*" onChange={onUpload} />
 						</div>
-					)}
-					<div className="flex gap-2">
-						<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={saveProfile} disabled={submitting}>
-							Save profile
-						</button>
-						<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={joinLobby} disabled={submitting || !!existingPlayerId}>
-							{existingPlayerId ? "Already joined" : "Join this lobby"}
-						</button>
+						{avatarUrl && (
+							<div className="mt-2 flex items-center gap-3">
+								<img src={avatarUrl} alt="preview" className="h-12 w-12 object-cover border border-border" />
+								<span className="text-xs text-muted-foreground truncate">{avatarUrl}</span>
+							</div>
+						)}
+						<div className="flex gap-2">
+							<Button variant="secondary" onClick={saveProfile} disabled={submitting}>
+								Save profile
+							</Button>
+							<Button variant="arenaPrimary" onClick={joinLobby} disabled={submitting || !!existingPlayerId}>
+								{existingPlayerId ? "Already joined" : "Join this lobby"}
+							</Button>
+						</div>
 					</div>
 				</div>
-			</div>
-			<div className="paper-card paper-grain ink-edge p-6">
-				<div className="poster-headline text-lg mb-2">Connect Strava</div>
-				<div className="text-sm mb-3">Once you’ve joined, connect your Strava account so your workouts sync.</div>
-				<a
-					className="btn-vintage px-4 py-2 rounded-md text-xs"
-					href={`/api/strava/authorize?playerId=${encodeURIComponent(existingPlayerId || user.id)}&lobbyId=${encodeURIComponent(lobbyId)}`}
-				>
-					Connect my Strava
-				</a>
+				<div className="scoreboard-panel p-6 space-y-3">
+					<div className="font-display text-lg tracking-widest text-primary">CONNECT STRAVA</div>
+					<div className="text-sm text-muted-foreground">Once you’ve joined, connect your Strava account so your workouts sync.</div>
+					<a
+						className="arena-badge arena-badge-primary px-4 py-2 inline-flex"
+						href={`/api/strava/authorize?playerId=${encodeURIComponent(existingPlayerId || user.id)}&lobbyId=${encodeURIComponent(lobbyId)}`}
+					>
+						Connect my Strava
+					</a>
+				</div>
 			</div>
 		</div>
 	);

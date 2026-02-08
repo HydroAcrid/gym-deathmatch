@@ -22,37 +22,39 @@ export default function HomePage() {
 	}, []);
 
 	return (
-		<div className="mx-auto max-w-3xl py-10 px-4 space-y-6">
-			{lastLobby ? (
-				<div className="paper-card paper-grain ink-edge p-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-					<div className="text-[12px] text-deepBrown/60 uppercase tracking-wide mb-1">Resume lobby</div>
-					<h1 className="poster-headline text-2xl mb-1">{lastLobby.name}</h1>
-					<p className="text-sm text-deepBrown/70">
-						Jump back into the arena you visited last. We&apos;ll keep this pinned here whenever you switch lobbies.
+		<div className="ui2-scope min-h-screen">
+			<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
+				{lastLobby ? (
+					<div className="scoreboard-panel p-6 space-y-3">
+						<div className="arena-badge arena-badge-primary text-[10px]">RESUME LOBBY</div>
+						<h1 className="font-display text-2xl tracking-widest text-primary">{lastLobby.name}</h1>
+						<p className="text-sm text-muted-foreground">
+							Jump back into the arena you visited last. We&apos;ll keep this pinned here whenever you switch lobbies.
+						</p>
+						<div className="flex gap-3 flex-wrap">
+							<Link href={`/lobby/${encodeURIComponent(lastLobby.id)}`} className="arena-badge arena-badge-primary px-4 py-2">
+								OPEN LOBBY
+							</Link>
+							<Link href={`/lobby/${encodeURIComponent(lastLobby.id)}/history`} className="arena-badge px-4 py-2">
+								VIEW HISTORY
+							</Link>
+						</div>
+					</div>
+				) : null}
+
+				<div className="scoreboard-panel p-6 space-y-3">
+					<h2 className="font-display text-2xl tracking-widest text-primary">WELCOME BACK</h2>
+					<p className="text-sm text-muted-foreground">
+						Pick a lobby to see live stats, history, and season progress. Once you join a lobby it will show up in your list automatically.
 					</p>
-					<div className="mt-4 flex gap-3 flex-wrap">
-						<Link href={`/lobby/${encodeURIComponent(lastLobby.id)}`} className="btn-vintage px-4 py-2 rounded-md text-xs">
-							Open lobby
+					<div className="flex gap-3 flex-wrap">
+						<Link href="/lobbies" className="arena-badge arena-badge-primary px-4 py-2">
+							VIEW LOBBIES
 						</Link>
-						<Link href={`/lobby/${encodeURIComponent(lastLobby.id)}/history`} className="btn-secondary px-4 py-2 rounded-md text-xs">
-							View history
+						<Link href="/rules" className="arena-badge px-4 py-2">
+							READ THE RULES
 						</Link>
 					</div>
-				</div>
-			) : null}
-
-			<div className="paper-card paper-grain ink-edge p-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-				<h2 className="poster-headline text-2xl mb-2">Welcome back</h2>
-				<p className="text-sm text-deepBrown/70">
-					Pick a lobby to see live stats, history, and season progress. Once you join a lobby it will show up in your list automatically.
-				</p>
-				<div className="mt-4 flex gap-3 flex-wrap">
-					<Link href="/lobbies" className="btn-vintage px-4 py-2 rounded-md text-xs">
-						View lobbies
-					</Link>
-					<Link href="/rules" className="btn-secondary px-4 py-2 rounded-md text-xs">
-						Read the rules
-					</Link>
 				</div>
 			</div>
 		</div>

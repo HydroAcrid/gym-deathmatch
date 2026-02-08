@@ -244,9 +244,9 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 
 	return (
 		<div className="mx-auto max-w-6xl">
-			<div className="paper-card paper-grain ink-edge p-4 sm:p-6 mb-6">
-				<div className="poster-headline text-xl mb-1">Punishment Selection</div>
-				<div className="text-deepBrown/70 text-sm">Here's what everyone put on the wheel.</div>
+			<div className="scoreboard-panel p-4 sm:p-6 mb-6">
+				<div className="font-display text-xl text-primary mb-1">PUNISHMENT SELECTION</div>
+				<div className="text-muted-foreground text-sm">Here's what everyone put on the wheel.</div>
 				{showDebug && (
 					<div className="mt-2 flex flex-wrap gap-2 text-[11px]">
 						{/* Debug buttons */}
@@ -255,7 +255,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 				{errorMsg && <div className="mt-2 text-[12px] text-[#a13535]">⚠ {errorMsg}</div>}
 				<div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
 					<div>
-						<div className="text-xs text-deepBrown/70 mb-2">Submissions</div>
+						<div className="text-xs text-muted-foreground mb-2">Submissions</div>
 						<ul className="space-y-2">
 							{players.map(p => {
 								const sub = items.find(i => {
@@ -264,12 +264,12 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 								});
 								return (
 									<li key={p.id} className="flex items-start gap-2">
-										<div className="h-8 w-8 rounded-full overflow-hidden bg-tan border border-deepBrown/30">
+										<div className="h-8 w-8 rounded-full overflow-hidden bg-muted border border-border">
 											{p.avatarUrl ? <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-sm">🏋️</div>}
 										</div>
 										<div className="flex-1">
 											<div className="text-sm font-semibold">{p.name}</div>
-											<div className="text-[13px] mt-0.5">{sub ? `“${sub.text}”` : <span className="text-deepBrown/60 italic">No suggestion submitted</span>}</div>
+											<div className="text-[13px] mt-0.5">{sub ? `“${sub.text}”` : <span className="text-muted-foreground italic">No suggestion submitted</span>}</div>
 										</div>
 									</li>
 								);
@@ -278,19 +278,19 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						{!locked && (
 							<div className="mt-3 flex gap-2">
 								<input
-									className="flex-1 px-3 py-2 rounded-md border border-deepBrown/30 bg-cream text-deepBrown"
+									className="flex-1 px-3 py-2 rounded-md border border-border bg-input text-foreground"
 									placeholder={mySubmission ? "Update your punishment" : "Suggest a punishment"}
 									value={myText}
 									maxLength={50}
 									onChange={e => setMyText(e.target.value)}
 								/>
-								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={submitSuggestion} disabled={!myText.trim()}>
+								<button className="arena-badge px-3 py-2 text-xs" onClick={submitSuggestion} disabled={!myText.trim()}>
 									{mySubmission ? "Update" : "Submit"}
 								</button>
 							</div>
 						)}
 						{locked && mySubmission && (
-							<div className="mt-3 text-xs text-deepBrown/70 italic">
+							<div className="mt-3 text-xs text-muted-foreground italic">
 								List is locked. Your submission: "{mySubmission.text}"
 							</div>
 						)}
@@ -321,7 +321,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 					{isOwner ? (
 						<>
 							<button
-								className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
+								className="arena-badge px-3 py-2 text-xs"
 								onClick={async () => {
 									await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments/lock`, {
 										method: "POST",
@@ -334,7 +334,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 								{locked ? "Unlock list" : "Lock list"}
 							</button>
 							<button
-								className="btn-vintage px-3 py-2 rounded-md text-xs"
+								className="arena-badge arena-badge-primary px-3 py-2 text-xs"
 								onClick={spin}
 								disabled={spinning || wheelEntries.length === 0 || (locked === false && requiresLock(lobby))}
 							>
@@ -342,7 +342,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 							</button>
 						</>
 					) : (
-						<div className="text-xs text-deepBrown/70">
+						<div className="text-xs text-muted-foreground">
 							{spinning ? "Wheel is spinning…" : "Waiting for host to spin…"}
 						</div>
 					)}
@@ -351,7 +351,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 					<motion.div
 						initial={{ opacity: 0, y: 8 }}
 						animate={{ opacity: 1, y: 0 }}
-						className="mt-4 p-3 rounded-md border border-deepBrown/30 bg-cream/5"
+						className="mt-4 p-3 rounded-md border border-border bg-muted/30"
 					>
 						<div className="text-sm">Punishment selected: <strong>{chosen}</strong>. Reloading...</div>
 					</motion.div>
