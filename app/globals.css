@@ -3,6 +3,11 @@
 @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+@import '@fontsource/oswald/400.css';
+@import '@fontsource/oswald/500.css';
+@import '@fontsource/oswald/700.css';
+@import '@fontsource/space-mono/400.css';
+@import '@fontsource/space-mono/700.css';
 @import "tailwindcss";
 
 /* Theme tokens (light default) */
@@ -593,4 +598,87 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .btn-badge-active:active {
   transform: translateY(4px);
   box-shadow: 0 0 0 rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* UI2 (arena redesign) tokens — scoped to .ui2-scope */
+.ui2-scope {
+  /* Core palette */
+  --background: 20 18% 4%;
+  --foreground: 35 15% 80%;
+  --card: 20 15% 6%;
+  --card-foreground: 35 15% 80%;
+  --popover: 20 18% 5%;
+  --popover-foreground: 35 15% 80%;
+  --primary: 30 60% 50%;
+  --primary-foreground: 20 18% 4%;
+  --secondary: 20 10% 12%;
+  --secondary-foreground: 35 12% 70%;
+  --muted: 20 12% 9%;
+  --muted-foreground: 25 8% 45%;
+  --accent: 28 70% 42%;
+  --accent-foreground: 35 15% 90%;
+  --destructive: 0 55% 35%;
+  --destructive-foreground: 35 15% 90%;
+  --arena-gold: 42 65% 45%;
+  --arena-gold-foreground: 20 18% 4%;
+  --status-online: 120 35% 30%;
+  --status-offline: 20 10% 25%;
+  --status-active: 30 60% 50%;
+  --border: 20 12% 16%;
+  --border-heavy: 20 12% 22%;
+  --input: 20 12% 10%;
+  --ring: 30 60% 50%;
+  --radius: 0rem;
+  --sidebar-background: 20 18% 4%;
+  --sidebar-foreground: 35 12% 65%;
+  --sidebar-primary: 30 60% 50%;
+  --sidebar-primary-foreground: 20 18% 4%;
+  --sidebar-accent: 20 12% 8%;
+  --sidebar-accent-foreground: 35 12% 70%;
+  --sidebar-border: 20 12% 14%;
+  --sidebar-ring: 30 60% 50%;
+  --font-display: 'Oswald', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+.dark .ui2-scope {
+  --background: 20 18% 4%;
+  --foreground: 35 15% 80%;
+  --card: 20 15% 6%;
+  --card-foreground: 35 15% 80%;
+  --popover: 20 18% 5%;
+  --popover-foreground: 35 15% 80%;
+  --primary: 30 60% 50%;
+  --primary-foreground: 20 18% 4%;
+  --secondary: 20 10% 12%;
+  --secondary-foreground: 35 12% 70%;
+  --muted: 20 12% 9%;
+  --muted-foreground: 25 8% 45%;
+  --accent: 28 70% 42%;
+  --accent-foreground: 35 15% 90%;
+  --destructive: 0 55% 35%;
+  --destructive-foreground: 35 15% 90%;
+  --border: 20 12% 16%;
+  --input: 20 12% 10%;
+  --ring: 30 60% 50%;
+}
+
+.ui2-scope {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-mono);
+  letter-spacing: 0.025em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ui2-scope h1,
+.ui2-scope h2,
+.ui2-scope h3,
+.ui2-scope h4,
+.ui2-scope h5,
+.ui2-scope h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
