@@ -1,6 +1,6 @@
 export default function PrivacyPage() {
 	return (
-		<div className="ui2-scope min-h-screen py-8 px-4">
+		<div className="min-h-screen py-8 px-4">
 			<div className="mx-auto max-w-3xl">
 				<div className="scoreboard-panel p-6 sm:p-8">
 					<h1 className="font-display text-3xl sm:text-4xl tracking-widest text-primary mb-4">PRIVACY POLICY</h1>

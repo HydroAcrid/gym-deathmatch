@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 export default function GlobalLoading() {
 	return (
-		<div className="ui2-scope min-h-screen">
+		<div className="min-h-screen">
 			<div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
 			<motion.div
 				className="scoreboard-panel p-5"

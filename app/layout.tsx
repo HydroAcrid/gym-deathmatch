@@ -35,8 +35,7 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en" suppressHydrationWarning>
-			<body className="ui2-scope antialiased min-h-screen overflow-x-hidden touch-manipulation bg-background text-foreground">
-				<div className="paper-overlay" />
+			<body className="antialiased min-h-screen overflow-x-hidden touch-manipulation">
 				<AuthProvider>
 					<ToastProvider>
 						<ArenaNav />

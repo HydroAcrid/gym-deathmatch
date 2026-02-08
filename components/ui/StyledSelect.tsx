@@ -13,14 +13,14 @@ export function StyledSelect({ children, className = "", ...props }: StyledSelec
 			<select
 				className={`
 					h-10 px-3 pr-10 rounded-md
-					border border-accent-primary/50
+					border border-primary/50
 					bg-main text-main
 					appearance-none
 					-moz-appearance-none
 					-webkit-appearance-none
 					transition-all duration-200
-					focus:outline-none focus:ring-2 focus:ring-accent-primary/30 focus:border-accent-primary
-					hover:border-accent-primary hover:bg-accent-primary/5
+					focus:outline-none focus:ring-2 focus:ring-accent-primary/30 focus:border-primary
+					hover:border-primary hover:bg-primary/5
 					cursor-pointer
 					min-w-[200px]
 					${className}

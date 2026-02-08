@@ -144,7 +144,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 						<motion.div
 							role="dialog"
 							aria-modal="true"
-							className="ui2-scope ui-panel relative w-full sm:max-w-5xl h-full sm:h-[85vh] sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+							className="ui-panel relative w-full sm:max-w-5xl h-full sm:h-[85vh] sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
 							initial={{ scale: 0.96, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.96, opacity: 0 }}
@@ -156,14 +156,14 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 								</div>
 								<div className="shrink-0 flex items-center gap-2">
 									<button
-										className="h-9 w-9 rounded-md border border-deepBrown/30 flex items-center justify-center"
+										className="h-9 w-9 rounded-md border border-border flex items-center justify-center"
 										aria-label="Help"
 										onClick={() => setInfoOpen(true)}
 										title="Lobby Info"
 									>
 										<span className="text-base leading-none">?</span>
 									</button>
-									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => setOpen(false)}>Cancel</button>
+									<button className="px-3 py-2 rounded-md border border-border text-xs" onClick={() => setOpen(false)}>Cancel</button>
 									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={submit}>Create</button>
 								</div>
 							</header>
@@ -174,18 +174,18 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 											<h3 className="text-sm font-bold tracking-wide">Basics</h3>
 											<label className="text-xs">
 												<span className="block mb-1">Lobby name</span>
-												<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" placeholder="e.g., Winter Grind 2025"
+												<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" placeholder="e.g., Winter Grind 2025"
 													value={lobbyName} maxLength={48} onChange={e => setLobbyName(e.target.value)} />
 											</label>
 											<div className="grid grid-cols-2 gap-2">
 												<label className="text-xs">
 													<span className="block mb-1">Start date (local)</span>
-													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="datetime-local"
+													<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" type="datetime-local"
 														value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
 												</label>
 												<label className="text-xs">
 													<span className="block mb-1">End date (local)</span>
-													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="datetime-local"
+													<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" type="datetime-local"
 														value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
 												</label>
 											</div>
@@ -195,19 +195,19 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 											<div className="grid grid-cols-2 gap-2">
 												<label className="text-xs">
 													<span className="block mb-1">Weekly target</span>
-													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="number" min={1}
+													<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" type="number" min={1}
 														value={weekly} onChange={e => setWeekly(Number(e.target.value))} placeholder="3" />
-													<div className="text-[10px] mt-1 text-deepBrown/70">Workouts required per week</div>
+													<div className="text-[10px] mt-1 text-muted-foreground">Workouts required per week</div>
 												</label>
 												<label className="text-xs">
 													<span className="block mb-1">Initial lives</span>
-													<input className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown" type="number" min={1}
+													<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" type="number" min={1}
 														value={lives} onChange={e => setLives(Number(e.target.value))} placeholder="3" />
-													<div className="text-[10px] mt-1 text-deepBrown/70">Lives each player starts with</div>
+													<div className="text-[10px] mt-1 text-muted-foreground">Lives each player starts with</div>
 												</label>
 											</div>
 											<label className="text-xs flex items-center gap-2">
-												<input type="checkbox" className="h-4 w-4 border border-deepBrown/40 rounded-sm bg-cream text-deepBrown"
+												<input type="checkbox" className="h-4 w-4 border border-border rounded-sm bg-input text-foreground"
 													checked={suddenDeath} onChange={e => setSuddenDeath(e.target.checked)} />
 												<span>Allow Sudden Death revive (1 heart, no pot share)</span>
 											</label>
@@ -215,7 +215,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 										<div className="ui-panel rounded-xl p-4 space-y-3 border">
 											<h3 className="text-sm font-bold tracking-wide">Pot & Ante</h3>
 											{String(mode).startsWith("CHALLENGE_") && (
-												<div className="text-[11px] text-deepBrown/60 mb-1 flex items-center gap-1">
+												<div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
 													<span>🔒</span>
 													<span>Disabled in Challenge modes</span>
 												</div>
@@ -223,25 +223,25 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 											<div className={`${String(mode).startsWith("CHALLENGE_") ? "opacity-40 pointer-events-none select-none" : ""} grid gap-3`}>
 												<label className="text-xs">
 													<span className="block mb-1">Initial pot ($)</span>
-													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
 														disabled={String(mode).startsWith("CHALLENGE_")}
 														value={initialPot} onChange={e => setInitialPot(e.target.value)} />
 												</label>
 												<label className="text-xs">
 													<span className="block mb-1">Weekly ante ($)</span>
-													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
 														disabled={String(mode).startsWith("CHALLENGE_")}
 														value={weeklyAnte} onChange={e => setWeeklyAnte(e.target.value)} />
 												</label>
 												<label className="text-xs flex items-center gap-2">
-													<input type="checkbox" className="h-4 w-4 border border-deepBrown/40 rounded-sm bg-cream text-deepBrown"
+													<input type="checkbox" className="h-4 w-4 border border-border rounded-sm bg-input text-foreground"
 														disabled={String(mode).startsWith("CHALLENGE_")}
 														checked={scalingEnabled} onChange={e => setScalingEnabled(e.target.checked)} />
 													<span>Scale ante with lobby size</span>
 												</label>
 												<label className={`text-xs ${scalingEnabled ? "" : "opacity-60"}`}>
 													<span className="block mb-1">Per-player boost ($)</span>
-													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+													<input inputMode="numeric" pattern="[0-9]*" className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
 														disabled={!scalingEnabled || String(mode).startsWith("CHALLENGE_")}
 														value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
 												</label>
@@ -278,7 +278,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 											<label className="text-xs">
 												<span className="block mb-1">Owner display name</span>
 												<input
-													className="w-full h-10 px-3 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+													className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
 													placeholder="Your name"
 													value={ownerName}
 													onChange={e => setOwnerName(e.target.value)}

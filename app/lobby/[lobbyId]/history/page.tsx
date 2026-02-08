@@ -436,21 +436,21 @@ const [potInput, setPotInput] = useState<string>("");
 
 	if (!isHydrated) {
 		return (
-			<div className="ui2-scope min-h-screen flex items-center justify-center text-muted-foreground">
+			<div className="min-h-screen flex items-center justify-center text-muted-foreground">
 				Loading...
 			</div>
 		);
 	}
 	if (!user) {
 		return (
-			<div className="ui2-scope min-h-screen flex items-center justify-center text-muted-foreground">
+			<div className="min-h-screen flex items-center justify-center text-muted-foreground">
 				Please sign in to view history.
 			</div>
 		);
 	}
 
 	return (
-		<div className="ui2-scope min-h-screen">
+		<div className="min-h-screen">
 			<div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-8 space-y-6">
 				<div className="scoreboard-panel p-5 sm:p-6 text-center relative overflow-hidden">
 					<div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />

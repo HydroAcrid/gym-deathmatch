@@ -22,7 +22,7 @@ export default function HomePage() {
 	}, []);
 
 	return (
-		<div className="ui2-scope min-h-screen">
+		<div className="min-h-screen">
 			<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
 				{lastLobby ? (
 					<div className="scoreboard-panel p-6 space-y-3">

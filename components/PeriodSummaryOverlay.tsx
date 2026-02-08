@@ -213,7 +213,7 @@ period: "daily" | "weekly";
 											<span className="leading-relaxed">{q.text}</span>
 										</div>
 									))
-									: <div className="text-cream/60">Arena was quiet.</div>}
+									: <div className="text-muted-foreground">Arena was quiet.</div>}
 							</div>
 						</motion.div>
 					</div>

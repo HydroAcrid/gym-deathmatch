@@ -125,7 +125,7 @@ export function ManualActivityModal({
 				exit={{ opacity: 0 }}
 			>
 				<motion.div
-					className="ui2-scope scoreboard-panel bg-card text-foreground w-full max-w-2xl mx-auto overflow-hidden"
+					className="scoreboard-panel bg-card text-foreground w-full max-w-2xl mx-auto overflow-hidden"
 					style={{ maxHeight: "calc(100vh - 2rem)" }}
 					initial={{ y: 20, opacity: 0 }}
 					animate={{ y: 0, opacity: 1 }}

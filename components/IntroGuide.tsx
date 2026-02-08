@@ -124,7 +124,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 						exit={{ opacity: 0 }}
 					>
 					<motion.div
-						className="ui2-scope paper-card paper-grain ink-edge w-full sm:max-w-lg sm:w-[92%] p-5 sm:p-6"
+						className="scoreboard-panel w-full sm:max-w-lg sm:w-[92%] p-5 sm:p-6"
 							initial={{ scale: 0.96, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.96, opacity: 0 }}
@@ -137,7 +137,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 									</div>
 									<p className="text-sm mb-1 whitespace-normal break-words">{slide.text}</p>
 									{slide.key === "install" ? (
-										<div className="mt-3 space-y-3 text-xs bg-cream/50 p-3 rounded border border-deepBrown/10">
+										<div className="mt-3 space-y-3 text-xs bg-muted/100 p-3 rounded border border-border">
 											<div>
 												<strong className="block mb-1">iOS (Safari):</strong>
 												<ol className="list-decimal list-inside space-y-0.5 text-[11px] opacity-90">
@@ -156,7 +156,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 											</div>
 										</div>
 									) : (
-										slide.sub ? <p className="text-[12px] text-deepBrown/70 whitespace-pre-wrap">{slide.sub}</p> : null
+										slide.sub ? <p className="text-[12px] text-muted-foreground whitespace-pre-wrap">{slide.sub}</p> : null
 									)}
 									{/* subtle line */}
 									<div className="mt-3 h-px w-full" style={{ backgroundColor: "rgba(74,38,32,0.25)" }} />
@@ -168,7 +168,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 									{STEPS.map((s, i) => (
 										<div
 											key={s.key}
-											className={`h-1.5 rounded-full transition-all ${i <= idx ? "bg-[#E1542A] w-6" : "bg-deepBrown/30 w-3"}`}
+											className={`h-1.5 rounded-full transition-all ${i <= idx ? "bg-primary w-6" : "bg-border w-3"}`}
 										/>
 									))}
 								</div>

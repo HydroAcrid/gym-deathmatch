@@ -48,8 +48,8 @@ export function MobileBottomNav() {
 
 	return (
 		<>
-			<div className="ui2-scope mobile-bottom-nav lg:hidden h-[calc(76px+env(safe-area-inset-bottom))]" />
-			<nav className="ui2-scope mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t-2 border-border safe-area-inset-bottom">
+			<div className="mobile-bottom-nav lg:hidden h-[calc(76px+env(safe-area-inset-bottom))]" />
+			<nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t-2 border-border safe-area-inset-bottom">
 				<div className="flex items-stretch justify-around h-16 safe-area-pb">
 					{navItems.map((item) => {
 						if (item.isLog) {

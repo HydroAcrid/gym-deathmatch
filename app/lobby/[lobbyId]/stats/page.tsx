@@ -64,7 +64,7 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 	}
 
 	return (
-		<div className="ui2-scope min-h-screen">
+		<div className="min-h-screen">
 			<div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 				<div className="scoreboard-panel p-5 sm:p-6 text-center relative overflow-hidden">
 					<div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />

@@ -21,7 +21,7 @@ export function DebugFooter() {
 	if (!enabled) return null;
 	return (
 		<div className="fixed bottom-1 left-1 right-1 z-[120] pointer-events-none">
-			<div className="mx-auto max-w-6xl bg-black/60 text-cream text-[11px] rounded px-2 py-1 pointer-events-auto">
+			<div className="mx-auto max-w-6xl bg-black/60 text-foreground text-[11px] rounded px-2 py-1 pointer-events-auto">
 				<span className="mr-3">Debug on</span>
 				<span className="mr-3">Ready: {ready}</span>
 				<span>LOG_LEVEL: {process.env.LOG_LEVEL || "info"}</span>

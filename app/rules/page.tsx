@@ -44,7 +44,7 @@ export default function RulesPage() {
 		"Have fun and don’t skip leg day."
 	];
 	return (
-		<div className="ui2-scope min-h-screen">
+		<div className="min-h-screen">
 			<div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
 				<div className="grid md:grid-cols-2 gap-4">
 					<div className="scoreboard-panel p-5 space-y-3">

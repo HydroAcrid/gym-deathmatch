@@ -289,7 +289,7 @@ export function OwnerSettingsModal({
 						<motion.div
 							role="dialog"
 							aria-modal="true"
-							className="ui2-scope ui-panel relative w-full sm:max-w-5xl h-full rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+							className="ui-panel relative w-full sm:max-w-5xl h-full rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
 								<div className="min-w-0">
@@ -298,14 +298,14 @@ export function OwnerSettingsModal({
 								</div>
 								<div className="shrink-0 flex items-center gap-2">
 									<button
-										className="h-9 w-9 rounded-md border border-deepBrown/30 flex items-center justify-center"
+										className="h-9 w-9 rounded-md border border-border flex items-center justify-center"
 										aria-label="Help"
 										onClick={() => setInfoOpen(true)}
 										title="Lobby Info"
 									>
 										<span className="text-base leading-none">?</span>
 									</button>
-									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
+									<button className="px-3 py-2 rounded-md border border-border text-xs" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
 									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 								</div>
 							</header>
@@ -350,7 +350,7 @@ export function OwnerSettingsModal({
 									<div className="mb-4">
 										<div className="poster-headline text-sm mb-2">POT & ANTE</div>
 										{String(mode).startsWith("CHALLENGE_") && (
-											<div className="text-[11px] text-deepBrown/60 mb-1 flex items-center gap-1">
+											<div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
 												<span>🔒</span>
 												<span>Disabled in Challenge modes</span>
 											</div>

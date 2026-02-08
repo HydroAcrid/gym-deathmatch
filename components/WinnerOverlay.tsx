@@ -52,7 +52,7 @@ export function WinnerOverlay({
 					exit={{ opacity: 0 }}
 				>
 					<motion.div
-						className="scoreboard-panel text-center px-8 py-6 relative overflow-hidden ui2-scope"
+						className="scoreboard-panel text-center px-8 py-6 relative overflow-hidden"
 						initial={{ scale: 0.96, opacity: 0 }}
 						animate={{ scale: 1, opacity: 1 }}
 						exit={{ scale: 0.96, opacity: 0 }}

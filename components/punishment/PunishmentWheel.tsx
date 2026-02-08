@@ -85,7 +85,7 @@ export function PunishmentWheel({
 						fontSize={14}
 					/>
 				) : (
-					<div className="h-64 w-64 rounded-full border-4 border-cream" style={{ background: "radial-gradient(circle, #5c3b2d, #2b211d)" }} />
+					<div className="h-64 w-64 rounded-full border-4 border-border" style={{ background: "radial-gradient(circle, hsl(20 15% 12%), hsl(20 18% 6%))" }} />
 				)}
 			</div>
 		</div>

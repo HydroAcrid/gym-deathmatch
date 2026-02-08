@@ -159,7 +159,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 
 	if (!isHydrated) {
 		return (
-			<div className="ui2-scope min-h-screen flex items-center justify-center">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="text-muted-foreground">Loading…</div>
 			</div>
 		);
@@ -167,7 +167,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 
 	if (!user) {
 		return (
-			<div className="ui2-scope min-h-screen">
+			<div className="min-h-screen">
 				<div className="container mx-auto max-w-2xl py-12 px-4">
 					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
 						<div className="font-display text-xl tracking-widest text-primary">WELCOME</div>
@@ -180,7 +180,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 	}
 
 	return (
-		<div className="ui2-scope min-h-screen">
+		<div className="min-h-screen">
 			<div className="container mx-auto max-w-2xl py-10 px-4 space-y-4">
 				<div className="scoreboard-panel p-6 space-y-4">
 					<div className="font-display text-xl tracking-widest text-primary">SET UP YOUR PROFILE</div>

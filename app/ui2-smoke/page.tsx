@@ -31,7 +31,7 @@ export default function Ui2SmokePage() {
 	const [dialogOpen, setDialogOpen] = useState(false);
 
 	return (
-		<div className="ui2-scope min-h-screen px-6 py-10">
+		<div className="min-h-screen px-6 py-10">
 			<div className="mx-auto max-w-4xl space-y-8">
 				<header className="space-y-2">
 					<h1 className="text-3xl">UI2 Smoke Test</h1>

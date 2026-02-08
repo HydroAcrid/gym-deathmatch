@@ -87,10 +87,10 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 		return (
 			<div className="relative min-h-[400px] sm:min-h-[500px]">
 				{loading && !liveData && (
-					<div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[#120b07]/90 backdrop-blur-sm text-cream">
-						<div className="w-16 h-16 border-4 border-cream/20 border-t-[var(--accent-primary)] rounded-full animate-spin" />
+					<div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[#120b07]/90 backdrop-blur-sm text-foreground">
+						<div className="w-16 h-16 border-4 border-border/20 border-t-primary rounded-full animate-spin" />
 						<div className="text-sm sm:text-base tracking-[0.2em] uppercase">Loading lobby</div>
-						<div className="text-[11px] text-cream/70">Pulling live arena data…</div>
+						<div className="text-[11px] text-muted-foreground">Pulling live arena data…</div>
 					</div>
 				)}
 				{

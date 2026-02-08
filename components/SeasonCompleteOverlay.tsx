@@ -97,7 +97,7 @@ export function SeasonCompleteOverlay({
 						animate={{ opacity: 1, scale: 1, y: 0 }}
 						exit={{ opacity: 0, scale: 0.95, y: 20 }}
 						transition={{ duration: 0.3, ease: "easeOut" }}
-						className="ui2-scope scoreboard-panel max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 border-2"
+						className="scoreboard-panel max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 border-2"
 						onClick={(e) => e.stopPropagation()}
 					>
 						{/* Header */}
@@ -124,14 +124,14 @@ export function SeasonCompleteOverlay({
 											transition={{ delay: idx * 0.1 }}
 											className={`flex items-center gap-3 p-3 rounded-md border ${
 												player.isWinner 
-													? "bg-cream/20 border-accent-primary/40" 
-													: "bg-cream/5 border-deepBrown/20"
+													? "bg-muted/20 border-primary/40" 
+													: "bg-muted/10 border-border"
 											}`}
 										>
 											{player.isWinner && (
 												<span className="text-2xl">🏆</span>
 											)}
-											<div className="h-12 w-12 rounded-full overflow-hidden border-2 border-deepBrown/30 flex-shrink-0">
+											<div className="h-12 w-12 rounded-full overflow-hidden border-2 border-border flex-shrink-0">
 												{player.avatarUrl ? (
 													<Image 
 														src={player.avatarUrl} 
@@ -141,12 +141,12 @@ export function SeasonCompleteOverlay({
 														className="object-cover"
 													/>
 												) : (
-													<div className="h-full w-full flex items-center justify-center text-xl bg-tan">🏋️</div>
+													<div className="h-full w-full flex items-center justify-center text-xl bg-muted">🏋️</div>
 												)}
 											</div>
 											<div className="flex-1 min-w-0">
 												<div className="poster-headline text-base truncate">{player.name.toUpperCase()}</div>
-												<div className="text-xs text-deepBrown/70">
+												<div className="text-xs text-muted-foreground">
 													❤️ {player.hearts} • {player.totalWorkouts} workouts
 												</div>
 											</div>
@@ -155,8 +155,8 @@ export function SeasonCompleteOverlay({
 								</div>
 								{/* Debts for money modes */}
 								{isMoney && seasonSummary.debts && seasonSummary.debts.length > 0 && (
-									<div className="mt-4 pt-4 border-t border-deepBrown/20">
-										<div className="text-xs text-deepBrown/70 space-y-1">
+									<div className="mt-4 pt-4 border-t border-border">
+										<div className="text-xs text-muted-foreground space-y-1">
 											{seasonSummary.debts.map((debt, idx) => (
 												<div key={idx}>
 													{debt.fromName} owes ${debt.amount} to {debt.toName}
@@ -172,29 +172,29 @@ export function SeasonCompleteOverlay({
 								<div className="poster-headline text-lg mb-3">HIGHLIGHTS</div>
 								<div className="space-y-3">
 									{seasonSummary.highlights.longestStreak && (
-										<div className="p-3 rounded-md border border-deepBrown/20 bg-cream/5">
-											<div className="text-xs text-deepBrown/70 mb-1">🔥 LONGEST STREAK</div>
+										<div className="p-3 rounded-md border border-border bg-muted/10">
+											<div className="text-xs text-muted-foreground mb-1">🔥 LONGEST STREAK</div>
 											<div className="poster-headline text-lg">{seasonSummary.highlights.longestStreak.playerName}</div>
-											<div className="text-sm text-deepBrown/80">{seasonSummary.highlights.longestStreak.streak} days</div>
+											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.longestStreak.streak} days</div>
 										</div>
 									)}
 									{seasonSummary.highlights.mostWorkouts && (
-										<div className="p-3 rounded-md border border-deepBrown/20 bg-cream/5">
-											<div className="text-xs text-deepBrown/70 mb-1">💪 MOST WORKOUTS</div>
+										<div className="p-3 rounded-md border border-border bg-muted/10">
+											<div className="text-xs text-muted-foreground mb-1">💪 MOST WORKOUTS</div>
 											<div className="poster-headline text-lg">{seasonSummary.highlights.mostWorkouts.playerName}</div>
-											<div className="text-sm text-deepBrown/80">{seasonSummary.highlights.mostWorkouts.count} total</div>
+											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.mostWorkouts.count} total</div>
 										</div>
 									)}
 									{seasonSummary.highlights.mostConsistent && (
-										<div className="p-3 rounded-md border border-deepBrown/20 bg-cream/5">
-											<div className="text-xs text-deepBrown/70 mb-1">📈 MOST CONSISTENT</div>
+										<div className="p-3 rounded-md border border-border bg-muted/10">
+											<div className="text-xs text-muted-foreground mb-1">📈 MOST CONSISTENT</div>
 											<div className="poster-headline text-lg">{seasonSummary.highlights.mostConsistent.playerName}</div>
-											<div className="text-sm text-deepBrown/80">{seasonSummary.highlights.mostConsistent.avgPerWeek.toFixed(1)} avg/week</div>
+											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.mostConsistent.avgPerWeek.toFixed(1)} avg/week</div>
 										</div>
 									)}
 									{isMoney && (
-										<div className="p-3 rounded-md border border-deepBrown/20 bg-cream/5">
-											<div className="text-xs text-deepBrown/70 mb-1">💰 FINAL POT</div>
+										<div className="p-3 rounded-md border border-border bg-muted/10">
+											<div className="text-xs text-muted-foreground mb-1">💰 FINAL POT</div>
 											<div className="poster-headline text-2xl">${seasonSummary.finalPot}</div>
 										</div>
 									)}
@@ -204,7 +204,7 @@ export function SeasonCompleteOverlay({
 
 						{/* Action Buttons */}
 						{isOwner && (
-							<div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-deepBrown/20">
+							<div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
 								<button
 									onClick={() => startNextSeason()}
 									disabled={loading}
@@ -221,14 +221,14 @@ export function SeasonCompleteOverlay({
 								</button>
 								<button
 									onClick={() => router.push("/lobbies")}
-									className="px-6 py-3 rounded-md border border-deepBrown/30 text-sm hover:bg-cream/10 transition-colors disabled:opacity-60"
+									className="px-6 py-3 rounded-md border border-border text-sm hover:bg-muted/10 transition-colors disabled:opacity-60"
 								>
 									Return to lobbies
 								</button>
 							</div>
 						)}
 						{!isOwner && (
-							<div className="pt-6 border-t border-deepBrown/20 text-center">
+							<div className="pt-6 border-t border-border text-center">
 								<button
 									onClick={() => router.push("/lobbies")}
 									className="btn-secondary px-6 py-3 rounded-md text-sm"

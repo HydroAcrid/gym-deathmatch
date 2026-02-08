@@ -22,15 +22,15 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
 			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
 		>
-			{/* Burnt orange stripe */}
-			<div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: "#E1542A" }} />
+			{/* Primary accent stripe */}
+			<div className="absolute left-0 top-0 bottom-0 w-2 bg-primary" />
 
 			<div className="flex items-center gap-3 pl-2">
-				<div className="relative h-16 w-16 rounded-md overflow-hidden border-2" style={{ borderColor: "#4A2620" }}>
+				<div className="relative h-16 w-16 rounded-md overflow-hidden border-2 border-border">
 					{avatar ? (
 						<Image src={avatar} alt={`${player.name} avatar`} fill sizes="56px" className="object-cover" />
 					) : (
-						<div className="h-full w-full flex items-center justify-center text-2xl bg-tan">🏋️</div>
+						<div className="h-full w-full flex items-center justify-center text-2xl bg-muted">🏋️</div>
 					)}
 				</div>
 				<div className="flex flex-col">

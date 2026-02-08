@@ -95,7 +95,7 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 				{open && (
 					<motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
 						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-						<motion.div className="ui2-scope scoreboard-panel max-w-lg w-[92%] p-6"
+						<motion.div className="scoreboard-panel max-w-lg w-[92%] p-6"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 							<div className="font-display text-xl tracking-widest text-primary mb-3">JOIN THIS LOBBY</div>
 							{!playerId ? (

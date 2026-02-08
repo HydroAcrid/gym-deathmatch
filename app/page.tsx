@@ -17,7 +17,7 @@ export default function RootPage() {
 
 	// Show loading while waiting for auth to hydrate
 	return (
-		<div className="ui2-scope min-h-screen flex items-center justify-center">
+		<div className="min-h-screen flex items-center justify-center">
 			<div className="text-center text-muted-foreground">Loading your arena…</div>
 		</div>
 	);

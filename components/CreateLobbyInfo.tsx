@@ -8,7 +8,7 @@ export function CreateLobbyInfo({ open, onClose }: { open: boolean; onClose: () 
 			{open && (
 				<motion.div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-black/70"
 					initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-					<motion.article className="ui2-scope ui-panel rounded-2xl shadow-2xl border px-5 sm:px-8 py-5 sm:py-6 w-full sm:max-w-[68ch] md:max-w-[72ch] max-w-full break-anywhere whitespace-normal" initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
+					<motion.article className="ui-panel rounded-2xl shadow-2xl border px-5 sm:px-8 py-5 sm:py-6 w-full sm:max-w-[68ch] md:max-w-[72ch] max-w-full break-anywhere whitespace-normal" initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
 						<header className="mb-3">
 							<h2 className="text-xl font-black tracking-wide">Lobby Info</h2>
 						</header>

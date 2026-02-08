@@ -207,7 +207,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	}, [lobby.id]);
 
 	return (
-		<div className="ui2-scope min-h-screen">
+		<div className="min-h-screen">
 			<div className="container mx-auto px-4 py-8 space-y-8">
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 					<div>

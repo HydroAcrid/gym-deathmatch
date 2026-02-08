@@ -12,16 +12,11 @@ export default {
 	theme: {
 		extend: {
 			colors: {
-				cream: "hsl(var(--foreground))",
-				tan: "hsl(var(--card))",
+				/* Legacy names → arena palette */
+				cream: "hsl(var(--card))",
+				tan: "hsl(var(--muted))",
 				burntOrange: "hsl(var(--primary))",
-				deepBrown: "hsl(var(--foreground))",
-				mutedTeal: "#7FA39A",   // secondary accent
-				neonBlue: "#00FFFF",
-				neonPink: "#FF00FF",
-				neonPurple: "#A020F0",
-				darkBg: "#0B002B",
-				magentaGlow: "#E4007C",
+				deepBrown: "hsl(var(--muted-foreground))",
 				border: "hsl(var(--border))",
 				input: "hsl(var(--input))",
 				ring: "hsl(var(--ring))",
