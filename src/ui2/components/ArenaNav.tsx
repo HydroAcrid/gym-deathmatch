@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { History, Menu, BookOpen, Home, Trophy } from "lucide-react";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
@@ -23,6 +23,7 @@ const baseTabs = [
 
 export function ArenaNav() {
 	const pathname = usePathname();
+	const router = useRouter();
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const { user, signInWithGoogle, signOut } = useAuth();
 	const { theme, toggleTheme } = useTheme();
@@ -46,6 +47,19 @@ export function ArenaNav() {
 		if (href.endsWith("/stats") && /^\/lobby\/[^/]+\/stats$/.test(pathname ?? "")) return true;
 		return false;
 	};
+
+	async function handleAuthClick() {
+		try {
+			if (user) {
+				await signOut();
+				return;
+			}
+			await signInWithGoogle();
+		} catch (err) {
+			console.error("[ArenaNav] auth click failed:", err);
+			router.push("/onboard");
+		}
+	}
 
 	return (
 		<nav className="ui2-scope border-b-2 border-border bg-card/50 sticky top-0 z-40 safe-area-pt">
@@ -92,9 +106,10 @@ export function ArenaNav() {
 						</div>
 
 						<Button
+							type="button"
 							variant="outline"
 							size="sm"
-							onClick={user ? signOut : signInWithGoogle}
+							onClick={handleAuthClick}
 							className="hidden sm:inline-flex"
 						>
 							{user ? "SIGN OUT" : "SIGN IN"}
@@ -163,10 +178,14 @@ export function ArenaNav() {
 										</Link>
 									</Button>
 									<Button
+										type="button"
 										variant="outline"
 										className="w-full h-12 touch-target-lg"
 										size="sm"
-										onClick={user ? signOut : signInWithGoogle}
+										onClick={async () => {
+											setMobileMenuOpen(false);
+											await handleAuthClick();
+										}}
 									>
 										{user ? "SIGN OUT" : "SIGN IN"}
 									</Button>

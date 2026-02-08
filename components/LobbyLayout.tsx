@@ -4,11 +4,9 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { Lobby } from "@/types/game";
 import { LiveLobbyResponse } from "@/types/api";
 import { motion } from "framer-motion";
-import { Scoreboard } from "./Scoreboard";
 import { PlayerCard } from "./PlayerCard";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "./ToastProvider";
-import { RecentFeed } from "./RecentFeed";
 import { KoOverlay } from "./KoOverlay";
 import { WinnerOverlay } from "./WinnerOverlay";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
@@ -17,6 +15,10 @@ import { ChallengeHero } from "./ChallengeHero";
 import { WeekSetup } from "./WeekSetup";
 import { LAST_LOBBY_STORAGE_KEY } from "@/lib/localStorageKeys";
 import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
+import { ActiveSeasonHeader } from "@/src/ui2/components/ActiveSeasonHeader";
+import { LiveFeed } from "@/src/ui2/components/LiveFeed";
+import { PotStakesPanel } from "@/src/ui2/components/PotStakesPanel";
+import { Button } from "@/src/ui2/ui/button";
 
 type LobbyLayoutProps = {
 	lobby: Lobby;
@@ -41,6 +43,19 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const koEvent = liveData?.koEvent;
 	const mode = (lobbyData as any).mode;
 	const modeValue = mode ?? null;
+	const modeLabel = String(mode || "MONEY_SURVIVAL").replace(/_/g, " ");
+	const isMoneyMode = String(mode || "").startsWith("MONEY_");
+	const isChallengeMode = String(mode || "").startsWith("CHALLENGE_");
+	const ownerName = players.find((p) => p.id === lobbyData.ownerId)?.name || "Host";
+	const weeklyAnte = (lobbyData as any).weeklyAnte ?? 10;
+
+	const potGameMode = (() => {
+		const key = String(mode || "").toUpperCase();
+		if (key.includes("LAST_MAN")) return "last_man_standing";
+		if (key.includes("ROULETTE")) return "roulette";
+		if (key.includes("CUMULATIVE")) return "cumulative";
+		return "survival";
+	})() as "survival" | "last_man_standing" | "roulette" | "cumulative";
 
 	// Local UI state
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
@@ -268,61 +283,51 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	}, [joined, connectedPlayerId, toast]);
 
 	return (
-		<div className="mx-auto max-w-6xl">
-			{/* Season header strip */}
-			<div className="relative mb-2">
-				<motion.div className="paper-card paper-grain ink-edge px-4 py-3 border-b-4" style={{ borderColor: "#E1542A" }}>
-					<div className="flex flex-wrap items-center gap-3">
-						<button
-							aria-label="Share lobby"
-							className="p-1 text-xs text-main dark:text-cream"
-							onClick={async () => {
-								if (typeof window === "undefined") return;
-								const shareUrl = `${window.location.origin}/onboard/${lobbyData.id}`;
-								const ownerName = players.find(p => p.id === lobbyData.ownerId)?.name || "Your friend";
-								const text = `${ownerName} is inviting you to the Deathmatch — ${lobbyData.name}. Join now:`;
-								try {
-									if (navigator.share) {
-										await navigator.share({
-											title: "Gym Deathmatch",
-											text: text,
-											url: shareUrl
-										});
-										return;
-									}
-								} catch {
-									// fallthrough to clipboard
+		<div className="ui2-scope min-h-screen">
+			<div className="container mx-auto px-4 py-8 space-y-8">
+				<ActiveSeasonHeader
+					seasonName={lobbyData.name}
+					seasonNumber={lobbyData.seasonNumber}
+					gameMode={modeLabel}
+					hostName={ownerName}
+					athleteCount={players.length}
+				/>
+
+				<div className="flex flex-wrap items-center gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={async () => {
+							if (typeof window === "undefined") return;
+							const shareUrl = `${window.location.origin}/onboard/${lobbyData.id}`;
+							const text = `${ownerName} is inviting you to the Deathmatch — ${lobbyData.name}. Join now:`;
+							try {
+								if (navigator.share) {
+									await navigator.share({
+										title: "Gym Deathmatch",
+										text: text,
+										url: shareUrl,
+									});
+									return;
 								}
-								navigator.clipboard?.writeText(shareUrl);
-								toast.push("Invite link copied");
-							}}
-						>
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-								<path d="M10 13a5 5 0 0 0 7.07 0l3.54-3.54a5 5 0 0 0-7.07-7.07L11 4" />
-								<path d="M14 11a5 5 0 0 0-7.07 0L3.39 14.54a5 5 0 1 0 7.07 7.07L13 20" />
-							</svg>
-						</button>
-						<div className="poster-headline text-2xl">{lobbyData.name.toUpperCase()}</div>
-						<div className="text-sm text-deepBrown/70">SEASON {lobbyData.seasonNumber} · MODE: {mode || "MONEY_SURVIVAL"}</div>
-						<div className="ml-auto">
-							{isOwner && (
-								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setEditOpen(true)}>
-									Edit
-								</button>
-							)}
-						</div>
-					</div>
-				</motion.div>
-				
-			</div>
-			
+							} catch {
+								// fallthrough to clipboard
+							}
+							navigator.clipboard?.writeText(shareUrl);
+							toast.push("Invite link copied");
+						}}
+					>
+						Share Lobby
+					</Button>
+					{isOwner && (
+						<Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+							Edit Lobby
+						</Button>
+					)}
+				</div>
 
-			<div className="header-divider-glow mb-3" />
-
-			{/* Week Setup (PENDING_CONFIRMATION) for Challenge Roulette */}
-			{String(mode || "").startsWith("CHALLENGE_") && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
-				<>
-					<div className="mb-6">
+				{isChallengeMode && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
+					<div className="space-y-6">
 						<WeekSetup
 							lobbyId={lobbyData.id}
 							week={activePunishment.week}
@@ -332,87 +337,93 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 							players={players}
 							isOwner={isOwner}
 						/>
+						<LiveFeed lobbyId={lobbyData.id} />
 					</div>
-					{/* Arena feed */}
-					<div className="mb-6">
-						<RecentFeed lobbyId={lobbyData.id} />
-					</div>
-				</>
-			) : (
-				<>
-					{/* Money vs Challenge header blocks - hide countdown when completed */}
-					{stage !== "COMPLETED" && (
-						<>
-							{String(mode || "").startsWith("MONEY_") ? (
-								<div className="mb-4">
-									<Scoreboard
-										amount={potAmount}
-										endIso={lobbyData.seasonEnd}
-										canEdit={isOwner}
-										onEdit={async () => {
-											if (!isOwner || !user?.id) return;
-											const input = window.prompt("Set pot amount", String(potAmount));
-											if (input === null) return;
-											const target = Number(input);
-											if (!Number.isFinite(target) || target < 0) {
-												toast.push("Enter a valid non-negative number.");
-												return;
-											}
-											try {
-												const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/pot`, {
-													method: "POST",
-													headers: { "Content-Type": "application/json", "x-user-id": user.id },
-													body: JSON.stringify({ targetPot: target })
-												});
-												const data = await res.json().catch(() => ({}));
-												if (!res.ok) {
-													toast.push(data.error || "Failed to update pot");
-													return;
-												}
-												setPotAmount(target);
-												toast.push("Pot updated");
-												onRefresh?.();
-											} catch {
-												toast.push("Failed to update pot");
-											}
-										}}
-									/>
-								</div>
-							) : (
-								<div className="mb-4">
-									<ChallengeHero
-										lobbyId={lobbyData.id}
-										mode={mode as any}
-										challengeSettings={lobbyData.challengeSettings || null}
-										seasonStart={lobbyData.seasonStart}
-										seasonEnd={lobbyData.seasonEnd}
-									/>
+				) : (
+					<div className="grid lg:grid-cols-3 gap-6">
+						<div className="lg:col-span-2 space-y-6">
+							<LiveFeed lobbyId={lobbyData.id} />
+
+							{!(isChallengeMode && weekStatus === "PENDING_CONFIRMATION") && (
+								<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
+									{players.slice(0, 2).map((p) => (
+										<motion.div key={p.id} variants={item} className="h-full">
+											<PlayerCard
+												player={p}
+												lobbyId={lobbyData.id}
+												mePlayerId={myPlayerId || undefined}
+												showReady={false}
+											/>
+										</motion.div>
+									))}
+									{players.slice(2).map((p) => (
+										<motion.div key={p.id} variants={item} className="h-full">
+											<PlayerCard
+												player={p}
+												lobbyId={lobbyData.id}
+												mePlayerId={myPlayerId || undefined}
+												showReady={false}
+											/>
+										</motion.div>
+									))}
 								</div>
 							)}
-						</>
-					)}
-					{/* Arena feed directly under pot */}
-					<div className="mb-6">
-						<RecentFeed lobbyId={lobbyData.id} />
-					</div>
-				</>
-			)}
+						</div>
+						<div className="space-y-6">
+							{stage !== "COMPLETED" && isMoneyMode && (
+								<div className="space-y-3">
+									<PotStakesPanel currentPot={potAmount} weeklyAnte={weeklyAnte} gameMode={potGameMode} />
+									{isOwner && (
+										<Button
+											variant="arenaPrimary"
+											size="sm"
+											onClick={async () => {
+												if (!isOwner || !user?.id) return;
+												const input = window.prompt("Set pot amount", String(potAmount));
+												if (input === null) return;
+												const target = Number(input);
+												if (!Number.isFinite(target) || target < 0) {
+													toast.push("Enter a valid non-negative number.");
+													return;
+												}
+												try {
+													const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/pot`, {
+														method: "POST",
+														headers: { "Content-Type": "application/json", "x-user-id": user.id },
+														body: JSON.stringify({ targetPot: target }),
+													});
+													const data = await res.json().catch(() => ({}));
+													if (!res.ok) {
+														toast.push(data.error || "Failed to update pot");
+														return;
+													}
+													setPotAmount(target);
+													toast.push("Pot updated");
+													onRefresh?.();
+												} catch {
+													toast.push("Failed to update pot");
+												}
+											}}
+										>
+											Update Pot
+										</Button>
+									)}
+								</div>
+							)}
 
-			{/* Player cards - hide during PENDING_CONFIRMATION, show in WeekSetup instead */}
-			{!(String(mode || "").startsWith("CHALLENGE_") && weekStatus === "PENDING_CONFIRMATION") && (
-				<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
-					{players.slice(0, 2).map((p) => (
-						<motion.div key={p.id} variants={item} className="h-full">
-								<PlayerCard player={p} lobbyId={lobbyData.id} mePlayerId={myPlayerId || undefined} showReady={false} />
-						</motion.div>
-					))}
-					{players.slice(2).map((p) => (
-						<motion.div key={p.id} variants={item} className="h-full">
-								<PlayerCard player={p} lobbyId={lobbyData.id} mePlayerId={myPlayerId || undefined} showReady={false} />
-						</motion.div>
-					))}
-				</div>
-			)}
+							{stage !== "COMPLETED" && isChallengeMode && (
+								<ChallengeHero
+									lobbyId={lobbyData.id}
+									mode={mode as any}
+									challengeSettings={lobbyData.challengeSettings || null}
+									seasonStart={lobbyData.seasonStart}
+									seasonEnd={lobbyData.seasonEnd}
+								/>
+							)}
+						</div>
+					</div>
+				)}
+			</div>
 			{/* Strava reconnect banner removed – Strava is optional now */}
 			<KoOverlay
 				open={seasonStatus === "completed" && !!koEvent && showKo}

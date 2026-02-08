@@ -54,3 +54,49 @@
 **What’s next**
 - Add adapters in `src/ui2/adapters/` for OG data → arena UI props.
 - Migrate Lobbies list screen (Phase 2 step 2).
+
+---
+
+## Phase 2 Milestone 2 (Completed)
+
+**Lobbies list**
+- Added `src/ui2/components/LobbyCard.tsx` and `src/ui2/components/LobbyFiltersBar.tsx`.
+- Added `src/ui2/adapters/lobby.ts` for OG lobby row mapping.
+- Migrated `app/lobbies/page.tsx` to UI2 layout.
+
+---
+
+## Phase 2 Milestone 3 (Completed)
+
+**Pre-stage lobby**
+- Added `src/ui2/components/CountdownTimer.tsx` and `src/ui2/components/AthleteCard.tsx`.
+- Updated `components/PreStageView.tsx` to UI2 layout (no logic changes).
+- Added scoped UI2 utility styles (arena-panel, countdown-block, status-dot, etc.).
+
+**What’s next**
+- Migrate active arena layout (LobbyLayout + RecentFeed).
+
+---
+
+## Phase 2 Milestone 4 (Completed)
+
+**Active arena layout + live feed**
+- Added UI2 components: `ActiveSeasonHeader`, `PotStakesPanel`, `LiveFeed`.
+- Reworked `components/LobbyLayout.tsx` to UI2 layout while preserving existing logic, overlays, and actions.
+- Replaced `RecentFeed` with UI2 `LiveFeed` (same API endpoint).
+- Added scoped UI2 helpers for feed animations and gold badge styling.
+
+**What’s next**
+- Migrate workout submission + workout detail + image preview.
+
+---
+
+## Phase 2 Milestone 5 (Completed)
+
+**Workout submission + history feed**
+- Updated `components/ManualActivityModal.tsx` to UI2 styling while preserving upload + submit logic.
+- Migrated `app/lobby/[lobbyId]/history/page.tsx` to UI2 layout (header, event cards, activity cards, owner tools).
+- Replaced legacy lightbox with UI2 `PhotoLightbox` and refreshed comments styling.
+
+**What’s next**
+- Migrate voting + comments surfaces across remaining screens.

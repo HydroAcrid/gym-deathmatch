@@ -1,9 +1,14 @@
 "use client";
-import { useState, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
 import { useAuth } from "./AuthProvider";
+import { Button } from "@/src/ui2/ui/button";
+import { Input } from "@/src/ui2/ui/input";
+import { Label } from "@/src/ui2/ui/label";
+import { Textarea } from "@/src/ui2/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/ui2/ui/select";
 
 export function ManualActivityModal({
 	open,
@@ -22,10 +27,24 @@ export function ManualActivityModal({
 	const [notes, setNotes] = useState<string>("");
 	const [caption, setCaption] = useState<string>("");
 	const [file, setFile] = useState<File | null>(null);
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 	const [busy, setBusy] = useState<boolean>(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 	const supabase = (require("@/lib/supabaseBrowser") as any).getBrowserSupabase?.() || null;
 	const toast = useToast?.();
 	const { user } = useAuth();
+
+	useEffect(() => {
+		if (!file) {
+			setPreviewUrl(null);
+			return;
+		}
+		const url = URL.createObjectURL(file);
+		setPreviewUrl(url);
+		return () => {
+			URL.revokeObjectURL(url);
+		};
+	}, [file]);
 
 	async function submit() {
 		if (!user?.id) {
@@ -106,7 +125,7 @@ export function ManualActivityModal({
 				exit={{ opacity: 0 }}
 			>
 				<motion.div
-					className="paper-card paper-grain ink-edge bg-tan text-deepBrown w-full max-w-lg mx-auto p-4 sm:p-6"
+					className="ui2-scope scoreboard-panel bg-card text-foreground w-full max-w-2xl mx-auto overflow-hidden"
 					style={{ maxHeight: "calc(100vh - 2rem)" }}
 					initial={{ y: 20, opacity: 0 }}
 					animate={{ y: 0, opacity: 1 }}
@@ -114,85 +133,133 @@ export function ManualActivityModal({
 					transition={{ duration: 0.2 }}
 					onClick={(e) => e.stopPropagation()}
 				>
-					<div className="poster-headline text-xl sm:text-2xl mb-3">Log workout manually</div>
-					<div className="grid gap-3">
-						<label className="text-xs">
-								<span className="block mb-1">Type</span>
-								<select
-									value={type}
-									onChange={(e) => setType(e.target.value)}
-									className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-[#1f1a17] text-cream"
-									style={{ colorScheme: "dark" }}
+					<div className="flex items-center justify-between p-4 border-b-2 border-border">
+						<div>
+							<div className="font-display text-lg tracking-widest text-primary">LOG WORKOUT</div>
+							<div className="text-xs text-muted-foreground">Manual post with photo evidence</div>
+						</div>
+						<Button variant="ghost" size="sm" onClick={onClose}>
+							Close
+						</Button>
+					</div>
+
+					<div className="p-4 sm:p-6 space-y-5 overflow-y-auto">
+						<div className="space-y-2">
+							<Label className="text-xs uppercase tracking-wider">Photo (required)</Label>
+							{previewUrl ? (
+								<div className="relative">
+									<img
+										src={previewUrl}
+										alt="Workout preview"
+										className="w-full h-48 object-cover border-2 border-border"
+									/>
+									<Button
+										variant="destructive"
+										size="sm"
+										className="absolute top-2 right-2"
+										onClick={() => {
+											setFile(null);
+											if (fileInputRef.current) fileInputRef.current.value = "";
+										}}
+									>
+										Remove
+									</Button>
+								</div>
+							) : (
+								<button
+									type="button"
+									onClick={() => fileInputRef.current?.click()}
+									className="w-full h-32 border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors"
 								>
-									<option value="run">Run</option>
-									<option value="ride">Ride</option>
-									<option value="gym">Gym</option>
-									<option value="walk">Walk</option>
-									<option value="other">Other</option>
-								</select>
-							</label>
-							<label className="text-xs">
-								<span className="block mb-1">Photo (required)</span>
-								<input
-									type="file"
-									accept="image/*"
-									onChange={(e) => setFile(e.target.files?.[0] || null)}
-									className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-								/>
-							</label>
-							<label className="text-xs">
-								<span className="block mb-1">Caption (required)</span>
-								<input
-									type="text"
+									<span className="text-sm text-muted-foreground font-display tracking-wider">
+										TAP TO UPLOAD PHOTO
+									</span>
+								</button>
+							)}
+							<input
+								ref={fileInputRef}
+								type="file"
+								accept="image/*"
+								onChange={(e) => setFile(e.target.files?.[0] || null)}
+								className="hidden"
+							/>
+							<p className="text-xs text-muted-foreground">Photo evidence is required for manual posts.</p>
+						</div>
+
+						<div className="grid gap-4 sm:grid-cols-2">
+							<div className="space-y-2">
+								<Label className="text-xs uppercase tracking-wider">Type</Label>
+								<Select value={type} onValueChange={setType}>
+									<SelectTrigger className="bg-input border-border">
+										<SelectValue placeholder="Select type" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="run">Run</SelectItem>
+										<SelectItem value="ride">Ride</SelectItem>
+										<SelectItem value="gym">Gym</SelectItem>
+										<SelectItem value="walk">Walk</SelectItem>
+										<SelectItem value="other">Other</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2">
+								<Label className="text-xs uppercase tracking-wider">Caption (required)</Label>
+								<Input
 									value={caption}
 									onChange={(e) => setCaption(e.target.value)}
 									maxLength={200}
 									placeholder="What did you do?"
-									className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
+									className="bg-input border-border"
 								/>
-							</label>
-							<div className="grid grid-cols-2 gap-3">
-								<label className="text-xs">
-									<span className="block mb-1">Duration (min)</span>
-									<input
-										type="number"
-										inputMode="numeric"
-										min="0"
-										value={duration}
-										onChange={(e) => setDuration(e.target.value)}
-										className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										style={{ colorScheme: "dark" }}
-									/>
-								</label>
-								<label className="text-xs">
-									<span className="block mb-1">Distance (km)</span>
-									<input
-										type="number"
-										inputMode="decimal"
-										min="0"
-										step="0.1"
-										value={distance}
-										onChange={(e) => setDistance(e.target.value)}
-										className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown"
-										style={{ colorScheme: "dark" }}
-									/>
-								</label>
 							</div>
-							<label className="text-xs">
-								<span className="block mb-1">Notes (optional)</span>
-								<textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={200}
-									className="w-full px-3 py-2 rounded-md border border-deepBrown/40 bg-cream text-deepBrown min-h-[80px]" />
-							</label>
 						</div>
 
-						<div className="mt-4 flex gap-2">
-							<button className="btn-secondary px-3 py-2 rounded-md min-h-[44px] text-xs" onClick={onClose} disabled={busy}>
-								Cancel
-							</button>
-							<button className="btn-vintage px-4 py-2 rounded-md min-h-[44px] text-xs" onClick={submit} disabled={busy}>
-								Save workout
-							</button>
+						<div className="grid gap-4 sm:grid-cols-2">
+							<div className="space-y-2">
+								<Label className="text-xs uppercase tracking-wider">Duration (min)</Label>
+								<Input
+									type="number"
+									inputMode="numeric"
+									min="0"
+									value={duration}
+									onChange={(e) => setDuration(e.target.value)}
+									className="bg-input border-border"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label className="text-xs uppercase tracking-wider">Distance (km)</Label>
+								<Input
+									type="number"
+									inputMode="decimal"
+									min="0"
+									step="0.1"
+									value={distance}
+									onChange={(e) => setDistance(e.target.value)}
+									className="bg-input border-border"
+								/>
+							</div>
 						</div>
+
+						<div className="space-y-2">
+							<Label className="text-xs uppercase tracking-wider">Notes (optional)</Label>
+							<Textarea
+								value={notes}
+								onChange={(e) => setNotes(e.target.value)}
+								maxLength={200}
+								className="bg-input border-border min-h-[100px]"
+								placeholder="Optional notes..."
+							/>
+						</div>
+
+						<div className="flex flex-col sm:flex-row gap-2">
+							<Button variant="secondary" onClick={onClose} disabled={busy}>
+								Cancel
+							</Button>
+							<Button variant="arenaGold" onClick={submit} disabled={busy}>
+								{busy ? "Saving..." : "Save workout"}
+							</Button>
+						</div>
+					</div>
 				</motion.div>
 			</motion.div>
 		</AnimatePresence>,

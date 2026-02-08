@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import { Button } from "@/components/ui/Button";
-import { StatusPill } from "@/components/ui/StatusPill";
-import { StyledSelect } from "@/components/ui/StyledSelect";
+import { Button } from "@/src/ui2/ui/button";
+import { Input } from "@/src/ui2/ui/input";
+import { Textarea } from "@/src/ui2/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/ui2/ui/select";
+import { PhotoLightbox } from "@/src/ui2/components/PhotoLightbox";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 type PlayerLite = {
@@ -432,114 +434,145 @@ const [potInput, setPotInput] = useState<string>("");
 		}
 	}
 
-	if (!isHydrated) return <div className="p-8 text-center text-deepBrown/60">Loading...</div>;
-	if (!user) return <div className="p-8 text-center text-deepBrown/60">Please sign in to view history.</div>;
+	if (!isHydrated) {
+		return (
+			<div className="ui2-scope min-h-screen flex items-center justify-center text-muted-foreground">
+				Loading...
+			</div>
+		);
+	}
+	if (!user) {
+		return (
+			<div className="ui2-scope min-h-screen flex items-center justify-center text-muted-foreground">
+				Please sign in to view history.
+			</div>
+		);
+	}
 
 	return (
-		<div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-8">
-			<div className="paper-block-bleed" style={{ borderColor: "#E1542A" }}>
-				<div className="poster-headline text-lg sm:text-xl mb-2">HISTORY</div>
-				<div className="text-deepBrown/70 text-xs sm:text-sm">Manual posts and decisions • Lobby: {lobbyName || lobbyId}</div>
-			</div>
+		<div className="ui2-scope min-h-screen">
+			<div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-8 space-y-6">
+				<div className="scoreboard-panel p-5 sm:p-6 text-center relative overflow-hidden">
+					<div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
+					<div className="relative z-10 space-y-2">
+						<div className="font-display text-xl sm:text-2xl tracking-widest text-primary">
+							HISTORY LOG
+						</div>
+						<div className="text-xs sm:text-sm text-muted-foreground">
+							Manual posts and decisions • Lobby: {lobbyName || lobbyId}
+						</div>
+					</div>
+				</div>
 
-			{isOwner ? (
-				<div className="paper-block mb-6 sm:mb-8">
-					<div className="poster-headline text-base sm:text-lg mb-3 sm:mb-4">Owner tools</div>
-					<div className="flex flex-col md:flex-row gap-2 md:gap-3 items-start md:items-center md:justify-start flex-wrap">
-						<div className="w-full md:w-auto">
-							<StyledSelect value={adjustTarget} onChange={e => setAdjustTarget(e.target.value)} className="w-full md:w-auto text-sm">
-								<option value="">Select athlete</option>
-								{players.map(p => (
-									<option key={p.id} value={p.id}>{p.name}</option>
-								))}
-							</StyledSelect>
+				{isOwner ? (
+					<div className="scoreboard-panel p-4 sm:p-5">
+						<div className="font-display text-sm sm:text-base tracking-widest text-primary mb-3">
+							OWNER TOOLS
 						</div>
-						<div className="flex gap-2 w-full md:w-auto">
-							<Button variant="secondary" size="md" className="flex-1 md:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(1)}>
-								+1 HEART
-							</Button>
-							<Button variant="secondary" size="md" className="flex-1 md:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(-1)}>
-								-1 HEART
-							</Button>
-						</div>
-						<div className="text-[11px] sm:text-xs text-deepBrown/70 w-full md:w-auto">Logged publicly in history.</div>
-						{typeof currentPot === "number" && (
-							<div className="flex items-center gap-2 w-full md:w-auto">
-								<label className="text-[11px] sm:text-xs text-deepBrown/70 uppercase tracking-wide">Pot</label>
-								<input
-									type="number"
-									className="arena-input arena-input-compact w-full md:w-28 text-sm"
-									value={potInput}
-									onChange={e => setPotInput(e.target.value)}
-									onBlur={async () => {
-										if (!user?.id) return;
-										const val = Number(potInput);
-										if (!Number.isFinite(val) || val < 0) {
-											toast?.push?.("Enter a non-negative number.");
-											setPotInput(String(currentPot));
-											return;
-										}
-										if (val === currentPot) return;
-										setBusy(true);
-										try {
-											const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/pot`, {
-												method: "POST",
-												headers: { "Content-Type": "application/json", "x-user-id": user.id },
-												body: JSON.stringify({ targetPot: val })
-											});
-											const data = await res.json().catch(() => ({}));
-											if (!res.ok) {
-												toast?.push?.(data.error || "Failed to update pot");
+						<div className="flex flex-col md:flex-row gap-3 items-start md:items-center flex-wrap">
+							<div className="w-full md:w-64">
+								<Select value={adjustTarget} onValueChange={setAdjustTarget}>
+									<SelectTrigger className="bg-input border-border">
+										<SelectValue placeholder="Select athlete" />
+									</SelectTrigger>
+									<SelectContent>
+										{players.map((p) => (
+											<SelectItem key={p.id} value={p.id}>
+												{p.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="flex gap-2 w-full md:w-auto">
+								<Button variant="secondary" size="sm" className="flex-1 md:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(1)}>
+									+1 HEART
+								</Button>
+								<Button variant="secondary" size="sm" className="flex-1 md:flex-none" disabled={!adjustTarget || busy} onClick={() => adjustHearts(-1)}>
+									-1 HEART
+								</Button>
+							</div>
+							<div className="text-[11px] sm:text-xs text-muted-foreground w-full md:w-auto">
+								Logged publicly in history.
+							</div>
+							{typeof currentPot === "number" && (
+								<div className="flex items-center gap-2 w-full md:w-auto">
+									<label className="text-[11px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+										Pot
+									</label>
+									<Input
+										type="number"
+										className="bg-input border-border w-full md:w-28 text-sm"
+										value={potInput}
+										onChange={(e) => setPotInput(e.target.value)}
+										onBlur={async () => {
+											if (!user?.id) return;
+											const val = Number(potInput);
+											if (!Number.isFinite(val) || val < 0) {
+												toast?.push?.("Enter a non-negative number.");
 												setPotInput(String(currentPot));
 												return;
 											}
-											setCurrentPot(val);
-											setPotInput(String(val));
-											toast?.push?.("Pot updated");
-											reloadActivities();
-										} catch {
-											toast?.push?.("Failed to update pot");
-											setPotInput(String(currentPot));
-										} finally {
-											setBusy(false);
-										}
-									}}
-								/>
-							</div>
-						)}
+											if (val === currentPot) return;
+											setBusy(true);
+											try {
+												const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/pot`, {
+													method: "POST",
+													headers: { "Content-Type": "application/json", "x-user-id": user.id },
+													body: JSON.stringify({ targetPot: val }),
+												});
+												const data = await res.json().catch(() => ({}));
+												if (!res.ok) {
+													toast?.push?.(data.error || "Failed to update pot");
+													setPotInput(String(currentPot));
+													return;
+												}
+												setCurrentPot(val);
+												setPotInput(String(val));
+												toast?.push?.("Pot updated");
+												reloadActivities();
+											} catch {
+												toast?.push?.("Failed to update pot");
+												setPotInput(String(currentPot));
+											} finally {
+												setBusy(false);
+											}
+										}}
+									/>
+								</div>
+							)}
+						</div>
 					</div>
-				</div>
-			) : null}
+				) : null}
 
-			<div className="flex flex-col gap-4 sm:gap-6">
-				{items.map(item => {
-			if (item.kind === "event") {
-				const ev = item.e as EventRow;
-				if (ev.type === "WEEKLY_TARGET_MET" || ev.type === "WEEKLY_TARGET_MISSED") {
-					// Keep weekly logs in History, but skip them in the feed list if desired
-				}
+			<div className="flex flex-col gap-5">
+				{items.map((item) => {
+					if (item.kind === "event") {
+						const ev = item.e as EventRow;
 						return (
-							<div key={`ev-${ev.id}`} className="paper-block flex items-start gap-3 sm:gap-4 relative">
-								<div className="text-lg sm:text-xl flex-shrink-0">📜</div>
+							<div key={`ev-${ev.id}`} className="scoreboard-panel p-4 flex items-start gap-3 sm:gap-4 relative">
+								<div className="arena-badge arena-badge-primary text-[10px]">LOG</div>
 								<div className="flex-1 min-w-0">
-									<div className="text-[11px] sm:text-xs text-deepBrown/70 mb-1">{new Date(ev.created_at).toLocaleString()}</div>
+									<div className="text-[11px] sm:text-xs text-muted-foreground mb-1">
+										{new Date(ev.created_at).toLocaleString()}
+									</div>
 									<div className="text-sm sm:text-base leading-relaxed">{renderEventLine(ev, players)}</div>
 								</div>
 								{isOwner && (
 									<button
-										className="absolute top-2 right-2 text-[12px] text-deepBrown/60 hover:text-red-600"
+										className="absolute top-2 right-2 text-[12px] text-muted-foreground hover:text-destructive"
 										onClick={async () => {
 											try {
 												const res = await fetch(`/api/history-events/${encodeURIComponent(ev.id)}`, {
 													method: "DELETE",
-													headers: { "x-user-id": user?.id || "" }
+													headers: { "x-user-id": user?.id || "" },
 												});
 												if (!res.ok) {
 													const j = await res.json().catch(() => ({}));
 													toast?.push?.(j.error || "Failed to delete");
 													return;
 												}
-												setHistoryEvents(prev => prev.filter(e => e.id !== ev.id));
+												setHistoryEvents((prev) => prev.filter((e) => e.id !== ev.id));
 											} catch {
 												toast?.push?.("Failed to delete");
 											}
@@ -557,74 +590,104 @@ const [potInput, setPotInput] = useState<string>("");
 					const p = playerForActivity(a);
 					const v = votesByAct[a.id] || { legit: 0, sus: 0 };
 					const pending = a.status === "pending";
+					const statusMap: Record<string, { label: string; className: string }> = {
+						approved: {
+							label: "APPROVED",
+							className: "bg-[hsl(var(--status-online))]/20 text-[hsl(var(--status-online))] border-[hsl(var(--status-online))]/40",
+						},
+						pending: {
+							label: "PENDING",
+							className: "bg-primary/20 text-primary border-primary/40",
+						},
+						rejected: {
+							label: "REJECTED",
+							className: "bg-destructive/20 text-destructive border-destructive/40",
+						},
+					};
+					const statusInfo = statusMap[a.status] || statusMap.pending;
+					const resolvedPhotoUrl = signedUrlByAct[a.id] || a.photo_url || null;
 
 					return (
-						<div key={a.id} className="paper-block flex flex-col gap-4 sm:gap-5">
-							<div className="flex items-center gap-3">
-								<div className="h-10 w-10 rounded-full overflow-hidden bg-tan border border-deepBrown/20 flex items-center justify-center">
-									{p?.avatar_url ? <img src={p.avatar_url} alt={p?.name || "athlete"} className="h-full w-full object-cover" /> : <span className="text-xl">🏋️‍♂️</span>}
+						<div key={a.id} className="scoreboard-panel overflow-hidden">
+							<div className="p-4 border-b border-border flex items-center gap-3">
+								<div className="h-10 w-10 border-2 border-border bg-muted flex items-center justify-center overflow-hidden">
+									{p?.avatar_url ? (
+										<img src={p.avatar_url} alt={p?.name || "athlete"} className="h-full w-full object-cover" />
+									) : (
+										<span className="font-display text-sm text-primary">
+											{getInitials(p?.name)}
+										</span>
+									)}
 								</div>
-								<div className="flex-1">
-									<div className="poster-headline text-base leading-5">{(p?.name || "Unknown athlete").toUpperCase()}</div>
-									<div className="text-[11px] text-deepBrown/70">{new Date(a.date).toLocaleString()}</div>
+								<div className="flex-1 min-w-0">
+									<div className="font-display text-sm sm:text-base tracking-wider text-primary truncate">
+										{(p?.name || "Unknown athlete").toUpperCase()}
+									</div>
+									<div className="text-[11px] text-muted-foreground">
+										{new Date(a.date).toLocaleString()}
+									</div>
 								</div>
-								<StatusPill status={a.status as "pending" | "approved" | "rejected"} />
+								<div className={`px-2 py-1 text-[10px] font-display tracking-wider border ${statusInfo.className}`}>
+									{statusInfo.label}
+								</div>
 							</div>
 
-							{a.caption ? <div className="text-sm">{a.caption}</div> : null}
-							{a.notes ? <div className="text-sm text-deepBrown/80 dark:text-cream/80 whitespace-pre-wrap">{a.notes}</div> : null}
+							<div className="p-4 space-y-3">
+								{a.caption ? <div className="text-sm">{a.caption}</div> : null}
+								{a.notes ? <div className="text-sm text-muted-foreground whitespace-pre-wrap">{a.notes}</div> : null}
+							</div>
 
-							{a.photo_url ? (
+							{resolvedPhotoUrl ? (
 								<button
 									type="button"
 									aria-label="Open full-size photo"
-									className="relative w-full h-52 sm:h-56 md:h-64 rounded-xl overflow-hidden border border-deepBrown/20 bg-[#1a1512] group"
-									onClick={() => setLightboxUrl(a.photo_url || null)}
+									className="relative w-full h-52 sm:h-56 md:h-64 overflow-hidden border-y border-border bg-muted/20 group"
+									onClick={() => setLightboxUrl(resolvedPhotoUrl)}
 								>
 									<img
-										src={signedUrlByAct[a.id] || a.photo_url}
+										src={resolvedPhotoUrl}
 										alt=""
 										className="absolute inset-0 w-full h-full object-cover"
 										loading="lazy"
 										onError={() => resolveSignedUrl(a.id, a.photo_url || "")}
 									/>
-									<div className="absolute bottom-2 right-2 text-[12px] px-2 py-1 rounded-md bg-black/50 text-cream opacity-80 group-hover:opacity-100 transition">
-										🔍 Tap to expand
+									<div className="absolute bottom-2 right-2 text-[10px] px-2 py-1 arena-badge arena-badge-primary opacity-90 group-hover:opacity-100 transition">
+										TAP TO EXPAND
 									</div>
 								</button>
 							) : null}
 
-							<div className="text-xs sm:text-sm text-deepBrown/80 border-t border-deepBrown/10 pt-3 sm:pt-4">
+							<div className="p-4 border-t border-border text-xs sm:text-sm">
 								<div className="flex flex-wrap items-center gap-1.5">
-									<strong className="font-medium">{titleCase(a.type)}</strong>
+									<span className="arena-badge text-[10px]">{titleCase(a.type)}</span>
 									{a.duration_minutes && <span>{a.duration_minutes} min</span>}
 									{a.duration_minutes && a.distance_km && <span>·</span>}
 									{a.distance_km && <span>{a.distance_km} km</span>}
 								</div>
 							</div>
 
-							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 text-xs sm:text-sm">
-								<div className="flex flex-wrap items-center gap-1.5 text-deepBrown/80">
+							<div className="p-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs sm:text-sm">
+								<div className="flex flex-wrap items-center gap-1.5 text-muted-foreground">
 									{a.status === "approved" && (
 										<>
-											<span className="font-medium">Approved:</span>
+											<span className="font-display">Approved:</span>
 											<span>{v.legit} legit</span>
 											{v.sus > 0 && <span>· {v.sus} sus</span>}
 										</>
 									)}
 									{a.status === "rejected" && (
 										<>
-											<span className="font-medium">Rejected:</span>
+											<span className="font-display">Rejected:</span>
 											<span>{v.sus} sus</span>
 											{v.legit > 0 && <span>· {v.legit} legit</span>}
 										</>
 									)}
 									{pending && (
 										<>
-											<span className="font-medium">Pending vote:</span>
+											<span className="font-display">Pending vote:</span>
 											<span>{v.legit} legit</span>
 											<span>· {v.sus} sus</span>
-											{a.vote_deadline && <span className="text-deepBrown/60">· {timeLeft(a)} left</span>}
+											{a.vote_deadline && <span>· {timeLeft(a)} left</span>}
 										</>
 									)}
 								</div>
@@ -632,84 +695,80 @@ const [potInput, setPotInput] = useState<string>("");
 									<div className="flex gap-2 flex-wrap">
 										{a.status === "approved" && !v.mine ? (
 											<Button
-												variant="secondary"
+												variant="outline"
 												size="sm"
 												disabled={busy}
 												onClick={() => vote(a.id, "sus")}
-												title="Challenge this activity"
-												className="normal-case"
+												className="h-9"
 											>
-												Feels sus 🚩
+												Feels sus
 											</Button>
 										) : (
 											<>
 												<Button
-													variant={v.mine === "legit" ? "primary" : "secondary"}
+													variant={v.mine === "legit" ? "arenaPrimary" : "outline"}
 													size="sm"
 													disabled={busy}
 													onClick={() => vote(a.id, "legit")}
-													title={v.mine === "legit" ? `You voted 'Count it'. Click to change.` : `Vote 'Count it'`}
-													className="normal-case"
+													className="h-9"
 												>
-													Count it ✅
+													Count it
 												</Button>
 												<Button
-													variant={v.mine === "sus" ? "primary" : "secondary"}
+													variant={v.mine === "sus" ? "arenaPrimary" : "outline"}
 													size="sm"
 													disabled={busy}
 													onClick={() => vote(a.id, "sus")}
-													title={v.mine === "sus" ? `You voted 'Feels sus'. Click to change.` : `Vote 'Feels sus'`}
-													className="normal-case"
+													className="h-9"
 												>
-													Feels sus 🚩
+													Feels sus
 												</Button>
 											</>
 										)}
 										{v.mine && a.status === "pending" && (
 											<Button
-												variant="secondary"
+												variant="ghost"
 												size="sm"
 												disabled={busy}
 												onClick={() => vote(a.id, "remove")}
-												title="Remove your vote to revert activity to approved"
-												className="normal-case text-xs"
+												className="h-9"
 											>
 												Remove vote
 											</Button>
 										)}
 									</div>
 								) : a.decided_at ? (
-									<div className="text-[11px] text-deepBrown/50 italic">Voting closed</div>
+									<div className="text-[11px] text-muted-foreground italic">Voting closed</div>
 								) : a.player_id === myPlayerId ? (
-									<div className="text-[11px] text-deepBrown/50 italic">You can't vote on your own activity</div>
+									<div className="text-[11px] text-muted-foreground italic">You can't vote on your own activity</div>
 								) : !myPlayerId ? (
-									<div className="text-[11px] text-deepBrown/50 italic">Sign in to vote</div>
+									<div className="text-[11px] text-muted-foreground italic">Sign in to vote</div>
 								) : (players?.length || 0) <= 2 ? (
-									<div className="text-[11px] text-deepBrown/50 italic">Voting requires 3+ players</div>
+									<div className="text-[11px] text-muted-foreground italic">Voting requires 3+ players</div>
 								) : null}
 							</div>
 
 							{isOwner ? (
-								<div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-deepBrown/10">
-									<span className="text-[11px] sm:text-xs text-deepBrown/70 font-medium uppercase tracking-wide whitespace-nowrap">Owner override:</span>
-									<div className="flex gap-2 w-full sm:w-auto">
+								<div className="p-4 border-t border-border">
+									<div className="text-[11px] uppercase tracking-widest text-primary mb-2">
+										Owner override
+									</div>
+									<div className="flex gap-2">
 										<Button
 											variant="secondary"
 											size="sm"
 											disabled={busy}
 											onClick={() => overrideActivity(a.id, "approved")}
-											className={`flex-1 sm:flex-none ${a.status === "approved" ? "bg-accent-primary/20 border-accent-primary" : ""}`}
-											title={a.status === "approved" ? "Currently approved" : "Override to approve"}
+											className="flex-1"
 										>
 											APPROVE
 										</Button>
 										<Button
-											variant="secondary"
+											variant="destructive"
 											size="sm"
 											disabled={busy}
 											onClick={() => overrideActivity(a.id, "rejected")}
-											className={`flex-1 sm:flex-none ${a.status === "rejected" ? "bg-accent-primary/20 border-accent-primary" : ""}`}
-											title={a.status === "rejected" ? "Currently rejected" : "Override to reject"}
+											className="flex-1"
 										>
 											REJECT
 										</Button>
@@ -717,20 +776,25 @@ const [potInput, setPotInput] = useState<string>("");
 								</div>
 							) : null}
 
-							<ActivityComments
-								activityId={a.id}
-								lobbyId={lobbyId}
-								myPlayerId={myPlayerId}
-								ownerUserId={ownerUserId}
-							/>
+							<div className="p-4 border-t border-border">
+								<ActivityComments
+									activityId={a.id}
+									lobbyId={lobbyId}
+									myPlayerId={myPlayerId}
+									ownerUserId={ownerUserId}
+								/>
+							</div>
 						</div>
 					);
 				})}
-				{items.length === 0 && <div className="text-deepBrown/70 text-sm">No posts yet.</div>}
+				{items.length === 0 && <div className="text-muted-foreground text-sm">No posts yet.</div>}
 			</div>
 
-			<Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+			{lightboxUrl && (
+				<PhotoLightbox open={Boolean(lightboxUrl)} onClose={() => setLightboxUrl(null)} imageUrl={lightboxUrl} />
+			)}
 		</div>
+	</div>
 	);
 }
 
@@ -859,36 +923,36 @@ const canComment = Boolean(user?.id && myPlayerId);
 		const canDelete = (myPlayerId && c.authorPlayerId === myPlayerId) || (ownerUserId && ownerUserId === user?.id);
 		const leftPad = Math.min(level * 12, 48);
 		return (
-			<div key={c.id} className={`space-y-2 ${level > 0 ? "border-l border-deepBrown/15 dark:border-white/10 pl-3" : ""}`} style={{ marginLeft: leftPad ? `${leftPad}px` : undefined }}>
+			<div key={c.id} className={`space-y-2 ${level > 0 ? "border-l border-border pl-3" : ""}`} style={{ marginLeft: leftPad ? `${leftPad}px` : undefined }}>
 				<div className="flex gap-2">
-					<div className="h-8 w-8 rounded-full overflow-hidden bg-tan border border-deepBrown/15 dark:border-white/10 flex items-center justify-center">
-						{c.authorAvatarUrl ? <img src={c.authorAvatarUrl} alt={c.authorName ?? "author"} className="h-full w-full object-cover" /> : <span className="text-sm">💬</span>}
+					<div className="h-8 w-8 overflow-hidden bg-muted border border-border flex items-center justify-center">
+						{c.authorAvatarUrl ? <img src={c.authorAvatarUrl} alt={c.authorName ?? "author"} className="h-full w-full object-cover" /> : <span className="text-[10px]">💬</span>}
 					</div>
 					<div className="flex-1 min-w-0">
-						<div className="flex items-center gap-2 text-[12px] text-deepBrown/80 dark:text-cream/80">
-							<span className="font-semibold">{c.authorName || "Athlete"}</span>
-							<span className="text-deepBrown/50 dark:text-cream/50">{new Date(c.createdAt).toLocaleString()}</span>
+						<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+							<span className="font-display text-primary">{c.authorName || "Athlete"}</span>
+							<span className="text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</span>
 						</div>
-						<div className="text-sm text-deepBrown/90 dark:text-cream whitespace-pre-wrap">{c.body}</div>
-						<div className="flex items-center gap-3 mt-1 text-[12px] text-deepBrown/70 dark:text-cream/70">
+						<div className="text-sm text-foreground whitespace-pre-wrap">{c.body}</div>
+						<div className="flex items-center gap-3 mt-1 text-[12px] text-muted-foreground">
 							{canComment && (
 								<button
-									className="hover:text-deepBrown/90"
+									className="hover:text-foreground"
 									onClick={() => setReplyOpen(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
 								>
 									Reply
 								</button>
 							)}
 							{canDelete && (
-								<button className="hover:text-red-600" onClick={() => remove(c.id)}>
+								<button className="hover:text-destructive" onClick={() => remove(c.id)}>
 									Delete
 								</button>
 							)}
 						</div>
 						{replyOpen[c.id] && canComment && (
 							<div className="mt-2 space-y-1">
-								<textarea
-									className="arena-textarea text-sm"
+								<Textarea
+									className="bg-input border-border text-sm"
 									rows={2}
 									value={replyText[c.id] ?? ""}
 									maxLength={500}
@@ -922,21 +986,23 @@ const canComment = Boolean(user?.id && myPlayerId);
 	};
 
 	return (
-		<div className="mt-2 border-t border-deepBrown/15 pt-3 space-y-3">
-			<div className="text-[11px] uppercase font-semibold tracking-wide text-deepBrown/70">Comments {comments.length ? `(${comments.length})` : ""}</div>
-			{!canComment && <div className="text-[12px] text-deepBrown/60 dark:text-cream/70">Sign in and join this lobby to comment.</div>}
+		<div className="space-y-3">
+			<div className="text-[11px] uppercase font-display tracking-widest text-muted-foreground">
+				Comments {comments.length ? `(${comments.length})` : ""}
+			</div>
+			{!canComment && <div className="text-[12px] text-muted-foreground">Sign in and join this lobby to comment.</div>}
 
-			{topLevel.length === 0 && loading && <div className="text-[12px] text-deepBrown/60 dark:text-cream/70">Loading comments…</div>}
+			{topLevel.length === 0 && loading && <div className="text-[12px] text-muted-foreground">Loading comments…</div>}
 			{topLevel.length === 0 && !loading && canComment && (
-				<div className="text-[12px] text-deepBrown/70 dark:text-cream/80">No comments yet — be the first.</div>
+				<div className="text-[12px] text-muted-foreground">No comments yet — be the first.</div>
 			)}
 
 			{topLevel.map(c => renderComment(c, 0))}
 
 			{canComment && (
-				<div className="space-y-1">
-					<textarea
-						className="arena-textarea text-sm"
+				<div className="space-y-2">
+					<Textarea
+						className="bg-input border-border text-sm"
 						rows={3}
 						value={newBody}
 						maxLength={500}
@@ -956,6 +1022,14 @@ const canComment = Boolean(user?.id && myPlayerId);
 
 function titleCase(s: string) {
 	return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function getInitials(name?: string | null) {
+	if (!name) return "AA";
+	const parts = name.trim().split(/\s+/).filter(Boolean);
+	if (parts.length === 0) return "AA";
+	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+	return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function renderEventLine(ev: EventRow, players: PlayerLite[]) {
@@ -998,16 +1072,3 @@ function renderEventLine(ev: EventRow, players: PlayerLite[]) {
 	return `${actor || "System"}: ${ev.type}`;
 }
 
-function Lightbox({ url, onClose }: { url: string | null; onClose: () => void }) {
-	if (!url) return null;
-	return (
-		<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
-			<div className="relative max-w-3xl w-full">
-				<img src={url} alt="" className="w-full h-auto object-contain rounded-md" />
-				<button className="absolute top-2 right-2 px-3 py-1.5 rounded-md bg-[#000]/70 text-cream text-xs" onClick={onClose}>
-					Close
-				</button>
-			</div>
-		</div>
-	);
-}
