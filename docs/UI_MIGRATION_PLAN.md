@@ -240,3 +240,36 @@
 
 **What’s next**
 - Final sweep for any remaining legacy components and visual mismatches.
+
+---
+
+## Phase 2 Milestone 19 (Completed)
+
+**New arena core components + lobby layout overhaul**
+- Created 7 new arena components (direct port from arena-deathmatch):
+  `HeartsStatusBoard`, `Standings`, `HostControls`, `WeeklyCycleIndicator`,
+  `WorkoutFeedPost`, `FeedSystemEvent`, `DangerZone`.
+- Updated `LobbyLayout.tsx` with arena 2-column layout.
+- Rewrote `PlayerCard.tsx`, `HeartDisplay.tsx`, `CreateLobby.tsx` to full arena styling.
+- Updated `PunishmentWheel.tsx` to arena styling.
+
+---
+
+## Phase 2 Milestone 20 (Completed)
+
+**Legacy class purge + CSS cleanup**
+- Removed all old UI classes from every `.tsx` file.
+- Cleaned dead CSS definitions from `globals.css`.
+- Added sidebar CSS variables + `--transition-athletic`.
+- Removed legacy font aliases.
+
+---
+
+## Phase 3 — Parity Status
+
+**Completed:** CSS vars, fonts, all components, all backend-connected pages.
+
+**Deferred (mock-data UI shells, no backend):**
+`/feed`, `/workouts`, `/records`, `/profile`, `/athletes`, `/settings`, 404.
+
+**Post-Migration Cleanup:** Delete `components/ui/`, refactor API routes, fix `as any` casts, remove debug logs.

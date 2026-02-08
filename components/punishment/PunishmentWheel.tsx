@@ -53,9 +53,8 @@ export function PunishmentWheel({
 		if (spinNonce === undefined) return;
 		if (lastNonceRef.current === spinNonce) return;
 		if (!eligible.length) return;
-		if (isSpinningRef.current) return; // Prevent interrupting an active spin
+		if (isSpinningRef.current) return;
 		lastNonceRef.current = spinNonce;
-		// Clamp to valid range
 		const idx = Math.max(0, Math.min(spinToIndex, eligible.length - 1));
 		setPrizeNumber(idx);
 		isSpinningRef.current = true;
@@ -63,33 +62,60 @@ export function PunishmentWheel({
 	}, [disabled, spinToIndex, spinNonce, eligible.length]);
 
 	return (
-		<div className="punishment-wheel flex flex-col items-center gap-3">
-			<div className="relative">
-				{data.length > 0 ? (
-					<WheelNoSSR
-						mustStartSpinning={mustSpin}
-						prizeNumber={prizeNumber}
-						data={data}
-						backgroundColors={["#2b1a12", "#3b2417"]}
-						textColors={["#ffffff"]}
-						spinDuration={1}
-						onStopSpinning={() => {
-							setMustSpin(false);
-							isSpinningRef.current = false;
-							onStop?.(prizeNumber);
-						}}
-						outerBorderColor="#f3e0c8"
-						outerBorderWidth={4}
-						radiusLineColor="#000000"
-						radiusLineWidth={1}
-						fontSize={14}
-					/>
-				) : (
-					<div className="h-64 w-64 rounded-full border-4 border-border" style={{ background: "radial-gradient(circle, hsl(20 15% 12%), hsl(20 18% 6%))" }} />
-				)}
+		<div className="scoreboard-panel">
+			{/* Header */}
+			<div className="flex items-center justify-center gap-3 p-4 border-b-2 border-border">
+				<h2 className="font-display text-lg sm:text-2xl font-bold tracking-widest text-center">
+					PUNISHMENT ROULETTE
+				</h2>
+			</div>
+
+			{/* Wheel */}
+			<div className="p-6 sm:p-8 flex flex-col items-center gap-6">
+				<div className="relative">
+					{data.length > 0 ? (
+						<WheelNoSSR
+							mustStartSpinning={mustSpin}
+							prizeNumber={prizeNumber}
+							data={data}
+							backgroundColors={[
+								"hsl(30 70% 25%)",
+								"hsl(25 60% 18%)",
+								"hsl(35 65% 22%)",
+								"hsl(20 55% 20%)",
+							]}
+							textColors={["hsl(35 15% 80%)"]}
+							spinDuration={1}
+							onStopSpinning={() => {
+								setMustSpin(false);
+								isSpinningRef.current = false;
+								onStop?.(prizeNumber);
+							}}
+							outerBorderColor="hsl(30 60% 50%)"
+							outerBorderWidth={4}
+							radiusLineColor="hsl(20 12% 16%)"
+							radiusLineWidth={1}
+							fontSize={14}
+						/>
+					) : (
+						<div
+							className="h-64 w-64 border-4 border-border flex items-center justify-center"
+							style={{ background: "radial-gradient(circle, hsl(20 15% 12%), hsl(20 18% 6%))" }}
+						>
+							<span className="font-display text-sm tracking-widest text-muted-foreground">NO PUNISHMENTS</span>
+						</div>
+					)}
+				</div>
+
+				{/* Status text */}
+				{mustSpin ? (
+					<p className="font-display text-sm tracking-widest text-primary animate-pulse">SPINNING...</p>
+				) : data.length > 0 ? (
+					<p className="font-mono text-xs text-muted-foreground">
+						Spin the wheel to reveal this week&apos;s punishment
+					</p>
+				) : null}
 			</div>
 		</div>
 	);
 }
-
-

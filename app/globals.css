@@ -57,9 +57,22 @@
   /* Sharp industrial edges */
   --radius: 0rem;
 
+  /* Sidebar — darker arena corridor feel */
+  --sidebar-background: 20 18% 4%;
+  --sidebar-foreground: 35 12% 65%;
+  --sidebar-primary: 30 60% 50%;
+  --sidebar-primary-foreground: 20 18% 4%;
+  --sidebar-accent: 20 12% 8%;
+  --sidebar-accent-foreground: 35 12% 70%;
+  --sidebar-border: 20 12% 14%;
+  --sidebar-ring: 30 60% 50%;
+
   /* Typography */
   --font-display: 'Oswald', sans-serif;
   --font-mono: 'Space Mono', monospace;
+
+  /* Transitions — snappy, mechanical */
+  --transition-athletic: all 0.15s cubic-bezier(0.2, 0, 0.4, 1);
 
   /* Legacy compat aliases (so old var(--bg-main) etc. resolve to new palette) */
   --bg-main: hsl(20 18% 4%);
@@ -295,61 +308,6 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: inset 0 0 20px -15px hsl(var(--primary) / 0.3);
   }
 
-  /* Legacy class overrides — map old classes to arena palette */
-  .paper-card,
-  .ui-panel {
-    background: hsl(var(--card));
-    color: hsl(var(--card-foreground));
-    border: 2px solid hsl(var(--border));
-    box-shadow:
-      inset 0 1px 0 hsl(var(--border-heavy) / 0.5),
-      0 2px 0 hsl(0 0% 0% / 0.35),
-      0 4px 8px -2px hsl(0 0% 0% / 0.45);
-    border-radius: 0;
-  }
-
-  .paper-grain::before { display: none; }
-
-  .poster-headline {
-    font-family: var(--font-display);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 700;
-    color: hsl(var(--primary));
-  }
-
-  .btn-vintage {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-weight: 700;
-    font-family: var(--font-display);
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-    border: 2px solid hsl(var(--primary) / 0.5);
-    border-radius: 0;
-    padding: 0.5rem 1rem;
-  }
-  .btn-vintage:hover { filter: brightness(1.1); }
-
-  .btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-weight: 700;
-    font-family: var(--font-display);
-    background: transparent;
-    color: hsl(var(--foreground));
-    border: 2px solid hsl(var(--border));
-    border-radius: 0;
-    padding: 0.5rem 1rem;
-  }
-  .btn-secondary:hover { background: hsl(var(--muted)); }
-
   /* Form controls */
   .arena-input,
   .arena-textarea {
@@ -521,9 +479,5 @@ select option {
   hyphens: auto;
 }
 
-/* Paper overlay — hidden (legacy, no longer used) */
+/* Legacy — hidden elements */
 .paper-overlay { display: none; }
-
-/* Legacy font aliases — point to arena fonts */
-.font-press, .font-vt, .font-bebas { font-family: var(--font-display); }
-.font-playfair { font-family: var(--font-display); }
