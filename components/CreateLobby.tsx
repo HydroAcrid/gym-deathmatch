@@ -114,7 +114,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 		<button
 			type="button"
 			onClick={handleTriggerClick}
-			className="btn-secondary px-3 py-2 rounded-md text-xs"
+			className="arena-badge arena-badge-primary px-3 py-2 text-xs"
 		>
 			＋ Create Lobby
 		</button>
@@ -144,34 +144,34 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 						<motion.div
 							role="dialog"
 							aria-modal="true"
-							className="ui-panel relative w-full sm:max-w-5xl h-full sm:h-[85vh] sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+							className="bg-card relative w-full sm:max-w-5xl h-full sm:h-[85vh] shadow-2xl border-2 border-border flex flex-col box-border max-w-full overflow-hidden"
 							initial={{ scale: 0.96, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.96, opacity: 0 }}
 						>
-							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3 below-navbar sm:mt-0">
+							<header className="sticky top-0 z-10 bg-card px-4 sm:px-6 py-3 border-b-2 border-border flex items-center justify-between gap-3">
 								<div className="min-w-0">
-									<h2 className="poster-headline text-lg sm:text-xl tracking-wide truncate">Create Lobby</h2>
-									<p className="ui-panel-muted text-xs sm:text-sm truncate">Configure dates, mode, targets, and challenge options</p>
+									<h2 className="font-display text-lg sm:text-xl tracking-widest text-primary truncate">CREATE LOBBY</h2>
+									<p className="text-xs sm:text-sm text-muted-foreground truncate">Configure dates, mode, targets, and challenge options</p>
 								</div>
 								<div className="shrink-0 flex items-center gap-2">
 									<button
-										className="h-9 w-9 rounded-md border border-border flex items-center justify-center"
+										className="h-9 w-9 border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
 										aria-label="Help"
 										onClick={() => setInfoOpen(true)}
 										title="Lobby Info"
 									>
 										<span className="text-base leading-none">?</span>
 									</button>
-									<button className="px-3 py-2 rounded-md border border-border text-xs" onClick={() => setOpen(false)}>Cancel</button>
-									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={submit}>Create</button>
+									<button className="arena-badge px-3 py-2 text-xs" onClick={() => setOpen(false)}>Cancel</button>
+									<button className="arena-badge arena-badge-primary px-3 py-2 text-xs" onClick={submit}>Create</button>
 								</div>
 							</header>
 							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 pb-32 sm:pb-6 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
 									<section className="space-y-4">
-										<div className="ui-panel rounded-xl p-4 space-y-3 border">
-											<h3 className="text-sm font-bold tracking-wide">Basics</h3>
+										<div className="scoreboard-panel p-4 space-y-3">
+											<h3 className="font-display text-sm font-bold tracking-widest">BASICS</h3>
 											<label className="text-xs">
 												<span className="block mb-1">Lobby name</span>
 												<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" placeholder="e.g., Winter Grind 2025"
@@ -190,8 +190,8 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 												</label>
 											</div>
 										</div>
-										<div className="ui-panel rounded-xl p-4 space-y-3 border">
-											<h3 className="text-sm font-bold tracking-wide">Hearts & Target</h3>
+										<div className="scoreboard-panel p-4 space-y-3">
+											<h3 className="font-display text-sm font-bold tracking-widest">HEARTS & TARGET</h3>
 											<div className="grid grid-cols-2 gap-2">
 												<label className="text-xs">
 													<span className="block mb-1">Weekly target</span>
@@ -212,8 +212,8 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 												<span>Allow Sudden Death revive (1 heart, no pot share)</span>
 											</label>
 										</div>
-										<div className="ui-panel rounded-xl p-4 space-y-3 border">
-											<h3 className="text-sm font-bold tracking-wide">Pot & Ante</h3>
+										<div className="scoreboard-panel p-4 space-y-3">
+											<h3 className="font-display text-sm font-bold tracking-widest">POT & ANTE</h3>
 											{String(mode).startsWith("CHALLENGE_") && (
 												<div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
 													<span>🔒</span>
@@ -249,12 +249,12 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 										</div>
 									</section>
 									<section className="space-y-4">
-										<div className="ui-panel rounded-xl p-4 space-y-3 border">
-											<h3 className="text-sm font-bold tracking-wide">Game Mode</h3>
+										<div className="scoreboard-panel p-4 space-y-3">
+											<h3 className="font-display text-sm font-bold tracking-widest">GAME MODE</h3>
 											<label className="text-xs">
 												<span className="block mb-1">Mode</span>
 												<select
-													className="ui-select w-full h-10 px-3 rounded-md"
+													className="w-full h-10 px-3 bg-input border border-border text-foreground font-display text-sm"
 													value={mode}
 													onChange={e => {
 														const val = e.target.value as any;
@@ -270,11 +270,11 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 											</label>
 										</div>
 										{String(mode).startsWith("CHALLENGE_") && (
-											<div className="ui-panel rounded-xl p-4 border">
+											<div className="scoreboard-panel p-4">
 												<ChallengeSettingsCard mode={mode as any} value={challengeSettings} onChange={setChallengeSettings} />
 											</div>
 										)}
-										<div className="ui-panel rounded-xl p-4 border">
+										<div className="scoreboard-panel p-4">
 											<label className="text-xs">
 												<span className="block mb-1">Owner display name</span>
 												<input

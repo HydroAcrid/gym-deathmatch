@@ -95,7 +95,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 		<button
 			type="button"
 			onClick={handleTriggerClick}
-			className="ml-3 btn-secondary px-2 py-1 text-xs"
+			className="ml-3 arena-badge px-2 py-1 text-xs"
 			aria-label="Open tutorial"
 		>
 			<span className="flex items-center justify-center w-full h-full">?</span>
@@ -133,7 +133,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 								<motion.div key={slide.key} variants={slideVariants} initial="initial" animate="enter" exit="exit">
 									<div className="flex items-center gap-3 mb-2">
 										<div className="text-2xl sm:text-3xl" aria-hidden>{slide.visual}</div>
-										<div className="poster-headline text-xl sm:text-2xl">{slide.headline}</div>
+										<div className="font-display tracking-widest text-primary text-xl sm:text-2xl">{slide.headline}</div>
 									</div>
 									<p className="text-sm mb-1 whitespace-normal break-words">{slide.text}</p>
 									{slide.key === "install" ? (
@@ -174,16 +174,16 @@ export function IntroGuide({ children }: IntroGuideProps) {
 								</div>
 								<div className="flex gap-2">
 									{idx > 0 && (
-										<button className="btn-secondary px-3 py-2 rounded-md text-xs min-h-[44px]" onClick={() => setIdx((i) => Math.max(0, i - 1))}>
+										<button className="arena-badge px-3 py-2 rounded-md text-xs min-h-[44px]" onClick={() => setIdx((i) => Math.max(0, i - 1))}>
 											Back
 										</button>
 									)}
 									{idx < STEPS.length - 1 ? (
-										<button className="btn-vintage px-3 py-2 rounded-md text-xs min-h-[44px]" onClick={() => setIdx((i) => Math.min(STEPS.length - 1, i + 1))}>
+										<button className="arena-badge arena-badge-primary px-3 py-2 rounded-md text-xs min-h-[44px]" onClick={() => setIdx((i) => Math.min(STEPS.length - 1, i + 1))}>
 											Next
 										</button>
 									) : (
-										<button className="btn-vintage px-3 py-2 rounded-md text-xs min-h-[44px]" onClick={() => close()}>
+										<button className="arena-badge arena-badge-primary px-3 py-2 rounded-md text-xs min-h-[44px]" onClick={() => close()}>
 											ENTER ARENA
 										</button>
 									)}

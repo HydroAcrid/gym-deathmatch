@@ -102,7 +102,7 @@ export function SeasonCompleteOverlay({
 					>
 						{/* Header */}
 						<div className="text-center mb-6">
-							<div className="poster-headline text-3xl sm:text-4xl md:text-5xl mb-2">
+							<div className="font-display tracking-widest text-primary text-3xl sm:text-4xl md:text-5xl mb-2">
 								SEASON {seasonNumber} COMPLETE
 							</div>
 							<div className="text-muted-foreground text-sm sm:text-base">
@@ -114,7 +114,7 @@ export function SeasonCompleteOverlay({
 						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 							{/* Left: Standings */}
 							<div className="space-y-4">
-								<div className="poster-headline text-lg mb-3">STANDINGS</div>
+								<div className="font-display tracking-widest text-primary text-lg mb-3">STANDINGS</div>
 								<div className="space-y-3">
 									{allPlayers.map((player, idx) => (
 										<motion.div
@@ -145,7 +145,7 @@ export function SeasonCompleteOverlay({
 												)}
 											</div>
 											<div className="flex-1 min-w-0">
-												<div className="poster-headline text-base truncate">{player.name.toUpperCase()}</div>
+												<div className="font-display tracking-widest text-primary text-base truncate">{player.name.toUpperCase()}</div>
 												<div className="text-xs text-muted-foreground">
 													❤️ {player.hearts} • {player.totalWorkouts} workouts
 												</div>
@@ -169,33 +169,33 @@ export function SeasonCompleteOverlay({
 
 							{/* Right: Highlights */}
 							<div className="space-y-4">
-								<div className="poster-headline text-lg mb-3">HIGHLIGHTS</div>
+								<div className="font-display tracking-widest text-primary text-lg mb-3">HIGHLIGHTS</div>
 								<div className="space-y-3">
 									{seasonSummary.highlights.longestStreak && (
 										<div className="p-3 rounded-md border border-border bg-muted/10">
 											<div className="text-xs text-muted-foreground mb-1">🔥 LONGEST STREAK</div>
-											<div className="poster-headline text-lg">{seasonSummary.highlights.longestStreak.playerName}</div>
+											<div className="font-display tracking-widest text-primary text-lg">{seasonSummary.highlights.longestStreak.playerName}</div>
 											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.longestStreak.streak} days</div>
 										</div>
 									)}
 									{seasonSummary.highlights.mostWorkouts && (
 										<div className="p-3 rounded-md border border-border bg-muted/10">
 											<div className="text-xs text-muted-foreground mb-1">💪 MOST WORKOUTS</div>
-											<div className="poster-headline text-lg">{seasonSummary.highlights.mostWorkouts.playerName}</div>
+											<div className="font-display tracking-widest text-primary text-lg">{seasonSummary.highlights.mostWorkouts.playerName}</div>
 											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.mostWorkouts.count} total</div>
 										</div>
 									)}
 									{seasonSummary.highlights.mostConsistent && (
 										<div className="p-3 rounded-md border border-border bg-muted/10">
 											<div className="text-xs text-muted-foreground mb-1">📈 MOST CONSISTENT</div>
-											<div className="poster-headline text-lg">{seasonSummary.highlights.mostConsistent.playerName}</div>
+											<div className="font-display tracking-widest text-primary text-lg">{seasonSummary.highlights.mostConsistent.playerName}</div>
 											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.mostConsistent.avgPerWeek.toFixed(1)} avg/week</div>
 										</div>
 									)}
 									{isMoney && (
 										<div className="p-3 rounded-md border border-border bg-muted/10">
 											<div className="text-xs text-muted-foreground mb-1">💰 FINAL POT</div>
-											<div className="poster-headline text-2xl">${seasonSummary.finalPot}</div>
+											<div className="font-display tracking-widest text-primary text-2xl">${seasonSummary.finalPot}</div>
 										</div>
 									)}
 								</div>
@@ -208,14 +208,14 @@ export function SeasonCompleteOverlay({
 								<button
 									onClick={() => startNextSeason()}
 									disabled={loading}
-									className="btn-vintage px-6 py-3 rounded-md text-sm flex-1 disabled:opacity-60"
+									className="arena-badge arena-badge-primary px-6 py-3 rounded-md text-sm flex-1 disabled:opacity-60"
 								>
 									{loading ? "Starting..." : `Start Season ${seasonNumber + 1} (same rules)`}
 								</button>
 								<button
 									onClick={() => setShowEditModal(true)}
 									disabled={loading}
-									className="btn-secondary px-6 py-3 rounded-md text-sm flex-1 disabled:opacity-60"
+									className="arena-badge px-6 py-3 rounded-md text-sm flex-1 disabled:opacity-60"
 								>
 									Edit settings then start
 								</button>
@@ -231,7 +231,7 @@ export function SeasonCompleteOverlay({
 							<div className="pt-6 border-t border-border text-center">
 								<button
 									onClick={() => router.push("/lobbies")}
-									className="btn-secondary px-6 py-3 rounded-md text-sm"
+									className="arena-badge px-6 py-3 rounded-md text-sm"
 								>
 									Return to lobbies
 								</button>

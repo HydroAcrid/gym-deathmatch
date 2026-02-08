@@ -18,6 +18,10 @@ import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
 import { ActiveSeasonHeader } from "@/src/ui2/components/ActiveSeasonHeader";
 import { LiveFeed } from "@/src/ui2/components/LiveFeed";
 import { PotStakesPanel } from "@/src/ui2/components/PotStakesPanel";
+import { HeartsStatusBoard, type AthleteHeartStatus } from "@/src/ui2/components/HeartsStatusBoard";
+import { Standings, type Standing } from "@/src/ui2/components/Standings";
+import { HostControls } from "@/src/ui2/components/HostControls";
+import { WeeklyCycleIndicator } from "@/src/ui2/components/WeeklyCycleIndicator";
 import { Button } from "@/src/ui2/ui/button";
 
 type LobbyLayoutProps = {
@@ -282,6 +286,43 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		}
 	}, [joined, connectedPlayerId, toast]);
 
+	// Build hearts status data from live players
+	const heartsData: AthleteHeartStatus[] = players.map((p) => {
+		const initials = (p.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+		const hearts = typeof p.livesRemaining === "number" ? p.livesRemaining : (lobbyData.initialLives ?? 3);
+		const maxHearts = lobbyData.initialLives ?? 3;
+		const weeklyProgress = p.totalWorkouts ?? 0; // TODO(INTEGRATION): wire to weekly workouts count
+		const weeklyTarget = lobbyData.weeklyTarget ?? 3;
+		const status: "safe" | "at_risk" | "eliminated" = hearts <= 0 ? "eliminated" : hearts === 1 ? "at_risk" : "safe";
+		return { name: p.name, initials, hearts, maxHearts, weeklyTarget, weeklyProgress, status };
+	});
+
+	// Build standings data from live players
+	const standingsData: Standing[] = players
+		.filter(p => (p.livesRemaining ?? 1) > 0)
+		.sort((a, b) => (b.totalWorkouts ?? 0) - (a.totalWorkouts ?? 0))
+		.map((p, i) => ({
+			rank: i + 1,
+			athleteName: p.name,
+			workouts: p.totalWorkouts ?? 0,
+			streak: p.currentStreak ?? 0,
+			penalties: 0, // TODO(INTEGRATION): wire to penalty count
+			points: (p.totalWorkouts ?? 0) + (p.currentStreak ?? 0),
+		}));
+
+	// Calculate week info for cycle indicator
+	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
+	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)));
+	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((Date.now() - seasonStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000))));
+	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * 7 * 24 * 60 * 60 * 1000);
+
+	// Determine host controls match status
+	const matchStatus: "AWAITING_HOST" | "ARMED" | "ACTIVE" | "COMPLETED" = 
+		stage === "COMPLETED" || seasonStatus === "completed" ? "COMPLETED" :
+		stage === "ACTIVE" || seasonStatus === "active" ? "ACTIVE" :
+		"AWAITING_HOST";
+
 	return (
 		<div className="min-h-screen">
 			<div className="container mx-auto px-4 py-8 space-y-8">
@@ -292,6 +333,16 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					hostName={ownerName}
 					athleteCount={players.length}
 				/>
+
+				{/* Weekly Cycle Indicator */}
+				{stage !== "COMPLETED" && (
+					<WeeklyCycleIndicator
+						currentWeek={currentWeek}
+						totalWeeks={totalWeeks}
+						weekEndDate={weekEndDate}
+						resetDay="MONDAY"
+					/>
+				)}
 
 				<div className="flex flex-wrap items-center gap-2">
 					<Button
@@ -342,21 +393,16 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				) : (
 					<div className="grid lg:grid-cols-3 gap-6">
 						<div className="lg:col-span-2 space-y-6">
+							{/* Hearts & Status Board - Arena-style */}
+							<HeartsStatusBoard athletes={heartsData} />
+
+							{/* Live Feed */}
 							<LiveFeed lobbyId={lobbyData.id} />
 
+							{/* Player Cards Grid */}
 							{!(isChallengeMode && weekStatus === "PENDING_CONFIRMATION") && (
 								<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
-									{players.slice(0, 2).map((p) => (
-										<motion.div key={p.id} variants={item} className="h-full">
-											<PlayerCard
-												player={p}
-												lobbyId={lobbyData.id}
-												mePlayerId={myPlayerId || undefined}
-												showReady={false}
-											/>
-										</motion.div>
-									))}
-									{players.slice(2).map((p) => (
+									{players.map((p) => (
 										<motion.div key={p.id} variants={item} className="h-full">
 											<PlayerCard
 												player={p}
@@ -370,6 +416,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 							)}
 						</div>
 						<div className="space-y-6">
+							{/* Pot & Stakes Panel */}
 							{stage !== "COMPLETED" && isMoneyMode && (
 								<div className="space-y-3">
 									<PotStakesPanel currentPot={potAmount} weeklyAnte={weeklyAnte} gameMode={potGameMode} />
@@ -411,6 +458,12 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 								</div>
 							)}
 
+							{/* Standings Panel */}
+							{standingsData.length > 0 && (
+								<Standings standings={standingsData} />
+							)}
+
+							{/* Challenge Mode Hero */}
 							{stage !== "COMPLETED" && isChallengeMode && (
 								<ChallengeHero
 									lobbyId={lobbyData.id}
@@ -418,6 +471,32 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 									challengeSettings={lobbyData.challengeSettings || null}
 									seasonStart={lobbyData.seasonStart}
 									seasonEnd={lobbyData.seasonEnd}
+								/>
+							)}
+
+							{/* Host Controls */}
+							{isOwner && (
+								<HostControls
+									isHost={isOwner}
+									matchStatus={matchStatus}
+									onSettings={() => setEditOpen(true)}
+									onEndSeason={async () => {
+										if (!confirm("Are you sure you want to end this season early?")) return;
+										try {
+											const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/end-season`, {
+												method: "POST",
+												headers: { "Content-Type": "application/json", "x-user-id": user?.id || "" },
+											});
+											if (res.ok) {
+												toast.push("Season ended");
+												onRefresh?.();
+											} else {
+												toast.push("Failed to end season");
+											}
+										} catch {
+											toast.push("Failed to end season");
+										}
+									}}
 								/>
 							)}
 						</div>
@@ -456,8 +535,8 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			{/* Owner Celebrate Again button */}
 			{isOwner && seasonStatus === "completed" && !!koEvent?.winnerPlayerId && (
 				<div className="fixed bottom-3 right-3 z-[90]">
-					<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={() => setShowWinner(true)}>
-						Celebrate again
+					<button className="arena-badge arena-badge-primary px-3 py-2 text-xs" onClick={() => setShowWinner(true)}>
+						CELEBRATE AGAIN
 					</button>
 				</div>
 			)}

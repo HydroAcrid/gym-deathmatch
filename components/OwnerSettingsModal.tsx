@@ -289,12 +289,12 @@ export function OwnerSettingsModal({
 						<motion.div
 							role="dialog"
 							aria-modal="true"
-							className="ui-panel relative w-full sm:max-w-5xl h-full rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+							className="scoreboard-panel relative w-full sm:max-w-5xl h-full rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
-							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
+							<header className="sticky top-0 z-10 bg-card border-2 border-border px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
 								<div className="min-w-0">
-									<h2 className="poster-headline text-lg sm:text-xl tracking-wide truncate">Edit Lobby</h2>
-									<p className="ui-panel-muted text-xs sm:text-sm truncate">Adjust dates, mode, pot, and challenge options</p>
+									<h2 className="font-display tracking-widest text-primary text-lg sm:text-xl tracking-wide truncate">Edit Lobby</h2>
+									<p className="text-muted-foreground text-xs sm:text-sm truncate">Adjust dates, mode, pot, and challenge options</p>
 								</div>
 								<div className="shrink-0 flex items-center gap-2">
 									<button
@@ -306,7 +306,7 @@ export function OwnerSettingsModal({
 										<span className="text-base leading-none">?</span>
 									</button>
 									<button className="px-3 py-2 rounded-md border border-border text-xs" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
-									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
+									<button className="arena-badge arena-badge-primary px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 								</div>
 							</header>
 							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
@@ -314,7 +314,7 @@ export function OwnerSettingsModal({
 								<div>
 									{/* Basic Info */}
 									<div className="mb-4">
-										<div className="poster-headline text-sm mb-2">BASIC INFO</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">BASIC INFO</div>
 										<div className="grid gap-3">
 											<label className="text-xs">
 												<span className="block mb-1">Weekly target</span>
@@ -330,7 +330,7 @@ export function OwnerSettingsModal({
 									</div>
 									{/* Season Timing */}
 									<div className="mb-4">
-										<div className="poster-headline text-sm mb-2">SEASON TIMING</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">SEASON TIMING</div>
 										<div className="grid gap-3">
 											<label className="text-xs">
 												<span className="block mb-1">Season start (local)</span>
@@ -348,7 +348,7 @@ export function OwnerSettingsModal({
 								<div>
 									{/* Pot & Ante */}
 									<div className="mb-4">
-										<div className="poster-headline text-sm mb-2">POT & ANTE</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">POT & ANTE</div>
 										{String(mode).startsWith("CHALLENGE_") && (
 											<div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
 												<span>🔒</span>
@@ -382,10 +382,10 @@ export function OwnerSettingsModal({
 									</div>
 									{/* Stage controls */}
 									<div className="mt-4">
-										<div className="poster-headline text-sm mb-2">STAGE CONTROLS</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">STAGE CONTROLS</div>
 										<div className="grid sm:grid-cols-3 gap-2">
 											<button
-												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Return to pre-stage (waiting room)"
 												onClick={async () => {
 													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
@@ -401,7 +401,7 @@ export function OwnerSettingsModal({
 												Set to Pre-Stage
 											</button>
 											<button
-												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Begin now"
 												onClick={async () => {
 													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
@@ -417,7 +417,7 @@ export function OwnerSettingsModal({
 												Start now
 											</button>
 											<button
-												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Mark season completed"
 												onClick={async () => {
 													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
@@ -436,12 +436,12 @@ export function OwnerSettingsModal({
 									</div>
 									{/* Mode */}
 									<div className="mt-6">
-										<div className="poster-headline text-sm mb-2">GAME MODE</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">GAME MODE</div>
 										<div className="grid gap-3">
 											<label className="text-xs">
 												<span className="block mb-1">Mode</span>
 												<select
-													className="ui-select w-full h-10 px-3 rounded-md"
+													className="bg-input border border-border text-foreground w-full h-10 px-3 rounded-md"
 													value={mode}
 													onChange={e => setMode(e.target.value as any)}
 												>
@@ -456,7 +456,7 @@ export function OwnerSettingsModal({
 												<span>Allow Sudden Death revive (1 heart, cannot win pot)</span>
 											</label>
 											{String(mode).startsWith("CHALLENGE_") && (
-												<div className="ui-panel rounded-xl p-4 border">
+												<div className="scoreboard-panel rounded-xl p-4 border">
 													<ChallengeSettingsCard mode={mode as any} value={(challengeSettings as any) ?? { selection: "ROULETTE", spinFrequency: "WEEKLY", visibility: "PUBLIC", stackPunishments: false, allowSuggestions: true, requireLockBeforeSpin: true, autoSpinAtWeekStart: false, showLeaderboard: true, profanityFilter: true, suggestionCharLimit: 50 }} onChange={setChallengeSettings as any} />
 												</div>
 											)}
@@ -466,28 +466,28 @@ export function OwnerSettingsModal({
 							</div>
 							{/* Danger zone */}
 							<div className="mt-6 md:mt-8 md:col-span-2">
-								<div className="poster-headline text-sm mb-2">DANGER ZONE</div>
+								<div className="font-display tracking-widest text-primary text-sm mb-2">DANGER ZONE</div>
 								<div className="grid gap-3">
 									<div className="border border-strong rounded-md p-3">
 										<div className="text-xs mb-2">Remove player</div>
-										<select className="ui-select w-full h-10 px-3 rounded-md"
+										<select className="bg-input border border-border text-foreground w-full h-10 px-3 rounded-md"
 											value={removeId} onChange={e => setRemoveId(e.target.value)}>
 											<option value="">Select player</option>
 											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
 										</select>
 										<div className="mt-2 flex justify-end">
-											<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={removePlayer}>Remove</button>
+											<button className="arena-badge px-3 py-2 rounded-md text-xs" onClick={removePlayer}>Remove</button>
 										</div>
 									</div>
 									<div className="border border-strong rounded-md p-3">
 										<div className="text-xs mb-2">Transfer ownership</div>
-										<select className="ui-select w-full h-10 px-3 rounded-md"
+										<select className="bg-input border border-border text-foreground w-full h-10 px-3 rounded-md"
 											value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)}>
 											<option value="">Select new owner</option>
 											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
 										</select>
 										<div className="mt-2 flex justify-end">
-											<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={transferOwner}>Transfer</button>
+											<button className="arena-badge px-3 py-2 rounded-md text-xs" onClick={transferOwner}>Transfer</button>
 										</div>
 									</div>
 									<div className="border border-strong rounded-md p-3">
@@ -495,7 +495,7 @@ export function OwnerSettingsModal({
 										<input className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main" placeholder="Type lobby name exactly"
 											value={confirmName} onChange={e => setConfirmName(e.target.value)} />
 										<div className="mt-2 flex justify-end">
-											<button className="btn-vintage px-3 py-2 rounded-md text-xs"
+											<button className="arena-badge arena-badge-primary px-3 py-2 rounded-md text-xs"
 												onClick={deleteLobby}
 												disabled={confirmName.trim().length === 0}>
 												Delete Lobby
