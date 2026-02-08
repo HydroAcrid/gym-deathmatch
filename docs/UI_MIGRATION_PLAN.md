@@ -39,3 +39,18 @@
 - Expand `src/ui2` with additional arena primitives as needed.
 - Add adapters in `src/ui2/adapters/` for OG data → arena UI props.
 - Begin Phase 2 with Navigation Shell migration.
+
+---
+
+## Phase 2 Milestone 1 (Completed)
+
+**Navigation shell**
+- Added `src/ui2/components/ArenaNav.tsx` (Next.js Link + OG auth/theme behavior).
+- Added `src/ui2/components/MobileBottomNav.tsx` (bottom nav + Log modal + More sheet).
+- Added `src/ui2/ui/sheet.tsx` to support mobile sheets.
+- Swapped `app/layout.tsx` to use `ArenaNav` + `MobileBottomNav`.
+- Added scoped helpers in `app/globals.css` for UI2 safe-area + touch targets.
+
+**What’s next**
+- Add adapters in `src/ui2/adapters/` for OG data → arena UI props.
+- Migrate Lobbies list screen (Phase 2 step 2).

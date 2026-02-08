@@ -682,3 +682,38 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+/* UI2 helpers scoped to ui2-scope */
+.ui2-scope .safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.ui2-scope .safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.ui2-scope .safe-area-inset-bottom {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.ui2-scope .touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.ui2-scope .touch-target-lg {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.ui2-scope .touch-target-xl {
+  min-height: 56px;
+  min-width: 56px;
+}
+
+.ui2-scope .arena-panel {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 2px solid hsl(var(--border));
+  box-shadow: 0 2px 0 hsl(0 0% 0% / 0.3), 0 4px 8px -2px hsl(0 0% 0% / 0.4);
+}
