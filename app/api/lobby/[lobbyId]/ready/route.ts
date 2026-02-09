@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
-import { onReadyChanged } from "@/lib/commentary";
+import { onAllReady, onReadyChanged } from "@/lib/commentary";
 import { jsonError, logError } from "@/lib/logger";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
@@ -17,6 +17,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		try {
 			const { data: p } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
 			if (p?.id) await onReadyChanged(lobbyId, p.id as string, !!ready);
+			if (ready) {
+				const { data: states } = await supabase.from("user_ready_states").select("ready").eq("lobby_id", lobbyId);
+				const readyRows = (states ?? []) as Array<{ ready: boolean | null }>;
+				if (readyRows.length > 0 && readyRows.every((s) => !!s.ready)) {
+					await onAllReady(lobbyId);
+				}
+			}
 		} catch (e) {
 			logError({ route: "POST /api/lobby/[id]/ready", code: "QUIP_READY_FAILED", err: e, lobbyId, actorUserId: userId });
 		}
@@ -26,5 +33,3 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		return jsonError("READY_SAVE_FAILED", "Failed to set ready", 400);
 	}
 }
-
-

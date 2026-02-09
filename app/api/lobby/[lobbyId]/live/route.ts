@@ -11,7 +11,6 @@ import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
 import { getDailyTaunts } from "@/lib/funFacts";
 import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
-import { onHeartsChanged, onKO, onPotChanged, onWeeklyReset, onAllReady, onGhostWeek, onPerfectWeek, onWeeklyHype, onTightRace } from "@/lib/commentary";
 import { logError } from "@/lib/logger";
 
 // Generate season summary when season completes
@@ -441,22 +440,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						count: e.workouts
 					}))
 					.slice(-4); // keep recent few weeks to avoid noisy long histories
-				// Commentary: heart change for the most recent completed week (if any)
-				try {
-					const completed = (weekly.events || []).filter((e: any) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs);
-					if (completed.length) {
-						const last = completed[completed.length - 1];
-						if (last.heartsLost > 0) {
-							await onHeartsChanged(lobby.id, p.id, -last.heartsLost, `missed weekly target (${last.workouts}/${weeklyTarget})`);
-						}
-						if (last.heartsGained > 0) {
-							await onHeartsChanged(lobby.id, p.id, last.heartsGained, `hit weekly target (${last.workouts}/${weeklyTarget})`);
-						}
-						if (last.met && last.workouts >= weeklyTarget) {
-							try { await onPerfectWeek(lobby.id, p.id, last.workouts); } catch { /* ignore */ }
-						}
-					}
-				} catch { /* ignore */ }
 				// Challenge: cumulative punishments — log missing weeks
 				try {
 					const mode = (lobby as any).mode || "MONEY_SURVIVAL";
@@ -488,19 +471,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						}
 					}
 				} catch { /* ignore */ }
-				// Ghost week warning for in-progress week with 0/target by midweek
-				try {
-					const currentWeek = (weekly.events || [])[weekly.events.length - 1];
-					if (currentWeek) {
-						const ws = new Date(currentWeek.weekStart);
-						const we = new Date(ws.getTime() + 7 * 24 * 60 * 60 * 1000);
-						const daysIn = (Date.now() - ws.getTime()) / (24 * 60 * 60 * 1000);
-						if (we.getTime() > Date.now() && daysIn >= 3 && weeklyTarget > 0 && currentWeek.workouts === 0) {
-							await onGhostWeek(lobby.id, p.id, currentWeek.weekStart, weeklyTarget);
-						}
-					}
-				} catch { /* ignore */ }
-					// Skip logging weekly target met/missed into history to avoid feed spam
+				// Skip logging weekly target met/missed into history to avoid feed spam
 				const recentActivities = (combined as any[]).slice(0, 5).map(a => {
 					const s = toActivitySummary(a);
 					return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
@@ -527,34 +498,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					taunt,
 					inSuddenDeath: p.inSuddenDeath
 				};
-				// Sudden death revive: if enabled and player opted-in, show them at 1 heart but mark inSuddenDeath
-				if ((lobby as any).suddenDeathEnabled && (result as any).livesRemaining === 0 && p.inSuddenDeath) {
-					(result as any).livesRemaining = 1;
-					(result as any).inSuddenDeath = true;
-				}
-				// Apply heart adjustments
-				try {
-					const supabase = getServerSupabase();
-					if (supabase) {
-						const { data: adjs } = await supabase.from("heart_adjustments").select("target_player_id, delta").eq("lobby_id", lobby.id).eq("target_player_id", p.id);
-						const bonus = (adjs ?? []).reduce((s: number, r: any) => s + (r.delta as number), 0);
-						(result as any).livesRemaining = Math.max(0, Math.min(3, (result as any).livesRemaining + bonus));
+					// Sudden death revive: if enabled and player opted-in, show them at 1 heart but mark inSuddenDeath
+					if ((lobby as any).suddenDeathEnabled && (result as any).livesRemaining === 0 && p.inSuddenDeath) {
+						(result as any).livesRemaining = 1;
+						(result as any).inSuddenDeath = true;
 					}
-				} catch { /* ignore */ }
-				// Streak quips: milestones and PR
-				try {
-					if ([3,5,7,10].includes(currentStreak)) {
-						const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
-						await onStreakMilestone(lobby.id, p.id, currentStreak);
-						await onStreakPR(lobby.id, p.id, currentStreak);
-					} else {
-						// Still attempt PR detection (if any)
-						const { onStreakPR } = await import("@/lib/commentary");
-						await onStreakPR(lobby.id, p.id, currentStreak);
-					}
-				} catch { /* ignore */ }
-				return result;
-			} catch (e: any) {
+					// Apply heart adjustments
+					try {
+						const supabase = getServerSupabase();
+						if (supabase) {
+							const { data: adjs } = await supabase.from("heart_adjustments").select("target_player_id, delta").eq("lobby_id", lobby.id).eq("target_player_id", p.id);
+							const bonus = (adjs ?? []).reduce((s: number, r: any) => s + (r.delta as number), 0);
+							(result as any).livesRemaining = Math.max(0, Math.min(3, (result as any).livesRemaining + bonus));
+						}
+					} catch { /* ignore */ }
+					return result;
+				} catch (e: any) {
 				// Attempt token refresh on 401/403
 				if (e?.status === 401 || e?.status === 403) {
 					try {
@@ -619,18 +578,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								count: e.workouts
 							}))
 							.slice(-4);
-						try {
-							const completed = (weekly.events || []).filter((e: any) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs2);
-							if (completed.length) {
-								const last = completed[completed.length - 1];
-								if (last.heartsLost > 0) {
-									await onHeartsChanged(lobby.id, p.id, -last.heartsLost, `missed weekly target (${last.workouts}/${weeklyTarget})`);
-								}
-								if (last.heartsGained > 0) {
-									await onHeartsChanged(lobby.id, p.id, last.heartsGained, `hit weekly target (${last.workouts}/${weeklyTarget})`);
-								}
-							}
-						} catch { /* ignore */ }
 						const recentActivities = (combined as any[]).slice(0, 5).map(a => {
 							const s = toActivitySummary(a);
 							return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
@@ -664,18 +611,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								(result2 as any).livesRemaining = Math.max(0, Math.min(3, (result2 as any).livesRemaining + bonus));
 							}
 						} catch { /* ignore */ }
-						// Streak quips after refresh
-						try {
-							if ([3,5,7,10].includes(currentStreak)) {
-								const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
-								await onStreakMilestone(lobby.id, p.id, currentStreak);
-								await onStreakPR(lobby.id, p.id, currentStreak);
-							} else {
-								const { onStreakPR } = await import("@/lib/commentary");
-								await onStreakPR(lobby.id, p.id, currentStreak);
-							}
-						} catch { /* ignore */ }
-						return result2;
+							return result2;
 					} catch (refreshErr) {
 						logError({ route: "GET /api/lobby/[id]/live", code: "STRAVA_REFRESH_FAILED", err: refreshErr, lobbyId, extra: { playerId: p.id } });
 						errors.push({ playerId: p.id, reason: "refresh_failed" });
@@ -688,26 +624,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			}
 		})
 	);
-
-	// Weekly hype: Friday preview for players one workout away
-	try {
-		const now = new Date();
-		const weeklyTargetVal = (lobby as any).weeklyTarget ?? (lobby as any).weekly_target ?? 3;
-		if (weeklyTargetVal > 0 && now.getDay() === 5) { // Friday
-			const hype: Array<{ id: string; name?: string | null }> = [];
-			for (const pl of updatedPlayers) {
-				const timeline = (pl as any).heartsTimeline as any[];
-				const current = timeline?.[timeline.length - 1];
-				if (!current) continue;
-				const we = new Date(new Date(current.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000);
-				if (we.getTime() < now.getTime()) continue; // completed week
-				if (current.workouts === weeklyTargetVal - 1) {
-					hype.push({ id: pl.id, name: (pl as any).name ?? null });
-				}
-			}
-			if (hype.length) await onWeeklyHype(lobby.id, hype, weeklyTargetVal);
-		}
-	} catch { /* ignore */ }
 
 	// Compute pot only for Money modes
 	const mode = (lobby as any).mode || "MONEY_SURVIVAL";
@@ -770,27 +686,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			currentPot = (lobby as any).cashPool as number;
 		}
 		if (supabase && newContributions.length) {
-			const existingPot = currentPot - newContributions.reduce((s, n) => s + n, 0);
-			let rollingPot = existingPot;
-			for (const amt of newContributions) {
-				rollingPot += amt;
-				try { await onPotChanged(lobby.id, amt, rollingPot); } catch { /* ignore */ }
-			}
 			try { await supabase.from("lobby").update({ cash_pool: currentPot }).eq("id", lobby.id); } catch { /* ignore */ }
 		}
 	}
-
-	// Tight race callout: multiple players tied on top hearts with meaningful pot
-	try {
-		if (String(mode).startsWith("MONEY_") && currentPot >= 50) {
-			const maxHearts = Math.max(...updatedPlayers.map(p => p.livesRemaining));
-			const top = updatedPlayers.filter(p => p.livesRemaining === maxHearts);
-			if (top.length >= 2) {
-				const names = top.map((p: any) => p.name || "Athlete");
-				await onTightRace(lobby.id, names, currentPot);
-			}
-		}
-	} catch { /* ignore */ }
 
 	// KO detection depends on mode
 	let koEvent: LiveLobbyResponse["koEvent"] | undefined;
@@ -811,7 +709,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							type: "SEASON_KO",
 							payload: { loserPlayerId: loser.id, currentPot, seasonNumber: lobby.seasonNumber }
 						});
-						try { await onKO(lobby.id, loser.id, currentPot); } catch { /* ignore */ }
 						rawStatus = "completed";
 						koEvent = { loserPlayerId: loser.id, potAtKO: currentPot };
 					}
@@ -838,34 +735,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		}
 	} catch { /* ignore */ }
 
-	// Weekly reset quip and readiness reset (UTC Sunday 00:00) with 10-min window
-	try {
-		const now = new Date();
-		const day = now.getUTCDay(); // 0 Sun
-		const isWindow = day === 0 && now.getUTCHours() === 0 && now.getUTCMinutes() < 10;
-		if (isWindow) {
-			// start of week iso (UTC)
-			const ws = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString();
-			await onWeeklyReset(lobby.id, ws);
-			// Reset ready states to false
-			const supabase = getServerSupabase();
-			if (supabase) {
-				await supabase.from("user_ready_states").update({ ready: false }).eq("lobby_id", lobby.id);
-			}
-		}
-	} catch (e) {
-		logError({ route: "GET /api/lobby/[id]/live", code: "WEEKLY_RESET_FAILED", err: e, lobbyId: lobby.id });
-	}
-
-	// If everyone is ready, optionally announce once per hour
-	try {
-		if (updatedPlayers.length > 0 && updatedPlayers.every(p => (p as any).ready)) {
-			await onAllReady(lobby.id);
-		}
-	} catch (e) {
-		logError({ route: "GET /api/lobby/[id]/live", code: "ALL_READY_QUIP_FAILED", err: e, lobbyId: lobby.id });
-	}
-
 	// Check if season end has passed and stage is ACTIVE - transition to COMPLETED
 	// This must happen AFTER player stats are computed so we can generate accurate summary
 	// Note: We already checked this earlier, but we check again here in case the transition didn't happen
@@ -889,75 +758,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		} catch (e) {
 			logError({ route: "GET /api/lobby/[id]/live", code: "STAGE_TRANSITION_FAILED", err: e, lobbyId });
 		}
-	}
-
-	// Daily reminder check: at 8pm (20:00), check if any player hasn't logged an activity today
-	// Use a database flag to prevent duplicate sends across concurrent requests
-	try {
-		const nowDate = new Date();
-		const hour = nowDate.getHours();
-		const minute = nowDate.getMinutes();
-		// Check once per day at 8pm (20:00) with a 10-minute window
-		if (hour === 20 && minute < 10 && currentStage === "ACTIVE") {
-			const supabase = getServerSupabase();
-			if (supabase) {
-				// Check if we've already processed reminders today for this lobby
-				const today = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
-				const todayStart = today.toISOString();
-				const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
-				
-				// Check if any reminder was sent today (within the last 24 hours)
-				const { data: recentReminders } = await supabase
-					.from("comments")
-					.select("primary_player_id")
-					.eq("lobby_id", lobby.id)
-					.eq("type", "SUMMARY")
-					.gte("created_at", todayStart)
-					.lt("created_at", todayEnd)
-					.like("rendered", "%hasn't logged an activity today%")
-					.limit(1);
-				
-				// Only process if no reminders were sent today yet
-				if (!recentReminders || recentReminders.length === 0) {
-					const { onDailyReminder } = await import("@/lib/commentary");
-					
-					for (const p of updatedPlayers) {
-						// Check if player has any activity today (manual or Strava)
-						
-						// Check manual activities
-						const { data: manualToday } = await supabase
-							.from("manual_activities")
-							.select("id")
-							.eq("lobby_id", lobby.id)
-							.eq("player_id", p.id)
-							.gte("date", todayStart)
-							.lt("date", todayEnd)
-							.limit(1);
-						
-						// Check Strava activities (if connected)
-						let stravaToday = false;
-						if ((p as any).isStravaConnected) {
-							const { data: stravaActs } = await supabase
-								.from("strava_activities")
-								.select("id")
-								.eq("lobby_id", lobby.id)
-								.eq("player_id", p.id)
-								.gte("start_date", todayStart)
-								.lt("start_date", todayEnd)
-								.limit(1);
-							stravaToday = !!(stravaActs && stravaActs.length > 0);
-						}
-						
-						// If no activity today, send reminder (onDailyReminder has its own deduplication)
-						if (!manualToday?.length && !stravaToday) {
-							await onDailyReminder(lobby.id, p.id, p.name);
-						}
-					}
-				}
-			}
-		}
-	} catch (e) {
-		logError({ route: "GET /api/lobby/[id]/live", code: "DAILY_REMINDER_FAILED", err: e, lobbyId: lobby.id });
 	}
 
 	// Generate season summary if stage is COMPLETED and we don't have one yet

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { onActivityLogged } from "@/lib/commentary";
 import type { Activity } from "@/lib/types";
+import { calculateStreakFromActivities } from "@/lib/streaks";
 
 type ActivityCommentRow = {
 	primary_player_id: string | null;
 	payload: { type?: string } | null;
 };
+type ActivityDateRow = { date: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -69,11 +71,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				notes: notes ?? undefined
 			};
 			await onActivityLogged(lobbyId, act);
+
+			try {
+				const { data: streakRows } = await supabase
+					.from("manual_activities")
+					.select("date")
+					.eq("lobby_id", lobbyId)
+					.eq("player_id", playerId)
+					.in("status", ["approved", "pending"])
+					.order("date", { ascending: false })
+					.limit(500);
+				const currentStreak = calculateStreakFromActivities(
+					((streakRows ?? []) as ActivityDateRow[]).map((r) => ({ start_date_local: r.date }))
+				);
+				const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
+				if ([3, 5, 7, 10].includes(currentStreak)) {
+					await onStreakMilestone(lobbyId, playerId, currentStreak);
+				}
+				await onStreakPR(lobbyId, playerId, currentStreak);
+			} catch {
+				// best-effort streak commentary
+			}
+
 			// Social coincidence checks:
-			const supabase = getServerSupabase();
-			if (supabase) {
+			const supabaseClient = getServerSupabase();
+			if (supabaseClient) {
 				const since20 = new Date(Date.now() - 20 * 60 * 1000).toISOString();
-				const { data: recentActs } = await supabase
+				const { data: recentActs } = await supabaseClient
 					.from("comments")
 					.select("primary_player_id, payload")
 					.eq("lobby_id", lobbyId)
@@ -84,7 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				const other = ((recentActs ?? []) as ActivityCommentRow[]).find((r) => r.primary_player_id && r.primary_player_id !== playerId);
 
 				const since60 = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-				const { data: lastHour } = await supabase
+				const { data: lastHour } = await supabaseClient
 					.from("comments")
 					.select("primary_player_id, payload")
 					.eq("lobby_id", lobbyId)
