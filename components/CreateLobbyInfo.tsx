@@ -1,14 +1,35 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 
 export function CreateLobbyInfo({ open, onClose }: { open: boolean; onClose: () => void }) {
-	return (
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	if (!mounted) return null;
+
+	return createPortal(
 		<AnimatePresence>
 			{open && (
-				<motion.div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-black/70"
-					initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-					<motion.article className="scoreboard-panel rounded-2xl shadow-2xl border px-5 sm:px-8 py-5 sm:py-6 w-full sm:max-w-[68ch] md:max-w-[72ch] max-w-full break-anywhere whitespace-normal" initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
+				<motion.div
+					className="fixed inset-0 z-[140] flex items-center justify-center p-4 sm:p-6 bg-black/70"
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					exit={{ opacity: 0 }}
+					onClick={onClose}
+				>
+					<motion.article
+						className="scoreboard-panel rounded-2xl shadow-2xl border px-5 sm:px-8 py-5 sm:py-6 w-full sm:max-w-[68ch] md:max-w-[72ch] max-w-full break-anywhere whitespace-normal"
+						initial={{ scale: 0.96, opacity: 0 }}
+						animate={{ scale: 1, opacity: 1 }}
+						exit={{ scale: 0.96, opacity: 0 }}
+						onClick={(e) => e.stopPropagation()}
+					>
 						<header className="mb-3">
 							<h2 className="text-xl font-black tracking-wide">Lobby Info</h2>
 						</header>
@@ -48,8 +69,8 @@ export function CreateLobbyInfo({ open, onClose }: { open: boolean; onClose: () 
 					</motion.article>
 				</motion.div>
 			)}
-		</AnimatePresence>
+		</AnimatePresence>,
+		document.body
 	);
 }
-
 

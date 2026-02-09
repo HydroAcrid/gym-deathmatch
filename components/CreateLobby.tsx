@@ -2,6 +2,7 @@
 
 import { cloneElement, isValidElement, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
 import { useAuth } from "./AuthProvider";
 import { ChallengeSettingsCard, resetChallengeDefaults } from "./ChallengeSettingsCard";
@@ -15,6 +16,7 @@ type CreateLobbyProps = {
 
 export function CreateLobby({ children }: CreateLobbyProps) {
 	const [open, setOpen] = useState(false);
+	const [mounted, setMounted] = useState(false);
 	const [lobbyName, setLobbyName] = useState("");
 	const [seasonStart, setSeasonStart] = useState<string>(new Date().toISOString().slice(0, 16));
 	const [seasonEnd, setSeasonEnd] = useState<string>(new Date(new Date().getFullYear(), 11, 31).toISOString().slice(0, 16));
@@ -37,6 +39,10 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 	const { user } = useAuth();
 	const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
 	const [infoOpen, setInfoOpen] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	// Prefill owner name/avatar from profile
 	useEffect(() => {
@@ -132,42 +138,49 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 	return (
 		<>
 			{trigger}
-			<AnimatePresence>
-				{open && (
-					<motion.div
-						className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6 bg-black/70"
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						exit={{ opacity: 0 }}
-					>
-						<motion.div
-							role="dialog"
-							aria-modal="true"
-							className="bg-card relative w-full sm:max-w-5xl h-full sm:h-[85vh] shadow-2xl border-2 border-border flex flex-col box-border max-w-full overflow-hidden"
-							initial={{ scale: 0.96, opacity: 0 }}
-							animate={{ scale: 1, opacity: 1 }}
-							exit={{ scale: 0.96, opacity: 0 }}
-						>
-							<header className="sticky top-0 z-10 bg-card px-4 sm:px-6 py-3 border-b-2 border-border flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<h2 className="font-display text-lg sm:text-xl tracking-widest text-primary truncate">CREATE LOBBY</h2>
-									<p className="text-xs sm:text-sm text-muted-foreground truncate">Configure dates, mode, targets, and challenge options</p>
-								</div>
-								<div className="shrink-0 flex items-center gap-2">
-									<button
-										className="h-9 w-9 border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-										aria-label="Help"
-										onClick={() => setInfoOpen(true)}
-										title="Lobby Info"
-									>
-										<span className="text-base leading-none">?</span>
-									</button>
-									<button className="arena-badge px-3 py-2 text-xs" onClick={() => setOpen(false)}>Cancel</button>
-									<button className="arena-badge arena-badge-primary px-3 py-2 text-xs" onClick={submit}>Create</button>
-								</div>
-							</header>
-							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 pb-32 sm:pb-6 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
+			{mounted
+				? createPortal(
+					<AnimatePresence>
+						{open && (
+							<motion.div
+								className="fixed inset-0 z-[130] flex items-center justify-center p-0 sm:p-6 bg-black/70"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								onClick={() => setOpen(false)}
+							>
+								<motion.div
+									role="dialog"
+									aria-modal="true"
+									className="bg-card relative w-full sm:max-w-5xl h-full sm:h-[85vh] shadow-2xl border-2 border-border flex flex-col box-border max-w-full overflow-hidden"
+									initial={{ scale: 0.96, opacity: 0 }}
+									animate={{ scale: 1, opacity: 1 }}
+									exit={{ scale: 0.96, opacity: 0 }}
+									onClick={(e) => e.stopPropagation()}
+									onKeyDown={(e) => {
+										if (e.key === "Escape") setOpen(false);
+									}}
+								>
+									<header className="sticky top-0 z-10 bg-card px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 border-b-2 border-border flex items-center justify-between gap-3">
+										<div className="min-w-0">
+											<h2 className="font-display text-lg sm:text-xl tracking-widest text-primary truncate">CREATE LOBBY</h2>
+											<p className="text-xs sm:text-sm text-muted-foreground truncate">Configure dates, mode, targets, and challenge options</p>
+										</div>
+										<div className="shrink-0 flex items-center gap-2">
+											<button
+												className="h-9 w-9 border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+												aria-label="Help"
+												onClick={() => setInfoOpen(true)}
+												title="Lobby Info"
+											>
+												<span className="text-base leading-none">?</span>
+											</button>
+											<button className="arena-badge px-3 py-2 text-xs" onClick={() => setOpen(false)}>Cancel</button>
+											<button className="arena-badge arena-badge-primary px-3 py-2 text-xs" onClick={submit}>Create</button>
+										</div>
+									</header>
+									<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+8rem)] sm:pb-6 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
 									<section className="space-y-4">
 										<div className="scoreboard-panel p-4 space-y-3">
 											<h3 className="font-display text-sm font-bold tracking-widest">BASICS</h3>
@@ -285,13 +298,15 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 											</label>
 										</div>
 									</section>
-								</div>
-							</div>
-							
-						</motion.div>
-					</motion.div>
-				)}
-			</AnimatePresence>
+										</div>
+									</div>
+								</motion.div>
+							</motion.div>
+						)}
+					</AnimatePresence>,
+					document.body
+				)
+				: null}
 			<CreateLobbyInfo open={infoOpen} onClose={() => setInfoOpen(false)} />
 		</>
 	);

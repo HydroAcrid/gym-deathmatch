@@ -32,12 +32,28 @@ export async function GET(req: NextRequest) {
 		for (const r of (memberLobbies ?? [])) map.set(r.id, r);
 		for (const r of (ownerRows ?? [])) map.set(r.id, r);
 		const list = Array.from(map.values());
+
+		// Attach per-lobby player counts for lobby cards.
+		const lobbyIds = list.map((l: any) => l.id).filter(Boolean);
+		let counts = new Map<string, number>();
+		if (lobbyIds.length) {
+			const { data: players } = await supabase
+				.from("player")
+				.select("lobby_id")
+				.in("lobby_id", lobbyIds as any);
+			for (const row of (players ?? []) as Array<{ lobby_id: string }>) {
+				counts.set(row.lobby_id, (counts.get(row.lobby_id) ?? 0) + 1);
+			}
+		}
+		const withCounts = list.map((l: any) => ({
+			...l,
+			player_count: counts.get(l.id) ?? 0
+		}));
 		
 		// Return all fields including created_at, status, mode for client-side filtering/sorting
-		return NextResponse.json({ lobbies: list });
+		return NextResponse.json({ lobbies: withCounts });
 	} catch (e) {
 		console.error("[api/lobbies] Error fetching lobbies:", e);
 		return NextResponse.json({ lobbies: [] });
 	}
 }
-

@@ -24,6 +24,7 @@ type LobbyRow = {
 	created_at?: string;
 	status?: string;
 	mode?: string;
+	player_count?: number;
 };
 
 export default function LobbiesPage() {

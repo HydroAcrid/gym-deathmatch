@@ -85,7 +85,7 @@
   --accent-danger: hsl(0 55% 35%);
   --accent-success: hsl(120 35% 30%);
   --overlay-backdrop: rgba(0,0,0,0.75);
-  --nav-height: 64px;
+  --nav-height: 72px;
 }
 
 @media (min-width: 640px) {
