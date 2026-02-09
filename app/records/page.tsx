@@ -106,7 +106,7 @@ export default function RecordsPage() {
     if (!user?.id) return;
     setLoading(true);
 
-    fetch(`/api/lobbies?userId=${user.id}`)
+    authFetch(`/api/lobbies`)
       .then((r) => (r.ok ? r.json() : { lobbies: [] }))
       .then(({ lobbies: lobbyList }) => {
         setLobbies(lobbyList ?? []);

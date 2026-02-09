@@ -153,8 +153,8 @@ export default function ProfilePage() {
     setLoading(true);
 
     Promise.all([
-      fetch(`/api/profile?userId=${user.id}`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`/api/lobbies?userId=${user.id}`).then((r) => (r.ok ? r.json() : { lobbies: [] })),
+      authFetch(`/api/profile`).then((r) => (r.ok ? r.json() : null)),
+      authFetch(`/api/lobbies`).then((r) => (r.ok ? r.json() : { lobbies: [] })),
     ])
       .then(([profileRes, lobbiesRes]) => {
         if (profileRes) setProfile(profileRes);

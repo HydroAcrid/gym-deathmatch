@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ lobbyId: string; playerId: string }> }) {
 	const { lobbyId, playerId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
+	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a lobby member" }, { status: 403 });
+	if (!access.isOwner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+	const supabase = access.supabase;
 	try {
-		const body = await req.json().catch(() => ({}));
-		const ownerPlayerId = body?.ownerPlayerId as string | undefined;
-		if (!ownerPlayerId) return NextResponse.json({ error: "ownerPlayerId required" }, { status: 400 });
-
-		const { data: lobby } = await supabase.from("lobby").select("owner_id").eq("id", lobbyId).single();
-		if (!lobby || lobby.owner_id !== ownerPlayerId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-		if (playerId === lobby.owner_id) return NextResponse.json({ error: "Cannot remove owner" }, { status: 400 });
+		if (playerId === access.ownerPlayerId) return NextResponse.json({ error: "Cannot remove owner" }, { status: 400 });
 
 		const { error } = await supabase.from("player").delete().match({ id: playerId, lobby_id: lobbyId });
 		if (error) throw error;
@@ -22,5 +19,4 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ l
 		return NextResponse.json({ error: "Failed" }, { status: 500 });
 	}
 }
-
 

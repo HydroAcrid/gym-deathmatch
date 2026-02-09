@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) return NextResponse.json({ items: [] });
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return NextResponse.json({ error: access.message, items: [] }, { status: access.status });
+	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a lobby member", items: [] }, { status: 403 });
+	const supabase = access.supabase;
 	try {
 		// Determine mode to filter money-only events for challenge lobbies
 		const { data: lrow } = await supabase.from("lobby").select("mode").eq("id", lobbyId).maybeSingle();

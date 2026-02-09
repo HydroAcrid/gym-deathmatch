@@ -165,10 +165,10 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
 
   async function setReady(ready: boolean) {
     if (!user?.id) return;
-    const r = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/ready`, {
+    const r = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/ready`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, ready })
+      body: JSON.stringify({ ready })
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -225,10 +225,9 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
                     className="arena-badge px-2 py-1 text-[11px]"
                     onClick={async () => {
                       try {
-                        const r = await fetch(`/api/punishments/${encodeURIComponent(i.id)}/resolve`, {
+                        const r = await authFetch(`/api/punishments/${encodeURIComponent(i.id)}/resolve`, {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ userId: user?.id || null, approve: isOwner || false })
+                          headers: { "Content-Type": "application/json" }
                         });
                         if (!r.ok) {
                           const j = await r.json().catch(() => ({}));

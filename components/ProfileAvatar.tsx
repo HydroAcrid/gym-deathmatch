@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./AuthProvider";
 import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 import { PushToggle } from "./PushToggle";
+import { authFetch } from "@/lib/clientAuth";
 
 export function ProfileAvatar() {
 	const { user } = useAuth();
@@ -23,7 +24,7 @@ export function ProfileAvatar() {
 		(async () => {
 			try {
 				if (!user) return;
-				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				const res = await authFetch(`/api/user/profile`, { cache: "no-store" });
 				if (!res.ok) return;
 				const j = await res.json();
 				const avatar = j?.avatarUrl as string | undefined;
@@ -82,11 +83,10 @@ export function ProfileAvatar() {
 		setBusy(true);
 		try {
 			// Save to user_profile
-			await fetch("/api/user/profile", {
+			await authFetch("/api/user/profile", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					userId: user.id,
 					displayName,
 					avatarUrl: (url.trim() || current || ""),
 					location: locationVal,
@@ -95,17 +95,17 @@ export function ProfileAvatar() {
 			});
 			// Update player avatars only if a new URL was provided
 			if (url.trim()) {
-				await fetch("/api/user/avatar", {
+				await authFetch("/api/user/avatar", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ userId: user.id, avatarUrl: url.trim() })
+					body: JSON.stringify({ avatarUrl: url.trim() })
 				});
 			}
 			// Sync all player rows for this user to the updated profile (overwrite all fields) and backfill current playerId if needed
-			await fetch("/api/user/sync", {
+			await authFetch("/api/user/sync", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: user.id, overwriteAll: true })
+				body: JSON.stringify({ overwriteAll: true })
 			});
 			// Persist to auth metadata for easy retrieval across the app
 			try {

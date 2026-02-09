@@ -6,7 +6,6 @@ import { useToast } from "./ToastProvider";
 import { ChallengeSettingsCard } from "./ChallengeSettingsCard";
 import type { ChallengeSettings } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
-import { useAuth } from "./AuthProvider";
 import { authFetch } from "@/lib/clientAuth";
 
 export function OwnerSettingsModal({
@@ -54,7 +53,6 @@ export function OwnerSettingsModal({
 	const [seasonEnd, setSeasonEnd] = useState<string>(initialEnd);
 	const [saving, setSaving] = useState(false);
 	const toast = useToast();
-	const { user } = useAuth();
 	const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
 	const [removeId, setRemoveId] = useState<string>("");
 	const [newOwnerId, setNewOwnerId] = useState<string>("");
@@ -90,7 +88,7 @@ export function OwnerSettingsModal({
 	useEffect(() => {
 		(async () => {
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/mode`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/mode`, { cache: "no-store" });
 				if (res.ok) {
 					const j = await res.json();
 					if (j?.mode) setMode(j.mode);
@@ -110,7 +108,7 @@ export function OwnerSettingsModal({
 				const newSeasonEnd = new Date(seasonEnd).toISOString();
 				
 				// First update settings, then start next season
-				await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
+				await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -128,7 +126,7 @@ export function OwnerSettingsModal({
 				});
 				
 				// Then start next season
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/season/next`, {
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/season/next`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -150,7 +148,7 @@ export function OwnerSettingsModal({
 			}
 			
 			// Normal settings update
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -207,18 +205,16 @@ export function OwnerSettingsModal({
 
 	async function removePlayer() {
 		if (!removeId) return;
-		if (!ownerPlayerId) {
-			toast.push("Owner identity unavailable");
-			return;
-		}
 		// owner path requires ownerPlayerId; admin path uses header
 		const headers: any = { "Content-Type": "application/json", ...(await adminHeaders()) };
 		const isAdmin = !!headers.Authorization;
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}/player/${encodeURIComponent(removeId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}/players/${encodeURIComponent(removeId)}`;
-		const body = isAdmin ? undefined : JSON.stringify({ ownerPlayerId });
-		const res = await fetch(url, { method: "DELETE", headers, body });
+		const body = undefined;
+		const res = isAdmin
+			? await fetch(url, { method: "DELETE", headers, body })
+			: await authFetch(url, { method: "DELETE", headers: { "Content-Type": "application/json" } });
 		if (res.ok) {
 			toast.push("Player removed");
 			onSaved();
@@ -234,11 +230,10 @@ export function OwnerSettingsModal({
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}`;
-		const body = isAdmin ? undefined : JSON.stringify({
-			ownerPlayerId: ownerPlayerId || "",
-			userId: user?.id || undefined
-		});
-		const res = await fetch(url, { method: "DELETE", headers, body });
+		const body = undefined;
+		const res = isAdmin
+			? await fetch(url, { method: "DELETE", headers, body })
+			: await authFetch(url, { method: "DELETE", headers: { "Content-Type": "application/json" } });
 		if (res.ok) {
 			toast.push("Lobby deleted");
 			window.location.href = "/lobbies";
@@ -249,15 +244,10 @@ export function OwnerSettingsModal({
 
 	async function transferOwner() {
 		if (!newOwnerId) return;
-		if (!ownerPlayerId) {
-			toast.push("Owner identity unavailable");
-			return;
-		}
-		const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/owner`, {
+		const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/owner`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				ownerPlayerId,
 				newOwnerPlayerId: newOwnerId
 			})
 		});

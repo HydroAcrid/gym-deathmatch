@@ -82,6 +82,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		const aliveNonSD = players.filter((p) => Number(p.lives_remaining ?? 0) > 0 && !p.sudden_death);
 		const anyZero = players.find((p) => Number(p.lives_remaining ?? 0) <= 0 && !p.sudden_death);
 
+		// Reconcile pending activities that have no votes back to approved.
+		try {
+			const { data: pendingActs } = await supabase
+				.from("manual_activities")
+				.select("id")
+				.eq("lobby_id", lobbyId)
+				.eq("status", "pending")
+				.limit(200);
+			const pendingIds = (pendingActs ?? []).map((a: any) => a.id).filter(Boolean);
+			if (pendingIds.length) {
+				const { data: voteRows } = await supabase
+					.from("activity_votes")
+					.select("activity_id")
+					.in("activity_id", pendingIds as any);
+				const counts: Record<string, number> = {};
+				for (const row of (voteRows ?? []) as Array<{ activity_id: string }>) {
+					counts[row.activity_id] = (counts[row.activity_id] || 0) + 1;
+				}
+				const zeroVoteIds = pendingIds.filter((id: string) => !counts[id]);
+				if (zeroVoteIds.length) {
+					await supabase
+						.from("manual_activities")
+						.update({ status: "approved", vote_deadline: null, decided_at: null })
+						.in("id", zeroVoteIds as any);
+					actions.push(`PENDING_WITHOUT_VOTES_REVERTED:${zeroVoteIds.length}`);
+				}
+			}
+		} catch (e) {
+			logError({ route: "POST /api/lobby/[id]/reconcile", code: "ACTIVITY_RECONCILE_FAILED", err: e, lobbyId });
+		}
+
 		if (status === "active") {
 			const mode = String((lobby as any).mode || "MONEY_SURVIVAL");
 			if (mode === "MONEY_SURVIVAL" && anyZero) {

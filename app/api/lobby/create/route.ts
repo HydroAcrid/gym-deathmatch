@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { jsonError } from "@/lib/logger";
+import { getRequestUserId } from "@/lib/requestAuth";
 
 export async function POST(req: NextRequest) {
 	const supabase = getServerSupabase();
 	if (!supabase) return jsonError("SUPABASE_NOT_CONFIGURED", "Supabase not configured", 501);
 	try {
+		const userId = await getRequestUserId(req);
+		if (!userId) return jsonError("UNAUTHORIZED", "Unauthorized", 401);
 		const body = await req.json();
 		// Generate a collision-safe lobby id (slug) on the server
 		function slugify(s: string) {
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
 			};
 		}
 
-		const ownerId = body.ownerId || null;
+		const ownerId = userId;
 
 		const lobby = {
 			id: lobbyId,
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
 			weekly_target: body.weeklyTarget ?? 3,
 			initial_lives: body.initialLives ?? 3,
 			owner_id: null,
-			owner_user_id: body.userId || null,
+			owner_user_id: userId,
 			status: body.status || "pending",
 			mode: body.mode || "MONEY_SURVIVAL",
 			sudden_death_enabled: !!body.suddenDeathEnabled,
@@ -78,7 +81,7 @@ export async function POST(req: NextRequest) {
 			let ownerName = body.ownerName || null;
 			let ownerAvatarUrl = body.ownerAvatarUrl || null;
 			try {
-				const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", body.userId).maybeSingle();
+				const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", userId).maybeSingle();
 				if (!ownerName) ownerName = prof?.display_name ?? null;
 				if (!ownerAvatarUrl) ownerAvatarUrl = prof?.avatar_url ?? null;
 			} catch { /* ignore */ }
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest) {
 				avatar_url: ownerAvatarUrl ?? null,
 				location: body.ownerLocation ?? null,
 				quip: body.ownerQuip ?? null,
-				user_id: body.userId || null
+				user_id: userId
 			});
 			if (playerErr) {
 				console.error("owner player upsert error", playerErr);
@@ -97,7 +100,7 @@ export async function POST(req: NextRequest) {
 			}
 			const { error: ownerUpdateErr } = await supabase.from("lobby").update({
 				owner_id: ownerId,
-				owner_user_id: body.userId || null
+				owner_user_id: userId
 			}).eq("id", lobbyId);
 			if (ownerUpdateErr) {
 				console.error("owner update error", ownerUpdateErr);

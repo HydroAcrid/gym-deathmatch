@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Activity, Zap, AlertTriangle, Trophy, Play, Clock, ChevronRight } from "lucide-react";
+import { authFetch } from "@/lib/clientAuth";
 
 type FeedItem = {
 	id?: string;
@@ -57,7 +58,7 @@ export function LiveFeed({ lobbyId }: LiveFeedProps) {
 		let ignore = false;
 		async function refresh() {
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/feed`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/feed`, { cache: "no-store" });
 				if (!res.ok || ignore) return;
 				const data = await res.json();
 				setItems(data.items ?? []);

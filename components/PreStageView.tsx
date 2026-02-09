@@ -114,7 +114,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		(async () => {
 			try {
 				if (!user?.id) return;
-				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				const res = await authFetch(`/api/user/profile`, { cache: "no-store" });
 				if (!res.ok) return;
 				const j = await res.json();
 				if (j?.name) setProfileName(j.name);
@@ -136,7 +136,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		const emailName = (user.email || "").split("@")[0];
 		const base = (profileName || emailName || user.id).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 		const id = base || user.id;
-		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/invite`, {
+		await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/invite`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -144,8 +144,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				name: profileName || emailName || "Me",
 				avatarUrl: profileAvatar || null,
 				location: profileLocation || null,
-				quip: profileQuip || null,
-				userId: user.id
+				quip: profileQuip || null
 			})
 		});
 		router.refresh();
@@ -162,11 +161,10 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				syncedRef.current = myPlayer.id;
 				// Sync this player's data from user_profile and refresh
 				try {
-					await fetch("/api/user/sync", {
+					await authFetch("/api/user/sync", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
-							userId: user.id,
 							playerId: myPlayer.id,
 							overwriteAll: true // Always sync from profile to ensure quip/location are current
 						})

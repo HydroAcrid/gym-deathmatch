@@ -8,6 +8,7 @@ import { Button } from "@/src/ui2/ui/button";
 import { LobbyCard } from "@/src/ui2/components/LobbyCard";
 import { LobbyFiltersBar, type LobbySortBy, type LobbyFilters } from "@/src/ui2/components/LobbyFiltersBar";
 import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
+import { authFetch } from "@/lib/clientAuth";
 
 type LobbyRow = {
 	id: string; 
@@ -55,9 +56,9 @@ export default function LobbiesPage() {
 		}
 		
 		console.log("[lobbies] Fetching lobbies for user:", user.id);
-		const url = `/api/lobbies?userId=${encodeURIComponent(user.id)}`;
+		const url = `/api/lobbies`;
 		try {
-			const res = await fetch(url);
+			const res = await authFetch(url);
 			const data = await res.json();
 			setAllLobbies(data.lobbies ?? []);
 		} catch (err) {
@@ -221,10 +222,8 @@ export default function LobbiesPage() {
 									onEdit={() => setEditLobby(l)}
 									onLeave={async (lobbyId) => {
 										if (!user?.id) return;
-										await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/leave`, {
+										await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/leave`, {
 											method: "POST",
-											headers: { "Content-Type": "application/json" },
-											body: JSON.stringify({ userId: user.id }),
 										});
 										reloadLobbies();
 									}}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { onVoteResolved } from "@/lib/commentary";
+import { getRequestUserId } from "@/lib/requestAuth";
 
 async function resolveActivityVotes(supabase: any, activityId: string) {
 	// load activity and votes
@@ -174,8 +175,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
+		const userId = await getRequestUserId(req);
+		if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
 		const body = await req.json();
-		const voterPlayerId = String(body.voterPlayerId || "");
 		const choice = String(body.choice || "");
 		// Allow "remove" to delete a vote and revert activity to approved if appropriate
 		if (choice === "remove") {
@@ -183,8 +185,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 			if (!actRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 			
 			// Check if voter is member of lobby
-			const { data: voter } = await supabase.from("player").select("*").eq("id", voterPlayerId).maybeSingle();
+			const { data: voter } = await supabase
+				.from("player")
+				.select("*")
+				.eq("lobby_id", actRow.lobby_id)
+				.eq("user_id", userId)
+				.maybeSingle();
 			if (!voter || voter.lobby_id !== actRow.lobby_id) return NextResponse.json({ error: "Not in lobby" }, { status: 400 });
+			const voterPlayerId = voter.id as string;
 			
 			// Fetch lobby to get owner_id
 			const { data: lobby } = await supabase.from("lobby").select("owner_id").eq("id", actRow.lobby_id).maybeSingle();
@@ -266,8 +274,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		const { data: actRow } = await supabase.from("manual_activities").select("*").eq("id", activityId).maybeSingle();
 		if (!actRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 		// Voter is member of lobby
-		const { data: voter } = await supabase.from("player").select("*").eq("id", voterPlayerId).maybeSingle();
+		const { data: voter } = await supabase
+			.from("player")
+			.select("*")
+			.eq("lobby_id", actRow.lobby_id)
+			.eq("user_id", userId)
+			.maybeSingle();
 		if (!voter || voter.lobby_id !== actRow.lobby_id) return NextResponse.json({ error: "Not in lobby" }, { status: 400 });
+		const voterPlayerId = voter.id as string;
 		// Prevent self-vote
 		if (voterPlayerId === actRow.player_id) return NextResponse.json({ error: "No self-vote" }, { status: 400 });
 		// Disable voting in very small lobbies (<= 2 players)
@@ -309,5 +323,4 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		return NextResponse.json({ error: errorMessage }, { status: 400 });
 	}
 }
-
 

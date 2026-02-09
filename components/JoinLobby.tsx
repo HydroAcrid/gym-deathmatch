@@ -6,6 +6,7 @@ import { useAuth } from "./AuthProvider";
 import { Button } from "@/src/ui2/ui/button";
 import { Input } from "@/src/ui2/ui/input";
 import { Label } from "@/src/ui2/ui/label";
+import { authFetch } from "@/lib/clientAuth";
 
 export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 	const [open, setOpen] = useState(false);
@@ -22,7 +23,7 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 		(async () => {
 			if (!user?.id) return;
 			try {
-				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				const res = await authFetch(`/api/user/profile`, { cache: "no-store" });
 				if (!res.ok) return;
 				const j = await res.json();
 				setProfileName(j?.name ?? null);
@@ -64,14 +65,13 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 		if (!name.trim()) return;
 		setSubmitting(true);
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					name: name.trim(),
 					avatarUrl: avatarUrl.trim() || null,
-					quip: quip.trim() || null,
-					userId: user.id
+					quip: quip.trim() || null
 				})
 			});
 			const data = await res.json().catch(() => ({}));

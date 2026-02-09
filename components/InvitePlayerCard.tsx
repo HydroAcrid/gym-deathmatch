@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Player } from "@/types/game";
+import { authFetch } from "@/lib/clientAuth";
 
 interface Props {
 	onAdd(player: Player): void;
@@ -32,7 +33,7 @@ export function InvitePlayerCard({ onAdd, onReplace, lobbyId }: Props) {
 		};
 		// Persist to API; if it fails, still add locally
 		setSaving(true);
-		fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
+		authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -104,5 +105,4 @@ export function InvitePlayerCard({ onAdd, onReplace, lobbyId }: Props) {
 		</div>
 	);
 }
-
 

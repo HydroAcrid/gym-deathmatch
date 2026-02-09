@@ -135,6 +135,57 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
 	}, [lobby.id]);
 
+	// Realtime sync for wheel submissions + spin event broadcast.
+	useEffect(() => {
+		let cancelled = false;
+		let spinChannel: any = null;
+		let punishmentsChannel: any = null;
+		(async () => {
+			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+			if (!supabase || cancelled) return;
+			spinChannel = supabase
+				.channel(`spin-events-${lobby.id}-${Date.now()}`)
+				.on(
+					"postgres_changes",
+					{
+						event: "*",
+						schema: "public",
+						table: "lobby_spin_events",
+						filter: `lobby_id=eq.${lobby.id}`
+					},
+					() => {
+						if (!cancelled) loadPunishments();
+					}
+				)
+				.subscribe();
+			punishmentsChannel = supabase
+				.channel(`punishments-${lobby.id}-${Date.now()}`)
+				.on(
+					"postgres_changes",
+					{
+						event: "*",
+						schema: "public",
+						table: "lobby_punishments",
+						filter: `lobby_id=eq.${lobby.id}`
+					},
+					() => {
+						if (!cancelled) loadPunishments();
+					}
+				)
+				.subscribe();
+		})();
+		return () => {
+			cancelled = true;
+			(async () => {
+				const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+				if (supabase) {
+					if (spinChannel) await supabase.removeChannel(spinChannel);
+					if (punishmentsChannel) await supabase.removeChannel(punishmentsChannel);
+				}
+			})();
+		};
+	}, [lobby.id]);
+
 	// Find current user's submission
 	const prevMySubmissionRef = useRef<{ id: string; text: string } | null>(null);
 	useEffect(() => {
@@ -198,7 +249,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		async function refresh() {
 			if (cancelled || document.hidden) return;
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				if (!cancelled && data?.lobby?.players) {

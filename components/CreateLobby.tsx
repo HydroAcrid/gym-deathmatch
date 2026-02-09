@@ -7,6 +7,7 @@ import { useAuth } from "./AuthProvider";
 import { ChallengeSettingsCard, resetChallengeDefaults } from "./ChallengeSettingsCard";
 import type { ChallengeSettings } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
+import { authFetch } from "@/lib/clientAuth";
 
 type CreateLobbyProps = {
 	children?: React.ReactNode;
@@ -42,7 +43,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 		(async () => {
 			try {
 				if (!user?.id) return;
-				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				const res = await authFetch(`/api/user/profile`, { cache: "no-store" });
 				if (res.ok) {
 					const j = await res.json();
 					if (!ownerName && j?.name) setOwnerName(j.name);
@@ -69,7 +70,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 			toast.push("Enter start and end dates");
 			return;
 		}
-		const res = await fetch("/api/lobby/create", {
+		const res = await authFetch("/api/lobby/create", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -79,9 +80,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 				seasonEnd: new Date(seasonEnd).toISOString(),
 				weeklyTarget: Number(weekly),
 				initialLives: Number(lives),
-				ownerId,
 				ownerName: ownerName || undefined,
-				userId: user.id,
 				status: "pending",
 				ownerAvatarUrl: profileAvatar,
 				mode,
@@ -297,4 +296,3 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 		</>
 	);
 }
-

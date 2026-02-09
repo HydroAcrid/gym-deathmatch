@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
+import { getRequestUserId } from "@/lib/requestAuth";
 
 export async function POST(req: Request) {
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
-		const { userId, overwriteAll, playerId } = await req.json();
-		if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+		const userId = await getRequestUserId(req);
+		if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		const { overwriteAll, playerId } = await req.json();
 		const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", userId).maybeSingle();
 		if (!prof) return NextResponse.json({ ok: true });
 
 		// Optional: backfill a specific player row (older lobbies may have null user_id)
 		if (playerId) {
+			const { data: ownedPlayer } = await supabase.from("player").select("id").eq("id", playerId).eq("user_id", userId).maybeSingle();
+			if (!ownedPlayer) return NextResponse.json({ error: "Player not found for user" }, { status: 403 });
 			const backfill: any = { user_id: userId };
 			if (prof.display_name) backfill.name = prof.display_name;
 			if (prof.location !== undefined) backfill.location = prof.location;
@@ -60,5 +64,4 @@ export async function POST(req: Request) {
 		return NextResponse.json({ ok: false });
 	}
 }
-
 

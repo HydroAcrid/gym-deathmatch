@@ -6,6 +6,7 @@ import type { SeasonSummary, GameMode } from "@/types/game";
 import Image from "next/image";
 import { useState } from "react";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
+import { authFetch } from "@/lib/clientAuth";
 
 export function SeasonCompleteOverlay({
 	lobbyId,
@@ -43,7 +44,7 @@ export function SeasonCompleteOverlay({
 		if (loading) return;
 		setLoading(true);
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/season/next`, {
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/season/next`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

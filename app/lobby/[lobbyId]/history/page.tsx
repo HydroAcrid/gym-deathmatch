@@ -320,10 +320,10 @@ const [potInput, setPotInput] = useState<string>("");
 		}
 		setBusy(true);
 		try {
-			const res = await fetch(`/api/activities/${encodeURIComponent(activityId)}/vote`, {
+			const res = await authFetch(`/api/activities/${encodeURIComponent(activityId)}/vote`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ voterPlayerId: myPlayerId, choice }),
+				body: JSON.stringify({ choice }),
 				cache: "no-store"
 			});
 			if (!res.ok) {
@@ -362,10 +362,10 @@ const [potInput, setPotInput] = useState<string>("");
 		}
 		setBusy(true);
 		try {
-			const res = await fetch(`/api/activities/${encodeURIComponent(activityId)}/override`, {
+			const res = await authFetch(`/api/activities/${encodeURIComponent(activityId)}/override`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ownerPlayerId, newStatus }),
+				body: JSON.stringify({ newStatus }),
 				cache: "no-store"
 			});
 			if (!res.ok) {
@@ -392,10 +392,10 @@ const [potInput, setPotInput] = useState<string>("");
 		if (!ownerPlayerId || !adjustTarget) return;
 		setBusy(true);
 		try {
-			await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/adjust-hearts`, {
+			await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/adjust-hearts`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ownerPlayerId, targetPlayerId: adjustTarget, delta })
+				body: JSON.stringify({ targetPlayerId: adjustTarget, delta })
 			});
 			alert("Adjustment logged. Hearts will reflect in the lobby view.");
 		} finally {

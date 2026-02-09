@@ -255,16 +255,15 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const myPlayer = players.find(p => (p as any).userId === user.id);
 			if (myPlayer && syncedRef.current !== myPlayer.id) {
 				syncedRef.current = myPlayer.id;
-				// Sync this player's data from user_profile and refresh
-				try {
-					await fetch("/api/user/sync", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							userId: user.id,
-							playerId: myPlayer.id,
-							overwriteAll: true
-						})
+					// Sync this player's data from user_profile and refresh
+					try {
+						await authFetch("/api/user/sync", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								playerId: myPlayer.id,
+								overwriteAll: true
+							})
 					});
 					onRefresh?.();
 				} catch { /* ignore */ }

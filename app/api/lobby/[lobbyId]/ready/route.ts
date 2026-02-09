@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { onAllReady, onReadyChanged } from "@/lib/commentary";
 import { jsonError, logError } from "@/lib/logger";
+import { getRequestUserId } from "@/lib/requestAuth";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const supabase = getServerSupabase();
 	if (!supabase) return jsonError("SUPABASE_NOT_CONFIGURED", "Supabase not configured", 501);
 	try {
+		const userId = await getRequestUserId(req);
+		if (!userId) return jsonError("UNAUTHORIZED", "Unauthorized", 401);
 		const body = await req.json();
-		const { userId, ready } = body || {};
-		if (!userId) return jsonError("MISSING_USER", "Missing userId");
+		const { ready } = body || {};
+		const { data: member } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
+		if (!member?.id) return jsonError("FORBIDDEN", "Not a lobby member", 403);
 		const { error } = await supabase.from("user_ready_states").upsert({ user_id: userId, lobby_id: lobbyId, ready: !!ready }, { onConflict: "user_id,lobby_id" });
 		if (error) throw error;
 		// Map user to player in this lobby for a nicer quip

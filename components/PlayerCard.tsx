@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { StatusBadge } from "./StatusBadge";
 import { MapPin, Flame, Target, Trophy } from "lucide-react";
+import { authFetch } from "@/lib/clientAuth";
 
 export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player: Player; lobbyId?: string; mePlayerId?: string; showReady?: boolean }) {
 	const avatar = player.avatarUrl || "";
@@ -65,10 +66,10 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 							{isMe && lobbyId && (
 								<button
 									onClick={async () => {
-										await fetch(`/api/strava/disconnect`, {
+										await authFetch(`/api/strava/disconnect`, {
 											method: "POST",
 											headers: { "Content-Type": "application/json" },
-											body: JSON.stringify({ playerId: player.id, userId: user?.id || null })
+											body: JSON.stringify({ playerId: player.id })
 										});
 										if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
 									}}

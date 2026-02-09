@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "./AuthProvider";
+import { authFetch } from "@/lib/clientAuth";
 
 export type FeedEvent = { message: string; timestamp: string };
 
@@ -14,7 +14,6 @@ export function RecentFeed({
 	events?: FeedEvent[];
 }) {
 	const [items, setItems] = useState<any[]>([]);
-	const { user } = useAuth();
 
 	// Seed from props when they change
 	useEffect(() => {
@@ -30,7 +29,7 @@ export function RecentFeed({
 		async function refresh() {
 			try {
 				const lid = lobbyId as string;
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lid)}/feed`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lid)}/feed`, { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				if (ignore) return;

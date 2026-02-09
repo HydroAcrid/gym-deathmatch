@@ -6,6 +6,7 @@ import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 import { Button } from "@/src/ui2/ui/button";
 import { Input } from "@/src/ui2/ui/input";
 import { Label } from "@/src/ui2/ui/label";
+import { authFetch } from "@/lib/clientAuth";
 
 function slugify(s: string) {
 	return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -29,7 +30,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 		(async () => {
 			if (!user?.id) return;
 			try {
-				const res = await fetch(`/api/user/profile?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+				const res = await authFetch(`/api/user/profile`, { cache: "no-store" });
 				if (!res.ok) return;
 				const j = await res.json();
 				if (j?.name) setDisplayName(j.name);
@@ -68,11 +69,10 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 		if (!user?.id) return;
 		setSubmitting(true);
 		try {
-			await fetch("/api/user/profile", {
+			await authFetch("/api/user/profile", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					userId: user.id,
 					displayName,
 					avatarUrl,
 					location,
@@ -80,10 +80,10 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 				})
 			});
 			// Sync all player rows for this user to the updated profile
-			await fetch("/api/user/sync", {
+			await authFetch("/api/user/sync", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: user.id, overwriteAll: true })
+				body: JSON.stringify({ overwriteAll: true })
 			});
 		} finally {
 			setSubmitting(false);
@@ -132,15 +132,14 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 		if (!canSubmit) return;
 		setSubmitting(true);
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					name: displayName || emailName || "Me",
 					avatarUrl: avatarUrl || null,
 					location: location || null,
-					quip: quip || null,
-					userId: user!.id
+					quip: quip || null
 				})
 			});
 			const data = await res.json().catch(() => ({}));
