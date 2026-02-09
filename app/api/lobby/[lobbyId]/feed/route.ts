@@ -52,16 +52,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 				}));
 		}
 		const items2 = (evs ?? []).map((e: any) => ({
-			id: e.id,
-			text: (e.type === "PUNISHMENT_SPUN" ? `🎡 Wheel spun: “${(e.payload as any)?.text ?? ""}”` : e.type),
+			id: `he-${e.id}`,
+			text: (e.type === "PUNISHMENT_SPUN" ? `🎡 Wheel spun: "${(e.payload as any)?.text ?? ""}"` : e.type),
 			createdAt: e.created_at,
 			player: null
 		}));
-		const mixed = [...items1, ...items2].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50);
+		// Dedup: skip history_events entries if a commentary quip already covers the same event
+		const commentTextsLower = new Set(items1.map((i: any) => (i.text ?? "").toLowerCase()));
+		const dedupedItems2 = items2.filter((i: any) => {
+			const t = (i.text ?? "").toLowerCase();
+			return ![...commentTextsLower].some(ct => ct.includes("wheel spun") && t.includes("wheel spun"));
+		});
+		const mixed = [...items1, ...dedupedItems2].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50);
 		return NextResponse.json({ items: mixed });
 	} catch (e) {
 		return NextResponse.json({ items: [] });
 	}
 }
-
-

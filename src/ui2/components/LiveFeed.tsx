@@ -110,7 +110,7 @@ export function LiveFeed({ lobbyId }: LiveFeedProps) {
 							const stamp = event.createdAt ? new Date(event.createdAt) : new Date();
 							return (
 								<div
-									key={event.id || `${index}-${event.createdAt || "now"}`}
+									key={event.id || `feed-${event.createdAt}-${(event.text ?? "").slice(0, 20)}`}
 									className="feed-event animate-feed-slide p-4 active:bg-muted/30"
 									style={{ animationDelay: `${index * 50}ms` }}
 								>

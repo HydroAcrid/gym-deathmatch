@@ -37,16 +37,24 @@ async function insertQuipOnce(opts: {
 	if (!supabase) return;
 	const dedupeMs = opts.dedupeMs ?? 6 * 60 * 60 * 1000;
 	const since = new Date(Date.now() - dedupeMs).toISOString();
+
+	// Dedup strategy: if we have a dedupeKey (payload-based), use ONLY that + type + player.
+	// This avoids the bug where random template text defeats rendered-based dedup.
 	let query = supabase
 		.from("comments")
-		.select("id,payload")
+		.select("id")
 		.eq("lobby_id", opts.lobbyId)
 		.eq("type", opts.type)
-		.eq("rendered", opts.rendered)
 		.gte("created_at", since)
 		.limit(1);
 	if (opts.primaryPlayerId) query = query.eq("primary_player_id", opts.primaryPlayerId);
-	if (opts.dedupeKey) query = query.contains("payload", opts.dedupeKey as any);
+	if (opts.dedupeKey) {
+		// Payload-based dedup — don't also match on rendered text
+		query = query.contains("payload", opts.dedupeKey as any);
+	} else {
+		// No dedupeKey — fall back to rendered text match
+		query = query.eq("rendered", opts.rendered);
+	}
 	const { data: exists } = await query;
 	if (exists && exists.length) return;
 	await insertQuips(opts.lobbyId, [{
@@ -176,6 +184,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 		const hour = now.getHours();
 		const dayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 
+		// Deterministic hash helper for template selection
+		const pickTemplate = (tmpls: string[], seed: string) => {
+			const h = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+			return tmpls[h % tmpls.length];
+		};
+
 		// Time-of-day callouts (late-night / lunch)
 		if (hour >= 22 || hour < 5) {
 			const templates = [
@@ -186,11 +200,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
-				payload: { timeWindow: "late-night" },
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "late"),
+				payload: { timeWindow: "late-night", day: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 6 * 60 * 60 * 1000
+				dedupeMs: 6 * 60 * 60 * 1000,
+				dedupeKey: { timeWindow: "late-night", day: dayKey }
 			});
 		} else if (hour >= 11 && hour < 14) {
 			const templates = [
@@ -201,11 +216,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
-				payload: { timeWindow: "midday" },
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "mid"),
+				payload: { timeWindow: "midday", day: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 6 * 60 * 60 * 1000
+				dedupeMs: 6 * 60 * 60 * 1000,
+				dedupeKey: { timeWindow: "midday", day: dayKey }
 			});
 		}
 
@@ -228,11 +244,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "dbl"),
 				payload: { doubleHeaderDate: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 12 * 60 * 60 * 1000
+				dedupeMs: 12 * 60 * 60 * 1000,
+				dedupeKey: { doubleHeaderDate: dayKey }
 			});
 		}
 
@@ -259,11 +276,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + "streak3"),
 				payload: { streakDays: 3 },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000
+				dedupeMs: 24 * 60 * 60 * 1000,
+				dedupeKey: { streakDays: 3 }
 			});
 		}
 
@@ -282,11 +300,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 				await insertQuipOnce({
 					lobbyId,
 					type: "SUMMARY",
-					rendered: templates[Math.floor(Math.random() * templates.length)],
-					payload: { underdog: true },
+					rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "underdog"),
+					payload: { underdog: true, day: dayKey },
 					primaryPlayerId: activity.playerId,
 					visibility: "both",
-					dedupeMs: 12 * 60 * 60 * 1000
+					dedupeMs: 12 * 60 * 60 * 1000,
+					dedupeKey: { underdog: true, day: dayKey }
 				});
 			}
 		}
@@ -319,11 +338,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
-				payload: { idleBreak: true },
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "idle"),
+				payload: { idleBreak: true, day: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000
+				dedupeMs: 24 * 60 * 60 * 1000,
+				dedupeKey: { idleBreak: true, day: dayKey }
 			});
 		}
 
@@ -398,9 +418,10 @@ export async function onHeartsChanged(lobbyId: string, playerId: string, delta: 
 		`Refilled. {name} gains a heart and momentum.`,
 		`Second wind for {name}. Heart restored.`
 	];
-	const rendered = delta < 0
-		? lostTemplates[Math.floor(Math.random() * lostTemplates.length)]
-		: gainTemplates[Math.floor(Math.random() * gainTemplates.length)];
+	// Deterministic selection: hash playerId+reason so the same event always picks the same template
+	const hashSeed = (playerId + reason).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+	const templates = delta < 0 ? lostTemplates : gainTemplates;
+	const rendered = templates[hashSeed % templates.length];
 	// Stronger dedupe using insertQuipOnce to avoid races
 	await insertQuipOnce({
 		lobbyId,
@@ -472,13 +493,16 @@ export async function onPotChanged(lobbyId: string, delta: number, potOverride?:
 			`Arena kitty hits $${hit}. Stakes rising.`,
 			`Bank rolls to $${hit}. Gloves tighter.`
 		];
+		// Deterministic pick based on milestone value
+		const rendered = options[hit % options.length];
 		await insertQuipOnce({
 			lobbyId,
 			type: "SUMMARY",
-			rendered: options[Math.floor(Math.random() * options.length)],
+			rendered,
 			payload: { potMilestone: hit, pot: potVal },
 			visibility: "feed",
-			dedupeMs: 24 * 60 * 60 * 1000
+			dedupeMs: 24 * 60 * 60 * 1000,
+			dedupeKey: { potMilestone: hit }
 		});
 	}
 }
@@ -755,7 +779,9 @@ export async function onRivalryPulse(lobbyId: string, playerIdA: string, playerI
 			"{a} and {b} keep trading blows within minutes.",
 			"Smells like a duel — {a} and {b} stay neck and neck."
 		];
-		const rendered = renderedOptions[Math.floor(Math.random() * renderedOptions.length)];
+		// Deterministic pick from rivalry key
+		const keyHash = key.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+		const rendered = renderedOptions[keyHash % renderedOptions.length];
 		const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
 		const { data: exists } = await supabase
 			.from("comments")
