@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/src/ui2/ui/button";
+import { authFetch } from "@/lib/clientAuth";
 
 type Contribution = { week_start: string; amount: number; player_count: number };
 type EventRow = { id: string; type: string; payload: any; created_at: string; target_player_id?: string | null };
@@ -113,11 +114,11 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 												<Button
 													variant="outline"
 													size="sm"
-													onClick={async () => {
-														await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments/resolve-all`, {
-															method: "POST",
-															headers: { "Content-Type": "application/json" },
-															body: JSON.stringify({ userId: pl.user_id })
+														onClick={async () => {
+															await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments/resolve-all`, {
+																method: "POST",
+																headers: { "Content-Type": "application/json" },
+																body: JSON.stringify({ userId: pl.user_id })
 														});
 														window.location.reload();
 													}}
@@ -144,5 +145,4 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 		</div>
 	);
 }
-
 

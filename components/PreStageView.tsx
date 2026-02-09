@@ -9,6 +9,7 @@ import { Button } from "@/src/ui2/ui/button";
 import { Input } from "@/src/ui2/ui/input";
 import { CountdownTimer } from "@/src/ui2/components/CountdownTimer";
 import { AthleteCard } from "@/src/ui2/components/AthleteCard";
+import { authFetch } from "@/lib/clientAuth";
 
 export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const router = useRouter();
@@ -73,7 +74,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	};
 
 	const schedule = async () => {
-		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
+		await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -86,7 +87,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		await reloadLobby();
 	};
 	const startNow = async () => {
-		const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
+		const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ startNow: true })
@@ -98,7 +99,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		}
 	};
 	const cancelSchedule = async () => {
-		await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
+		await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ status: "pending", scheduledStart: null })

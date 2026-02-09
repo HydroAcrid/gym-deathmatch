@@ -23,6 +23,7 @@ import { Standings, type Standing } from "@/src/ui2/components/Standings";
 import { HostControls } from "@/src/ui2/components/HostControls";
 import { WeeklyCycleIndicator } from "@/src/ui2/components/WeeklyCycleIndicator";
 import { Button } from "@/src/ui2/ui/button";
+import { authFetch } from "@/lib/clientAuth";
 
 type LobbyLayoutProps = {
 	lobby: Lobby;
@@ -208,11 +209,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	useEffect(() => {
 		if (!String(mode || "").startsWith("CHALLENGE_")) return;
 		let cancelled = false;
-		async function load() {
-			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/punishments`, { cache: "no-store" });
-				if (!res.ok || cancelled) return;
-				const j = await res.json();
+			async function load() {
+				try {
+					const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/punishments`, { cache: "no-store" });
+					if (!res.ok || cancelled) return;
+					const j = await res.json();
 				if (j.active && j.weekStatus) {
 					setWeekStatus(j.weekStatus);
 					setActivePunishment({ text: j.active.text, week: j.week });
@@ -464,15 +465,16 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 							)}
 
 							{/* Challenge Mode Hero */}
-							{stage !== "COMPLETED" && isChallengeMode && (
-								<ChallengeHero
-									lobbyId={lobbyData.id}
-									mode={mode as any}
-									challengeSettings={lobbyData.challengeSettings || null}
-									seasonStart={lobbyData.seasonStart}
-									seasonEnd={lobbyData.seasonEnd}
-								/>
-							)}
+								{stage !== "COMPLETED" && isChallengeMode && (
+									<ChallengeHero
+										lobbyId={lobbyData.id}
+										mode={mode as any}
+										challengeSettings={lobbyData.challengeSettings || null}
+										seasonStart={lobbyData.seasonStart}
+										seasonEnd={lobbyData.seasonEnd}
+										isOwner={isOwner}
+									/>
+								)}
 
 							{/* Host Controls */}
 							{isOwner && (

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { LiveLobbyResponse } from "@/types/api";
 import { useAutoRefresh } from "./useAutoRefresh";
+import { authFetch } from "@/lib/clientAuth";
 
 export function useLobbyLive(lobbyId: string) {
 	const [data, setData] = useState<LiveLobbyResponse | null>(null);
@@ -12,6 +13,11 @@ export function useLobbyLive(lobbyId: string) {
 	const reload = useCallback(async () => {
 		if (!lobbyId) return;
 		try {
+			try {
+				await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/reconcile`, { method: "POST" });
+			} catch {
+				// best-effort reconcile; live read still proceeds
+			}
 			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 			if (!res.ok) throw new Error("Failed to fetch lobby data");
 			const json = await res.json();
@@ -44,4 +50,3 @@ export function useLobbyLive(lobbyId: string) {
 
 	return { data, loading, error, reload };
 }
-

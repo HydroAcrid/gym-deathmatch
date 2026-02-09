@@ -524,6 +524,24 @@ for select using (
   exists (select 1 from player p where p.lobby_id = lobby_punishments.lobby_id and p.user_id = auth.uid())
 );
 
+create table if not exists lobby_spin_events (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  week int not null,
+  winner_item_id uuid not null references lobby_punishments(id) on delete cascade,
+  started_at timestamptz not null,
+  created_by text null references player(id) on delete set null,
+  created_at timestamptz default now(),
+  unique(lobby_id, week)
+);
+alter table lobby_spin_events enable row level security;
+drop policy if exists lobby_spin_events_member_read on lobby_spin_events;
+create policy lobby_spin_events_member_read on lobby_spin_events
+for select using (
+  exists (select 1 from player p where p.lobby_id = lobby_spin_events.lobby_id and p.user_id = auth.uid())
+);
+create index if not exists lobby_spin_events_lobby_week_idx on lobby_spin_events (lobby_id, week desc, created_at desc);
+
 create table if not exists user_punishments (
   id uuid primary key default gen_random_uuid(),
   user_id text not null,

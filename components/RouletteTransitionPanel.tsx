@@ -5,6 +5,7 @@ import type { Lobby, Player } from "@/types/game";
 import { motion } from "framer-motion";
 import { useAuth } from "./AuthProvider";
 import { PunishmentWheel, type PunishmentEntry } from "./punishment/PunishmentWheel";
+import { authFetch } from "@/lib/clientAuth";
 
 export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const { user } = useAuth();
@@ -21,14 +22,26 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const [spinIndex, setSpinIndex] = useState<number | null>(null);
 	const [spinNonce, setSpinNonce] = useState<number>(0);
 	const pendingChosenRef = useRef<string | null>(null);
+	const spinTimerRef = useRef<number | null>(null);
 	const [showDebug, setShowDebug] = useState<boolean>(false);
 	const initialLoadRef = useRef(false);
 	const prevActiveRef = useRef<string | null>(null);
+	const lastSpinIdRef = useRef<string | null>(null);
+	const [spinRequesting, setSpinRequesting] = useState<boolean>(false);
 	
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		const search = new URLSearchParams(window.location.search);
 		setShowDebug(search.get("debug") === "1");
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (spinTimerRef.current) {
+				window.clearTimeout(spinTimerRef.current);
+				spinTimerRef.current = null;
+			}
+		};
 	}, []);
 
 	useEffect(() => {
@@ -41,7 +54,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 
 	const loadPunishments = async () => {
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
 			if (!res.ok) return;
 			const j = await res.json();
 			const newItems = j.items || [];
@@ -55,9 +68,32 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			
 			setLocked(!!j.locked);
 
+			const spinEvent = j.spinEvent as { spinId: string; startedAt: string; winnerItemId: string } | null;
+			if (spinEvent && spinEvent.spinId !== lastSpinIdRef.current) {
+				lastSpinIdRef.current = spinEvent.spinId;
+				const currentEntries = computeEntries(newItems, players);
+				const idx = currentEntries.findIndex((e) => e.id === spinEvent.winnerItemId);
+				const winnerText = (newItems.find((it: any) => it.id === spinEvent.winnerItemId)?.text as string | undefined) || null;
+				if (initialLoadRef.current && !chosen && idx >= 0) {
+					if (spinTimerRef.current) {
+						window.clearTimeout(spinTimerRef.current);
+						spinTimerRef.current = null;
+					}
+					const delay = Math.max(0, new Date(spinEvent.startedAt).getTime() - Date.now());
+					spinTimerRef.current = window.setTimeout(() => {
+						setSpinIndex(idx);
+						setSpinNonce((n) => n + 1);
+						setSpinning(true);
+						pendingChosenRef.current = winnerText;
+					}, delay);
+				} else if (!initialLoadRef.current && winnerText) {
+					setChosen(winnerText);
+				}
+			}
+
 			// Handle spin trigger
 			const activeText = j.active?.text || null;
-			if (activeText && activeText !== prevActiveRef.current) {
+			if (!spinEvent && activeText && activeText !== prevActiveRef.current) {
 				// New active punishment detected
 				if (initialLoadRef.current && !chosen) {
 					// We are live and watching, trigger spin!
@@ -93,7 +129,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	};
 
 	// Listen for realtime updates
-	useEffect(() => {
+		useEffect(() => {
 		function onRefresh() { loadPunishments(); }
 		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
 		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
@@ -139,10 +175,16 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		pendingChosenRef.current = null;
 		justSubmittedRef.current = false;
 		prevMySubmissionRef.current = null;
-		itemsHashRef.current = "";
-		initialLoadRef.current = false;
-		prevActiveRef.current = null;
-	}, [lobby.id]);
+			itemsHashRef.current = "";
+			initialLoadRef.current = false;
+			prevActiveRef.current = null;
+			lastSpinIdRef.current = null;
+			setSpinRequesting(false);
+			if (spinTimerRef.current) {
+				window.clearTimeout(spinTimerRef.current);
+				spinTimerRef.current = null;
+			}
+		}, [lobby.id]);
 	
 	useEffect(() => {
 		loadPunishments();
@@ -205,11 +247,11 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 				setItems(prev => [...prev, { id: `temp-${Date.now()}`, text: textToSubmit, created_by: meId as string }]);
 			}
 			
-			const r = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ text: textToSubmit, playerId: meId })
-			});
+				const r = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ text: textToSubmit })
+				});
 			
 			if (!r.ok) {
 				setErrorMsg("Submit failed");
@@ -226,19 +268,17 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 
 	async function spin() {
 		setErrorMsg(null);
-		// Don't set spinning locally yet, wait for DB
-		// But disable button
-		setSpinning(true); 
+		setSpinRequesting(true);
 		try {
-			const r = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/spin`, { method: "POST" });
+			const r = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/spin`, { method: "POST" });
 			if (!r.ok) {
-				setSpinning(false);
 				setErrorMsg("Spin failed");
 			}
 			// Success: do nothing, wait for realtime event to trigger animation
 		} catch {
-			setSpinning(false);
 			setErrorMsg("Spin failed");
+		} finally {
+			setSpinRequesting(false);
 		}
 	}
 
@@ -322,24 +362,24 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						<>
 							<button
 								className="arena-badge px-3 py-2 text-xs"
-								onClick={async () => {
-									await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments/lock`, {
-										method: "POST",
-										headers: { "Content-Type": "application/json" },
-										body: JSON.stringify({ locked: !locked })
+									onClick={async () => {
+										await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments/lock`, {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({ locked: !locked })
 									});
 									loadPunishments();
 								}}
 							>
 								{locked ? "Unlock list" : "Lock list"}
 							</button>
-							<button
-								className="arena-badge arena-badge-primary px-3 py-2 text-xs"
-								onClick={spin}
-								disabled={spinning || wheelEntries.length === 0 || (locked === false && requiresLock(lobby))}
-							>
-								{spinning ? "Spinning…" : "Spin wheel"}
-							</button>
+								<button
+									className="arena-badge arena-badge-primary px-3 py-2 text-xs"
+									onClick={spin}
+									disabled={spinning || spinRequesting || wheelEntries.length === 0 || (locked === false && requiresLock(lobby))}
+								>
+									{spinning || spinRequesting ? "Spinning…" : "Spin wheel"}
+								</button>
 						</>
 					) : (
 						<div className="text-xs text-muted-foreground">
@@ -363,22 +403,23 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 
 function computeEntries(items: any[], players: Player[]): PunishmentEntry[] {
 	const byId = new Map(players.map(p => [p.id, p]));
+	const byUserId = new Map(players.map(p => [(p as any).userId as string | undefined, p]).filter((x) => !!x[0]) as Array<[string, Player]>);
 	const seen = new Set<string>();
 	const out: PunishmentEntry[] = [];
 	for (const it of items) {
 		const pid = it.created_by as string | undefined;
 		if (!pid) continue;
 		if (seen.has(pid)) continue;
-		const pl = byId.get(pid);
+		const pl = byId.get(pid) || byUserId.get(pid);
 		if (!pl) continue;
 		const text = String(it.text || "").trim();
 		if (!text) continue;
 		seen.add(pid);
-		out.push({
-			id: pid,
-			displayName: pl.name,
-			avatarUrl: pl.avatarUrl,
-			punishment: text,
+			out.push({
+				id: String(it.id),
+				displayName: pl.name,
+				avatarUrl: pl.avatarUrl,
+				punishment: text,
 			createdBy: pid
 		});
 	}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { authFetch } from "@/lib/clientAuth";
 
 function getRemaining(targetIso?: string | null) {
 	if (!targetIso) return { totalMs: 0, d: 0, h: 0, m: 0, s: 0 };
@@ -46,11 +47,11 @@ export function CountdownHero({
 		if (!reached) return;
 		let ignore = false;
 		(async () => {
-			try {
-				await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ startNow: true })
+				try {
+					await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+						method: "PATCH",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ startNow: true })
 				});
 			} catch {
 				// ignore
@@ -130,5 +131,4 @@ function TimeBlock({ label, value }: { label: string; value: number }) {
 		</motion.div>
 	);
 }
-
 

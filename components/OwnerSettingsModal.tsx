@@ -7,6 +7,7 @@ import { ChallengeSettingsCard } from "./ChallengeSettingsCard";
 import type { ChallengeSettings } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
 import { useAuth } from "./AuthProvider";
+import { authFetch } from "@/lib/clientAuth";
 
 export function OwnerSettingsModal({
 	lobbyId,
@@ -388,7 +389,7 @@ export function OwnerSettingsModal({
 												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Return to pre-stage (waiting room)"
 												onClick={async () => {
-													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 														method: "PATCH",
 														headers: { "Content-Type": "application/json" },
 														body: JSON.stringify({ status: "pending", scheduledStart: null })
@@ -404,7 +405,7 @@ export function OwnerSettingsModal({
 												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Begin now"
 												onClick={async () => {
-													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 														method: "PATCH",
 														headers: { "Content-Type": "application/json" },
 														body: JSON.stringify({ startNow: true })
@@ -420,7 +421,7 @@ export function OwnerSettingsModal({
 												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Mark season completed"
 												onClick={async () => {
-													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 														method: "PATCH",
 														headers: { "Content-Type": "application/json" },
 														body: JSON.stringify({ status: "completed" })
@@ -505,7 +506,7 @@ export function OwnerSettingsModal({
 									<button
 										className="px-3 py-2 rounded-md border border-strong text-xs"
 										onClick={async () => {
-											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+												await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 												method: "PATCH",
 												headers: { "Content-Type": "application/json" },
 												body: JSON.stringify({ status: "pending", scheduledStart: null })

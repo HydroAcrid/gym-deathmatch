@@ -9,6 +9,7 @@ import { SeasonCompleteOverlay } from "./SeasonCompleteOverlay";
 import { useLobbyLive } from "@/hooks/useLobbyLive";
 import { useLobbyRealtime } from "@/hooks/useLobbyRealtime";
 import { useAuth } from "./AuthProvider";
+import { authFetch } from "@/lib/clientAuth";
 
 export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const [overridePre, setOverridePre] = useState<boolean>(false);
@@ -31,11 +32,11 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	useEffect(() => {
 		if (!String((lobby as any).mode || "").startsWith("CHALLENGE_")) return;
 		let cancelled = false;
-		async function load() {
-			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
-				if (!res.ok || cancelled) return;
-				const j = await res.json();
+			async function load() {
+				try {
+					const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+					if (!res.ok || cancelled) return;
+					const j = await res.json();
 				if (!cancelled) {
 					setWeekStatus(j.weekStatus || null);
 				}

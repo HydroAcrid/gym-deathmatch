@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authFetch } from "@/lib/clientAuth";
 
 function nextWeekStartLocal(): Date {
 	const now = new Date();
@@ -21,7 +22,7 @@ export function PunishmentBanner({ lobbyId }: { lobbyId: string }) {
 
 	async function load() {
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
 			if (!res.ok) return;
 			const j = await res.json();
 			setText(j?.active?.text || null);
@@ -53,5 +54,4 @@ export function PunishmentBanner({ lobbyId }: { lobbyId: string }) {
 		</div>
 	);
 }
-
 

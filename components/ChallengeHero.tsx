@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Countdown } from "./Countdown";
 import type { ChallengeSettings, GameMode } from "@/types/game";
+import { authFetch } from "@/lib/clientAuth";
 
 // Calculate next week start based on season_start (7 days from start, not calendar weeks)
 function nextWeekFromSeasonStart(seasonStartIso: string | undefined | null, currentWeek: number | null): Date | null {
@@ -23,13 +24,15 @@ export function ChallengeHero({
 	mode,
 	challengeSettings,
 	seasonStart,
-	seasonEnd
+	seasonEnd,
+	isOwner
 }: {
 	lobbyId: string;
 	mode?: GameMode;
 	challengeSettings?: ChallengeSettings | null;
 	seasonStart?: string;
 	seasonEnd?: string;
+	isOwner?: boolean;
 }) {
 	const router = useRouter();
 	const [punishmentText, setPunishmentText] = useState<string | null>(null);
@@ -39,7 +42,7 @@ export function ChallengeHero({
 
 	async function load() {
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
 			if (!res.ok) return;
 			const j = await res.json();
 			setPunishmentText(j?.active?.text || null);
@@ -118,13 +121,14 @@ export function ChallengeHero({
 
 	// Handle countdown reaching zero
 	const handleCountdownZero = async () => {
+		if (!isOwner) return;
 		if (isShowingSeasonEnd || spinFrequency === "SEASON_ONLY") {
 			// Season ended - refresh to show completed status
 			setTimeout(() => router.refresh(), 1000);
 		} else if (countdownLabel === "NEXT SPIN IN" && mode === "CHALLENGE_ROULETTE") {
 			// Next spin time reached - transition to transition_spin
 			try {
-				await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+				await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ status: "transition_spin" })
@@ -134,7 +138,7 @@ export function ChallengeHero({
 					// Wait a moment for the status to update, then spin
 					setTimeout(async () => {
 						try {
-							await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/spin`, {
+							await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/spin`, {
 								method: "POST"
 							});
 						} catch { /* ignore */ }
@@ -173,4 +177,3 @@ export function ChallengeHero({
 		</div>
 	);
 }
-

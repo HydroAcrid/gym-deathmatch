@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "./AuthProvider";
 import type { Lobby, Player, GameMode, ChallengeSettings } from "@/types/game";
+import { authFetch } from "@/lib/clientAuth";
 
 export function WeekSetup({
 	lobbyId,
@@ -37,13 +38,13 @@ export function WeekSetup({
 	}, [players, user?.id]);
 
 	// Load ready states
-	useEffect(() => {
-		async function load() {
-			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/week-ready?week=${week}`, { cache: "no-store" });
-				if (!res.ok) return;
-				const j = await res.json();
-				setReadyStates(j.readyByPlayer || {});
+		useEffect(() => {
+			async function load() {
+				try {
+					const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/week-ready?week=${week}`, { cache: "no-store" });
+					if (!res.ok) return;
+					const j = await res.json();
+					setReadyStates(j.readyByPlayer || {});
 			} catch { /* ignore */ }
 		}
 		load();
@@ -56,12 +57,12 @@ export function WeekSetup({
 		if (!myPlayer) return;
 		setLoading(true);
 		setErrorMsg(null);
-		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/week-ready`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ playerId: myPlayer.id, week, ready }),
-			});
+			try {
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/week-ready`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ week, ready }),
+				});
 			if (!res.ok) {
 				const j = await res.json().catch(() => ({}));
 				setErrorMsg(j?.error || "Failed to update ready state");
@@ -81,11 +82,11 @@ export function WeekSetup({
 	async function startWeek() {
 		setErrorMsg(null);
 		setLoading(true);
-		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/week-start`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ week }),
+			try {
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/week-start`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ week }),
 			});
 			if (!res.ok) {
 				const j = await res.json().catch(() => ({}));

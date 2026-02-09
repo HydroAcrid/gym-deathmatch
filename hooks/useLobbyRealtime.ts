@@ -35,12 +35,9 @@ export function useLobbyRealtime(lobbyId: string | null, options?: { onChange?: 
 		// Subscribe to all relevant tables filtered by this lobby
 		// Note: Some tables might not have lobby_id directly or might need different filters
 		// For simple lobby sync, these cover most cases.
-		// NOTE: "comments" table is intentionally excluded from realtime triggers.
-		// The /live endpoint generates commentary (inserts into comments) as a side-effect,
-		// so subscribing to comments creates a feedback loop:
-		// /live inserts comment -> realtime fires -> /live called again -> more inserts -> infinite loop.
-		// The LiveFeed component polls /feed independently on its own 30s interval.
-		channel
+			// NOTE: "comments" table is intentionally excluded from this channel.
+			// Feed refresh is handled independently by feed polling to avoid UI refresh storms.
+			channel
 			.on("postgres_changes", { event: "*", schema: "public", table: "lobby", filter: `id=eq.${lobbyId}` }, handleChange)
 			.on("postgres_changes", { event: "*", schema: "public", table: "player", filter: `lobby_id=eq.${lobbyId}` }, handleChange)
 			.on("postgres_changes", { event: "*", schema: "public", table: "manual_activities", filter: `lobby_id=eq.${lobbyId}` }, handleChange)
@@ -56,4 +53,3 @@ export function useLobbyRealtime(lobbyId: string | null, options?: { onChange?: 
 		};
 	}, [lobbyId]);
 }
-

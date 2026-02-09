@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { motion, AnimatePresence } from "framer-motion";
+import { authFetch } from "@/lib/clientAuth";
 
 type Item = { id: string; text: string; active: boolean; created_by?: string | null };
 
@@ -37,7 +38,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
 
   async function load() {
     try {
-      const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
+      const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         setErrorMsg(j?.error || "Failed to load punishments");
@@ -109,10 +110,10 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     if (!text.trim() || !mePlayerId) return;
     setBusy(true);
     try {
-      await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, {
+      await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text.trim().slice(0, 50), playerId: mePlayerId })
+        body: JSON.stringify({ text: text.trim().slice(0, 50) })
       }).then(async r => {
         if (!r.ok) {
           const j = await r.json().catch(() => ({}));
@@ -134,7 +135,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
         setWheelSegs(segs);
         setWheelOpen(true);
       }
-      const r = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/spin`, { method: "POST" });
+      const r = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/spin`, { method: "POST" });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         setErrorMsg(j?.error || "Spin failed — retry");
@@ -254,7 +255,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
                 className="arena-badge px-3 py-2 text-xs"
                 onClick={async () => {
                   try {
-                    const r = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments/lock`, {
+                    const r = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments/lock`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ locked: !locked })
@@ -285,7 +286,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
             disabled={!allReady}
             onClick={async () => {
               if (!confirm("Start the match now? All players are marked Ready.")) return;
-              await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+              await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ startNow: true })
@@ -298,7 +299,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
             className="arena-badge px-3 py-2 text-xs"
             onClick={async () => {
               if (!confirm("Owner override: start match now?")) return;
-              await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+              await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ startNow: true })
@@ -347,4 +348,3 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     </div>
   );
 }
-
