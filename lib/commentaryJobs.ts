@@ -80,14 +80,17 @@ async function fetchStravaActivitiesForPlayer(player: PlayerRow): Promise<Activi
 	return Array.isArray(activities) ? (activities as ActivityLike[]) : [];
 }
 
-export async function runDailyCommentaryJob(now = new Date()): Promise<{ lobbiesProcessed: number; remindersSent: number }> {
+export async function runDailyCommentaryJob(opts?: { now?: Date; lobbyId?: string }): Promise<{ lobbiesProcessed: number; remindersSent: number }> {
+	const now = opts?.now ?? new Date();
 	const supabase = getServerSupabase();
 	if (!supabase) return { lobbiesProcessed: 0, remindersSent: 0 };
 
-	const { data: lobbies } = await supabase
+	let lobbiesQuery = supabase
 		.from("lobby")
 		.select("id,stage")
 		.eq("stage", "ACTIVE");
+	if (opts?.lobbyId) lobbiesQuery = lobbiesQuery.eq("id", opts.lobbyId);
+	const { data: lobbies } = await lobbiesQuery;
 
 	let remindersSent = 0;
 	for (const lobby of (lobbies ?? []) as Array<{ id: string }>) {
@@ -134,14 +137,17 @@ export async function runDailyCommentaryJob(now = new Date()): Promise<{ lobbies
 	};
 }
 
-export async function runWeeklyCommentaryJob(now = new Date()): Promise<{ lobbiesProcessed: number; heartsEvents: number; ghostWarnings: number; hypeEvents: number; tightRaceEvents: number; resets: number }> {
+export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: string }): Promise<{ lobbiesProcessed: number; heartsEvents: number; ghostWarnings: number; hypeEvents: number; tightRaceEvents: number; resets: number }> {
+	const now = opts?.now ?? new Date();
 	const supabase = getServerSupabase();
 	if (!supabase) return { lobbiesProcessed: 0, heartsEvents: 0, ghostWarnings: 0, hypeEvents: 0, tightRaceEvents: 0, resets: 0 };
 
-	const { data: lobbies } = await supabase
+	let lobbiesQuery = supabase
 		.from("lobby")
 		.select("id,season_start,weekly_target,mode,cash_pool,stage")
 		.eq("stage", "ACTIVE");
+	if (opts?.lobbyId) lobbiesQuery = lobbiesQuery.eq("id", opts.lobbyId);
+	const { data: lobbies } = await lobbiesQuery;
 
 	let heartsEvents = 0;
 	let ghostWarnings = 0;

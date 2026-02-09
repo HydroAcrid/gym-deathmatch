@@ -12,6 +12,8 @@ export async function POST(req: Request) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
-	const result = await runWeeklyCommentaryJob();
+	const url = new URL(req.url);
+	const lobbyId = url.searchParams.get("lobbyId") || undefined;
+	const result = await runWeeklyCommentaryJob({ lobbyId });
 	return NextResponse.json({ ok: true, ...result });
 }
