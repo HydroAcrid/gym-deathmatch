@@ -87,7 +87,7 @@ export function SeasonCompleteOverlay({
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
-					className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+					className="fixed inset-0 z-[160] flex items-start sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm"
 					onClick={(e) => {
 						// Don't close on overlay click - require button action
 						e.stopPropagation();
@@ -98,7 +98,7 @@ export function SeasonCompleteOverlay({
 						animate={{ opacity: 1, scale: 1, y: 0 }}
 						exit={{ opacity: 0, scale: 0.95, y: 20 }}
 						transition={{ duration: 0.3, ease: "easeOut" }}
-						className="scoreboard-panel max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 border-2"
+						className="scoreboard-panel w-full h-[100dvh] sm:h-auto sm:max-w-5xl sm:max-h-[90vh] overflow-y-auto border-2 p-4 sm:p-8 pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8"
 						onClick={(e) => e.stopPropagation()}
 					>
 						{/* Header */}

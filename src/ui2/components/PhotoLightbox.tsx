@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent } from "@/src/ui2/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/src/ui2/ui/dialog";
 import { Button } from "@/src/ui2/ui/button";
 import { X, ZoomIn, ZoomOut, Download } from "lucide-react";
 
@@ -31,6 +31,7 @@ export function PhotoLightbox({
 	return (
 		<Dialog open={open} onOpenChange={onClose}>
 			<DialogContent className="max-w-4xl w-full h-[90vh] p-0 bg-black/95 border-border">
+				<DialogTitle className="sr-only">Workout photo viewer</DialogTitle>
 				<div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
 					<div>
 						{athleteName && <p className="font-mono text-sm text-white">{athleteName}</p>}

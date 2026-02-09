@@ -20,7 +20,7 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 	const initials = (player.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
 	return (
-		<div className={`athlete-card p-4 sm:p-5 ${isEliminated ? "opacity-50" : ""}`}>
+		<div className={`athlete-card p-4 sm:p-5 h-full flex flex-col ${isEliminated ? "opacity-50" : ""}`}>
 			{/* Header with avatar and status */}
 			<div className="flex items-start justify-between mb-3 sm:mb-4">
 				<div className="flex items-center gap-3">
@@ -141,7 +141,9 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 					<div className="h-[44px] w-0" aria-hidden />
 				)}
 			</div>
-			<QuipBubble text={player.quip} />
+			<div className="mt-3">
+				<QuipBubble text={player.quip} />
+			</div>
 			{lobbyId && (
 				<ManualActivityModal
 					open={openManual}

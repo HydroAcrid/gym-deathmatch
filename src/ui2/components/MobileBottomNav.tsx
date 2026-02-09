@@ -2,24 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Home, Trophy, Plus, History, Menu, BarChart3, BookOpen, HelpCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Home, Trophy, Plus, History, Menu, BarChart3, BookOpen, HelpCircle, LogIn, LogOut } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { ManualActivityModal } from "@/components/ManualActivityModal";
 import { useToast } from "@/components/ToastProvider";
 import { IntroGuide } from "@/components/IntroGuide";
 import { CreateLobby } from "@/components/CreateLobby";
+import { useAuth } from "@/components/AuthProvider";
 import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 
 export function MobileBottomNav() {
 	const pathname = usePathname();
 	const toast = useToast();
+	const { user, signInWithGoogle, signOut } = useAuth();
+	const [mounted, setMounted] = useState(false);
 	const lobbyMatch = pathname?.match(/^\/lobby\/([^/]+)/);
 	const lobbyId = lobbyMatch?.[1] ?? null;
 	const lastLobby = useLastLobbySnapshot();
 	const resolvedLobbyId = lobbyId ?? lastLobby?.id ?? null;
 	const [moreOpen, setMoreOpen] = useState(false);
 	const [logModalOpen, setLogModalOpen] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	const statsHref = resolvedLobbyId ? `/lobby/${resolvedLobbyId}/stats` : "/stats";
 	const historyHref = resolvedLobbyId ? `/lobby/${resolvedLobbyId}/history` : "/history";
@@ -46,10 +53,35 @@ export function MobileBottomNav() {
 		setLogModalOpen(true);
 	}
 
+	async function handleAuthClick() {
+		try {
+			if (user) {
+				await signOut();
+				setMoreOpen(false);
+				return;
+			}
+			await signInWithGoogle();
+			setMoreOpen(false);
+		} catch (err) {
+			console.error("[MobileBottomNav] auth click failed:", err);
+		}
+	}
+
+	if (!mounted) {
+		return (
+			<>
+				<div className="mobile-bottom-nav lg:hidden h-[calc(76px+env(safe-area-inset-bottom))]" />
+				<nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t-2 border-border safe-area-inset-bottom">
+					<div className="h-16 safe-area-pb" />
+				</nav>
+			</>
+		);
+	}
+
 	return (
 		<>
 			<div className="mobile-bottom-nav lg:hidden h-[calc(76px+env(safe-area-inset-bottom))]" />
-			<nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t-2 border-border safe-area-inset-bottom">
+			<nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t-2 border-border safe-area-inset-bottom">
 				<div className="flex items-stretch justify-around h-16 safe-area-pb">
 					{navItems.map((item) => {
 						if (item.isLog) {
@@ -128,6 +160,14 @@ export function MobileBottomNav() {
 													<span className="font-display text-xs tracking-widest font-bold">GUIDE</span>
 												</button>
 											</IntroGuide>
+											<button
+												type="button"
+												onClick={handleAuthClick}
+												className="flex items-center gap-4 px-6 py-4 transition-colors active:bg-muted/30 border-l-2 touch-target text-foreground border-transparent w-full text-left"
+											>
+												{user ? <LogOut className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
+												<span className="font-display text-xs tracking-widest font-bold">{user ? "SIGN OUT" : "SIGN IN"}</span>
+											</button>
 										</div>
 									</SheetContent>
 								</Sheet>

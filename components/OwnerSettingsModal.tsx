@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
 import { ChallengeSettingsCard } from "./ChallengeSettingsCard";
 import type { ChallengeSettings } from "@/types/game";
@@ -59,6 +60,20 @@ export function OwnerSettingsModal({
 	const [confirmName, setConfirmName] = useState<string>("");
 	const [infoOpen, setInfoOpen] = useState(false);
 	const [challengeSettings, setChallengeSettings] = useState<ChallengeSettings | null>(null);
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	useEffect(() => {
+		if (!open || typeof document === "undefined") return;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			document.body.style.overflow = previousOverflow;
+		};
+	}, [open]);
 
 	// Allow external control
 	useEffect(() => {
@@ -182,7 +197,7 @@ export function OwnerSettingsModal({
 		if (!open) return;
 		(async () => {
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 				const data = await res.json();
 				const p = (data?.lobby?.players ?? []).map((x: any) => ({ id: x.id, name: x.name }));
 				setPlayers(p);
@@ -273,16 +288,30 @@ export function OwnerSettingsModal({
 					</svg>
 				</button>
 			)}
-			<AnimatePresence>
-				{open && (
-					<motion.div className="overlay-below-nav z-50 flex items-start justify-center p-0 sm:p-6 bg-black/70"
-						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-						<motion.div
-							role="dialog"
-							aria-modal="true"
-							className="scoreboard-panel relative w-full sm:max-w-5xl h-full rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
-							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
-							<header className="sticky top-0 z-10 bg-card border-2 border-border px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
+			{mounted
+				? createPortal(
+					<AnimatePresence>
+						{open && (
+							<motion.div
+								className="fixed inset-0 z-[150] flex items-start sm:items-center justify-center p-0 sm:p-6 bg-black/80 backdrop-blur-sm"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								onClick={() => {
+									setOpen(false);
+									onClose?.();
+								}}
+							>
+								<motion.div
+									role="dialog"
+									aria-modal="true"
+									className="scoreboard-panel relative w-full sm:max-w-5xl h-[100dvh] sm:h-[85vh] rounded-none sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+									initial={{ scale: 0.96, opacity: 0 }}
+									animate={{ scale: 1, opacity: 1 }}
+									exit={{ scale: 0.96, opacity: 0 }}
+									onClick={(e) => e.stopPropagation()}
+								>
+									<header className="sticky top-0 z-10 bg-card border-2 border-border px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 border-b flex items-center justify-between gap-3">
 								<div className="min-w-0">
 									<h2 className="font-display tracking-widest text-primary text-lg sm:text-xl tracking-wide truncate">Edit Lobby</h2>
 									<p className="text-muted-foreground text-xs sm:text-sm truncate">Adjust dates, mode, pot, and challenge options</p>
@@ -300,7 +329,7 @@ export function OwnerSettingsModal({
 									<button className="arena-badge arena-badge-primary px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 								</div>
 							</header>
-							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
+							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+8rem)] sm:pb-6 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
 								<div>
 									{/* Basic Info */}
@@ -511,11 +540,14 @@ export function OwnerSettingsModal({
 								</div>
 							</div>
 							</div>
-						</motion.div>
-						<CreateLobbyInfo open={infoOpen} onClose={() => setInfoOpen(false)} />
-					</motion.div>
-				)}
-			</AnimatePresence>
+								</motion.div>
+								<CreateLobbyInfo open={infoOpen} onClose={() => setInfoOpen(false)} />
+							</motion.div>
+						)}
+					</AnimatePresence>,
+					document.body
+				)
+				: null}
 		</>
 	);
 }
