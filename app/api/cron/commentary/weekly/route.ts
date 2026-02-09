@@ -17,3 +17,7 @@ export async function POST(req: Request) {
 	const result = await runWeeklyCommentaryJob({ lobbyId });
 	return NextResponse.json({ ok: true, ...result });
 }
+
+export async function GET(req: Request) {
+	return POST(req);
+}
