@@ -10,7 +10,6 @@ import { CreateLobby } from "@/components/CreateLobby";
 import { IntroGuide } from "@/components/IntroGuide";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { useAuth } from "@/components/AuthProvider";
-import { useTheme } from "@/components/useTheme";
 import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 
 const baseTabs = [
@@ -26,7 +25,6 @@ export function ArenaNav() {
 	const router = useRouter();
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const { user, signInWithGoogle, signOut } = useAuth();
-	const { theme, toggleTheme } = useTheme();
 
 	const lobbyMatch = pathname?.match(/^\/lobby\/([^/]+)/);
 	const lobbyId = lobbyMatch?.[1] ?? null;
@@ -116,15 +114,6 @@ export function ArenaNav() {
 						</Button>
 
 						{user && <ProfileAvatar />}
-
-						<button
-							aria-label="Toggle theme"
-							className="w-9 h-9 flex items-center justify-center border-2 border-border text-xs hover:bg-muted transition-colors"
-							onClick={toggleTheme}
-							title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-						>
-							{theme === "dark" ? "☀️" : "🌙"}
-						</button>
 
 						<Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
 							<SheetTrigger asChild>

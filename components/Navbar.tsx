@@ -7,7 +7,6 @@ import { IntroGuide } from "./IntroGuide";
 import { CreateLobby } from "./CreateLobby";
 import { useAuth } from "./AuthProvider";
 import { ProfileAvatar } from "./ProfileAvatar";
-import { useTheme } from "./useTheme";
 import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 
 const baseTabs = [
@@ -21,7 +20,6 @@ const baseTabs = [
 export function Navbar() {
 	const pathname = usePathname();
 	const { user, signInWithGoogle, signOut } = useAuth();
-	const { theme, toggleTheme } = useTheme();
 	const lobbyMatch = pathname?.match(/^\/lobby\/([^/]+)/);
 	const lobbyId = lobbyMatch?.[1] ?? null;
 	const lastLobby = useLastLobbySnapshot();
@@ -51,15 +49,6 @@ export function Navbar() {
 							)}
 						</div>
 						{user && <ProfileAvatar />}
-						{/* Theme toggle */}
-						<button
-							aria-label="Toggle theme"
-							className="w-7 h-7 flex items-center justify-center rounded-md border border-border text-xs hover:bg-primary hover:text-primary-foreground transition-colors"
-							onClick={toggleTheme}
-							title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-						>
-							{theme === "dark" ? "☀️" : "🌙"}
-						</button>
 					</div>
 				</div>
 				{/* Desktop Navigation - Hidden on mobile, shown on sm and up */}
