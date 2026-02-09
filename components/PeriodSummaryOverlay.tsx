@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "./ui/Button";
+import { Button } from "@/src/ui2/ui/button";
 
 type SummaryData = {
 	daily?: {
@@ -219,7 +219,7 @@ period: "daily" | "weekly";
 					</div>
 
 					<div className="flex justify-center mt-6">
-						<Button variant="primary" size="md" onClick={onClose} className="px-6 py-3 text-sm uppercase tracking-[0.16em] shadow-[0_0_24px_rgba(225,84,42,0.4)]">
+						<Button variant="default" onClick={onClose} className="px-6 py-3 text-sm uppercase tracking-[0.16em] shadow-[0_0_24px_hsl(var(--primary)/0.4)]">
 							Return
 						</Button>
 					</div>
