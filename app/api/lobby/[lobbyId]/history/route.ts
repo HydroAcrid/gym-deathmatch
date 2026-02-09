@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 type VoteRow = {
   activity_id: string;
@@ -9,16 +9,13 @@ type VoteRow = {
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
+	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
+	const supabase = access.supabase;
+	const member = { id: access.memberPlayerId };
 
 	try {
-		// Validate membership by user id header (client supplies from auth)
-		const userId = req.headers.get("x-user-id") || "";
-		if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
-		const { data: member } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
-		if (!member) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
-
 		const limitParam = Number(new URL(req.url).searchParams.get("limit") || "50");
 		const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 50;
 

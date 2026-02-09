@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import Link from "next/link";
+import { authFetch } from "@/lib/clientAuth";
 import {
   User,
   Trophy,
@@ -164,7 +165,7 @@ export default function ProfilePage() {
         const recent = lobbyList.slice(0, 10);
         return Promise.all(
           recent.map((l: LobbyRow) =>
-            fetch(`/api/lobby/${l.id}/live`, { headers: { "x-user-id": user.id } })
+            authFetch(`/api/lobby/${l.id}/live`)
               .then((r) => (r.ok ? r.json() : null))
               .catch(() => null)
           )

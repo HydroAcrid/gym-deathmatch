@@ -9,6 +9,7 @@ import { Textarea } from "@/src/ui2/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/ui2/ui/select";
 import { PhotoLightbox } from "@/src/ui2/components/PhotoLightbox";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
+import { authFetch } from "@/lib/clientAuth";
 
 type PlayerLite = {
 	id: string;
@@ -84,9 +85,7 @@ const [potInput, setPotInput] = useState<string>("");
 		if (!lid) return;
 		if (!isHydrated || !user?.id) return;
 		try {
-			const headers: Record<string, string> = { "x-user-id": user.id };
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lid)}/history?t=${Date.now()}`, {
-				headers,
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lid)}/history?t=${Date.now()}`, {
 				cache: "no-store"
 			});
 			if (!res.ok) {
@@ -516,9 +515,9 @@ const [potInput, setPotInput] = useState<string>("");
 											if (val === currentPot) return;
 											setBusy(true);
 											try {
-												const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/pot`, {
+												const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/pot`, {
 													method: "POST",
-													headers: { "Content-Type": "application/json", "x-user-id": user.id },
+													headers: { "Content-Type": "application/json" },
 													body: JSON.stringify({ targetPot: val }),
 												});
 												const data = await res.json().catch(() => ({}));
@@ -563,9 +562,8 @@ const [potInput, setPotInput] = useState<string>("");
 										className="absolute top-2 right-2 text-[12px] text-muted-foreground hover:text-destructive"
 										onClick={async () => {
 											try {
-												const res = await fetch(`/api/history-events/${encodeURIComponent(ev.id)}`, {
+												const res = await authFetch(`/api/history-events/${encodeURIComponent(ev.id)}`, {
 													method: "DELETE",
-													headers: { "x-user-id": user?.id || "" },
 												});
 												if (!res.ok) {
 													const j = await res.json().catch(() => ({}));
@@ -821,19 +819,12 @@ function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { ac
 	const [replyText, setReplyText] = useState<Record<string, string>>({});
 	const [submittingId, setSubmittingId] = useState<string | null>(null);
 
-	const headers = useMemo(() => {
-		const h: Record<string, string> = { "Content-Type": "application/json" };
-		if (user?.id) h["x-user-id"] = user.id;
-		return h;
-	}, [user?.id]);
-
 	const loadComments = useCallback(async () => {
 		if (!user?.id) return;
 		setLoading(true);
 		try {
-			const res = await fetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, {
-				cache: "no-store",
-				headers
+			const res = await authFetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, {
+				cache: "no-store"
 			});
 			if (!res.ok) throw new Error("Failed");
 			const j = await res.json();
@@ -843,7 +834,7 @@ function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { ac
 		} finally {
 			setLoading(false);
 		}
-	}, [activityId, headers, user?.id, toast]);
+	}, [activityId, user?.id, toast]);
 
 	useEffect(() => {
 		loadComments();
@@ -858,9 +849,9 @@ function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { ac
 		if (!trimmed) return;
 		setSubmittingId(parentId || "root");
 		try {
-			const res = await fetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, {
+			const res = await authFetch(`/api/activity/${encodeURIComponent(activityId)}/comments`, {
 				method: "POST",
-				headers,
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ body: trimmed, parentId })
 			});
 			const data = await res.json().catch(() => ({}));
@@ -892,9 +883,8 @@ function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { ac
 			return;
 		}
 		try {
-			const res = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, {
+			const res = await authFetch(`/api/comments/${encodeURIComponent(commentId)}`, {
 				method: "DELETE",
-				headers
 			});
 			const data = await res.json().catch(() => ({}));
 			if (!res.ok) {
@@ -1071,4 +1061,3 @@ function renderEventLine(ev: EventRow, players: PlayerLite[]) {
 	}
 	return `${actor || "System"}: ${ev.type}`;
 }
-

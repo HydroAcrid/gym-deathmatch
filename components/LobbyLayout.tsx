@@ -139,9 +139,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 		(async () => {
 			try {
-				const headers: Record<string, string> = {};
-				if (user?.id) headers["x-user-id"] = user.id;
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/summary`, { cache: "no-store", headers });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/summary`, { cache: "no-store" });
 				if (!res.ok) return;
 				const j = await res.json();
 				const data = j.summary;
@@ -435,9 +433,9 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 													return;
 												}
 												try {
-													const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/pot`, {
+													const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/pot`, {
 														method: "POST",
-														headers: { "Content-Type": "application/json", "x-user-id": user.id },
+														headers: { "Content-Type": "application/json" },
 														body: JSON.stringify({ targetPot: target }),
 													});
 													const data = await res.json().catch(() => ({}));
@@ -485,9 +483,9 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 									onEndSeason={async () => {
 										if (!confirm("Are you sure you want to end this season early?")) return;
 										try {
-											const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/end-season`, {
+											const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/end-season`, {
 												method: "POST",
-												headers: { "Content-Type": "application/json", "x-user-id": user?.id || "" },
+												headers: { "Content-Type": "application/json" },
 											});
 											if (res.ok) {
 												toast.push("Season ended");

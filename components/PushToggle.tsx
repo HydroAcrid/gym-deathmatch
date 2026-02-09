@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { Button } from "@/src/ui2/ui/button";
 import { useToast } from "./ToastProvider";
+import { authFetch } from "@/lib/clientAuth";
 
 function urlBase64ToUint8Array(base64String: string) {
 	const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -69,9 +70,9 @@ export function PushToggle() {
 				userVisibleOnly: true,
 				applicationServerKey: urlBase64ToUint8Array(key)
 			});
-			const res = await fetch("/api/notifications/subscribe", {
+			const res = await authFetch("/api/notifications/subscribe", {
 				method: "POST",
-				headers: { "Content-Type": "application/json", "x-user-id": user.id },
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ subscription: sub.toJSON() })
 			});
 			if (!res.ok) {
@@ -96,9 +97,9 @@ export function PushToggle() {
 			const reg = await navigator.serviceWorker.ready;
 			const sub = await reg.pushManager.getSubscription();
 			if (sub) {
-				await fetch("/api/notifications/unsubscribe", {
+				await authFetch("/api/notifications/unsubscribe", {
 					method: "POST",
-					headers: { "Content-Type": "application/json", "x-user-id": user.id },
+					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ endpoint: sub.endpoint })
 				}).catch(() => {});
 				await sub.unsubscribe();

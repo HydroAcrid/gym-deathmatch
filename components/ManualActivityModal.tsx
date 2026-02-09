@@ -9,6 +9,7 @@ import { Input } from "@/src/ui2/ui/input";
 import { Label } from "@/src/ui2/ui/label";
 import { Textarea } from "@/src/ui2/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/ui2/ui/select";
+import { authFetch } from "@/lib/clientAuth";
 
 export function ManualActivityModal({
 	open,
@@ -83,9 +84,9 @@ export function ManualActivityModal({
 				alert("Photo upload did not return a public URL.");
 				return;
 			}
-			await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/activities/manual`, {
+			await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/activities/manual`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json", "x-user-id": user.id },
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					// Date is automatically set to current time on the server
 					type,

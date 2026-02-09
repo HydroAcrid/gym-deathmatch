@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
 import { onActivityLogged } from "@/lib/commentary";
 import type { Activity } from "@/lib/types";
 import { calculateStreakFromActivities } from "@/lib/streaks";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 type ActivityCommentRow = {
 	primary_player_id: string | null;
@@ -12,15 +12,13 @@ type ActivityDateRow = { date: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
+	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a player in lobby" }, { status: 403 });
+	const supabase = access.supabase;
 	try {
 		const body = await req.json();
-		const userId = req.headers.get("x-user-id") || "";
-		if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
-		const { data: member } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
-		if (!member) return NextResponse.json({ error: "Not a player in lobby" }, { status: 403 });
-		const playerId = member.id;
+		const playerId = access.memberPlayerId;
 		// Always use current time when submitting - prevents date manipulation and timezone issues
 		const dateIso = new Date().toISOString();
 		const type = (String(body.type || "other").toLowerCase() as Activity["type"]);
@@ -93,11 +91,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				// best-effort streak commentary
 			}
 
-			// Social coincidence checks:
-			const supabaseClient = getServerSupabase();
-			if (supabaseClient) {
+				// Social coincidence checks:
 				const since20 = new Date(Date.now() - 20 * 60 * 1000).toISOString();
-				const { data: recentActs } = await supabaseClient
+				const { data: recentActs } = await supabase
 					.from("comments")
 					.select("primary_player_id, payload")
 					.eq("lobby_id", lobbyId)
@@ -108,7 +104,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				const other = ((recentActs ?? []) as ActivityCommentRow[]).find((r) => r.primary_player_id && r.primary_player_id !== playerId);
 
 				const since60 = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-				const { data: lastHour } = await supabaseClient
+				const { data: lastHour } = await supabase
 					.from("comments")
 					.select("primary_player_id, payload")
 					.eq("lobby_id", lobbyId)
@@ -130,8 +126,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 						await commentary.onThemeHour(lobbyId, type);
 					}
 				}
-			}
-		} catch { /* ignore */ }
+			} catch { /* ignore */ }
 
 		return NextResponse.json({
 			id: data.id,
