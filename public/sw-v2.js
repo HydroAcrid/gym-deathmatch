@@ -9,7 +9,7 @@
  */
 
 const CACHE_NAME = "arena-assets-v2";
-const FALLBACK_ICON = "/icons/icon-192.png";
+const FALLBACK_ICON = "/icons/icon-192-v3.png";
 
 // Install event: force immediate activation
 self.addEventListener('install', (event) => {

@@ -18,6 +18,7 @@ import {
   Medal,
   MapPin,
 } from "lucide-react";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 
 /* ---------- Types ---------- */
 
@@ -339,6 +340,14 @@ export default function ProfilePage() {
                 </p>
               )}
 
+              <div className="mb-3">
+                <ProfileAvatar
+                  variant="arena"
+                  trigger="button"
+                  buttonLabel="EDIT PROFILE"
+                />
+              </div>
+
               {/* Quick Stats */}
               <div className="flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center gap-1.5">
@@ -376,20 +385,26 @@ export default function ProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b-2 border-border mb-6">
+        <div className="mb-6">
+          <div className="grid grid-cols-3 gap-2 rounded-md border border-border bg-card/30 p-1">
           {(["overview", "history", "seasons"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 font-display text-xs tracking-widest text-center transition-colors border-b-2 -mb-[2px] ${
+              aria-pressed={activeTab === tab}
+              className={`relative py-3 font-display text-xs tracking-widest text-center transition-all duration-200 border ${
                 activeTab === tab
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "border-primary/70 text-primary bg-primary/10 shadow-[0_0_14px_hsl(var(--primary)/0.24)]"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border/70"
               }`}
             >
+              {activeTab === tab ? (
+                <span className="absolute left-1/2 top-1 block h-0.5 w-8 -translate-x-1/2 bg-primary" />
+              ) : null}
               {tab.toUpperCase()}
             </button>
           ))}
+          </div>
         </div>
 
         {/* Overview Tab */}

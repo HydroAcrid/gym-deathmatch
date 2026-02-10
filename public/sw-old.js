@@ -14,8 +14,8 @@ const STATIC_CACHE = 'arena-static-v2';
 const PRECACHE_ASSETS = [
 	'/',
 	'/manifest.webmanifest',
-	'/icons/icon-192.png',
-	'/icons/icon-512.png',
+	'/icons/icon-192-v3.png',
+	'/icons/icon-512-v3.png',
 ];
 
 // Install event: precache essential assets
@@ -139,4 +139,3 @@ self.addEventListener('fetch', (event) => {
 		})
 	);
 });
-

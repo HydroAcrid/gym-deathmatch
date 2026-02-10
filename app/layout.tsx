@@ -20,7 +20,8 @@ export const metadata: Metadata = {
 		title: "Gym Deathmatch",
 	},
 	icons: {
-		apple: "/icons/icon-192.png",
+		icon: "/icons/icon-512-v3.png",
+		apple: "/icons/icon-192-v3.png",
 	},
 };
 

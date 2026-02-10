@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { useAuth } from "./AuthProvider";
 import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 import { PushToggle } from "./PushToggle";
@@ -9,9 +10,17 @@ import { authFetch } from "@/lib/clientAuth";
 
 type ProfileAvatarProps = {
 	variant?: "default" | "arena";
+	trigger?: "avatar" | "button";
+	buttonLabel?: string;
+	className?: string;
 };
 
-export function ProfileAvatar({ variant = "default" }: ProfileAvatarProps) {
+export function ProfileAvatar({
+	variant = "default",
+	trigger = "avatar",
+	buttonLabel = "EDIT PROFILE",
+	className = "",
+}: ProfileAvatarProps) {
 	const { user } = useAuth();
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -46,9 +55,12 @@ export function ProfileAvatar({ variant = "default" }: ProfileAvatarProps) {
 
 	const fallbackInitial = (displayName?.trim()?.[0] || user.email?.trim()?.[0] || "A").toUpperCase();
 	const isArena = variant === "arena";
-	const buttonClass = isArena
+	const avatarButtonClass = isArena
 		? "ml-2 relative h-10 w-10 rounded-sm border border-[hsl(var(--arena-gold)/0.45)] bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--card)/0.85))] text-foreground flex items-center justify-center overflow-hidden transition-all duration-200 hover:border-[hsl(var(--arena-gold))] hover:shadow-[0_0_18px_hsl(var(--arena-gold)/0.32)]"
 		: "ml-2 h-7 w-7 rounded-full bg-card text-foreground flex items-center justify-center border border-border overflow-hidden";
+	const textButtonClass =
+		"arena-badge px-3 py-2 text-[10px] font-display tracking-widest " +
+		(isArena ? "arena-badge-primary" : "");
 
 	async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
@@ -134,26 +146,46 @@ export function ProfileAvatar({ variant = "default" }: ProfileAvatarProps) {
 
 	return (
 		<>
-			<button className={buttonClass}
-				title="Edit profile picture"
-				onClick={() => setOpen(true)}
-			>
-				{current ? (
-					<img src={current} alt="me" className="h-full w-full object-cover" />
-				) : (
-					<span className={isArena ? "font-display text-xs tracking-[0.2em] text-[hsl(var(--arena-gold))]" : ""}>{isArena ? fallbackInitial : "👤"}</span>
-				)}
-				{isArena ? (
-					<span className="pointer-events-none absolute inset-0 border border-[hsl(var(--arena-gold)/0.18)]" />
-				) : null}
-			</button>
+			{trigger === "button" ? (
+				<button
+					type="button"
+					className={`${textButtonClass} ${className}`.trim()}
+					onClick={() => setOpen(true)}
+				>
+					{buttonLabel}
+				</button>
+			) : (
+				<button
+					className={`${avatarButtonClass} ${className}`.trim()}
+					title="Edit profile picture"
+					onClick={() => setOpen(true)}
+				>
+					{current ? (
+						<img src={current} alt="me" className="h-full w-full object-cover" />
+					) : (
+						<span className={isArena ? "font-display text-xs tracking-[0.2em] text-[hsl(var(--arena-gold))]" : ""}>{isArena ? fallbackInitial : "👤"}</span>
+					)}
+					{isArena ? (
+						<span className="pointer-events-none absolute inset-0 border border-[hsl(var(--arena-gold)/0.18)]" />
+					) : null}
+				</button>
+			)}
 			<AnimatePresence>
 				{open && (
 					<motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
 						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 						<motion.div className="scoreboard-panel max-w-md w-[92%] p-6"
 							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
-							<div className="font-display text-xl tracking-widest text-primary mb-3">UPDATE PROFILE</div>
+							<div className="flex items-center justify-between gap-3 mb-3">
+								<div className="font-display text-xl tracking-widest text-primary">QUICK PROFILE SETTINGS</div>
+								<Link
+									href="/profile"
+									onClick={() => setOpen(false)}
+									className="arena-badge px-3 py-1.5 text-[10px]"
+								>
+									VIEW FULL PROFILE
+								</Link>
+							</div>
 							<div className="space-y-3">
 								<label className="block text-xs">
 									<span className="block mb-1">Display name</span>

@@ -46,7 +46,7 @@ export function PWAMeta() {
 		if (!document.querySelector('link[rel="apple-touch-icon"]')) {
 			const appleIcon = document.createElement("link");
 			appleIcon.rel = "apple-touch-icon";
-			appleIcon.href = "/icons/icon-192.png";
+			appleIcon.href = "/icons/icon-192-v3.png";
 			document.head.appendChild(appleIcon);
 		}
 	}, []);
