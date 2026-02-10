@@ -77,6 +77,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 	const [historyEvents, setHistoryEvents] = useState<EventRow[]>([]);
 	const [lobbyName, setLobbyName] = useState<string>("");
+	const [feedFilter, setFeedFilter] = useState<"all" | "activities">("all");
 const [signedUrlByAct, setSignedUrlByAct] = useState<Record<string, string>>({});
 const toast = useToast();
 const [currentPot, setCurrentPot] = useState<number | null>(null);
@@ -409,13 +410,18 @@ const [potInput, setPotInput] = useState<string>("");
 
 	const isOwner = ownerPlayerId && myPlayerId && ownerPlayerId === myPlayerId;
 
-	const items = useMemo(() => {
+	const allItems = useMemo(() => {
 		const arr: Array<{ kind: "post" | "event"; createdAt: string; a?: ActivityRow; e?: EventRow }> = [];
 		for (const a of activities as ActivityRow[]) arr.push({ kind: "post", createdAt: (a.created_at || a.date) as string, a });
 		for (const e of historyEvents as EventRow[]) arr.push({ kind: "event", createdAt: e.created_at as string, e });
 		arr.sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
 		return arr;
 	}, [activities, historyEvents]);
+
+	const items = useMemo(() => {
+		if (feedFilter === "activities") return allItems.filter((item) => item.kind === "post");
+		return allItems;
+	}, [allItems, feedFilter]);
 
 	async function resolveSignedUrl(activityId: string, publicUrl: string) {
 		try {
@@ -547,6 +553,30 @@ const [potInput, setPotInput] = useState<string>("");
 						</div>
 					</div>
 				) : null}
+
+			<div className="scoreboard-panel p-3 sm:p-4">
+				<div className="flex items-center justify-between gap-3 flex-wrap">
+					<div className="text-[11px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+						Feed view
+					</div>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={() => setFeedFilter("all")}
+							className={`arena-badge px-3 py-1.5 text-[11px] sm:text-xs ${feedFilter === "all" ? "arena-badge-primary" : ""}`}
+						>
+							All
+						</button>
+						<button
+							type="button"
+							onClick={() => setFeedFilter("activities")}
+							className={`arena-badge px-3 py-1.5 text-[11px] sm:text-xs ${feedFilter === "activities" ? "arena-badge-primary" : ""}`}
+						>
+							Activities
+						</button>
+					</div>
+				</div>
+			</div>
 
 			<div className="flex flex-col gap-5">
 				{items.map((item) => {
@@ -792,7 +822,11 @@ const [potInput, setPotInput] = useState<string>("");
 						</div>
 					);
 				})}
-				{items.length === 0 && <div className="text-muted-foreground text-sm">No posts yet.</div>}
+				{items.length === 0 && (
+					<div className="text-muted-foreground text-sm">
+						{feedFilter === "activities" ? "No activities yet." : "No posts yet."}
+					</div>
+				)}
 			</div>
 
 			{lightboxUrl && (
