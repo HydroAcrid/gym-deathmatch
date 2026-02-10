@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Swords, Users, Crown, Radio, Coins, Timer } from "lucide-react";
+import { Swords, Users, Crown, Radio, Coins, Timer, AlertTriangle } from "lucide-react";
 
 interface ActiveSeasonHeaderProps {
 	seasonName: string;
@@ -15,6 +15,13 @@ interface ActiveSeasonHeaderProps {
 	seasonStart?: string;
 	seasonEnd?: string;
 	showCountdown?: boolean;
+	showChallengeInfo?: boolean;
+	challengePunishment?: {
+		text: string;
+		week?: number | null;
+		submittedByName?: string | null;
+		submittedByAvatarUrl?: string | null;
+	} | null;
 }
 
 function formatMoney(amount: number): string {
@@ -51,6 +58,8 @@ export function ActiveSeasonHeader({
 	seasonStart,
 	seasonEnd,
 	showCountdown = false,
+	showChallengeInfo = false,
+	challengePunishment = null,
 }: ActiveSeasonHeaderProps) {
 	const [nowMs, setNowMs] = useState<number | null>(null);
 
@@ -136,6 +145,39 @@ export function ActiveSeasonHeader({
 						<span className="font-display font-bold text-foreground">{athleteCount}</span>
 					</div>
 				</div>
+
+				{showChallengeInfo && (
+					<div className="mt-5 sm:mt-6 mx-auto max-w-3xl border border-primary/35 bg-[linear-gradient(180deg,hsl(var(--primary)/0.12),transparent)] px-4 sm:px-6 py-4 text-left">
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex items-center gap-2 text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground font-display">
+								<AlertTriangle className="w-3.5 h-3.5 text-primary" />
+								CURRENT ROULETTE PUNISHMENT
+							</div>
+							{typeof challengePunishment?.week === "number" && (
+								<span className="arena-badge arena-badge-primary px-2 py-1 text-[10px]">
+									WEEK {challengePunishment.week}
+								</span>
+							)}
+						</div>
+						<div className="mt-2 font-display text-lg sm:text-2xl text-primary leading-snug break-words">
+							{challengePunishment?.text ? `"${challengePunishment.text}"` : "Awaiting roulette spin..."}
+						</div>
+						{challengePunishment?.submittedByName && (
+							<div className="mt-3 flex items-center gap-2 text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground font-display">
+								<div className="h-6 w-6 rounded-full overflow-hidden border border-border bg-muted shrink-0">
+									{challengePunishment.submittedByAvatarUrl ? (
+										<img src={challengePunishment.submittedByAvatarUrl} alt="" className="h-full w-full object-cover" />
+									) : (
+										<div className="h-full w-full flex items-center justify-center text-[10px] text-foreground">
+											{challengePunishment.submittedByName.charAt(0).toUpperCase()}
+										</div>
+									)}
+								</div>
+								<span>SUGGESTED BY {challengePunishment.submittedByName}</span>
+							</div>
+						)}
+					</div>
+				)}
 
 				{(showMoneyInfo || showCountdown) && (
 					<div className="mt-5 sm:mt-6 mx-auto max-w-3xl border border-border/80 bg-card/50 px-4 sm:px-6 py-4">

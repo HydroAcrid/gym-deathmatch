@@ -73,6 +73,10 @@ export function PunishmentWheel({
 			{/* Wheel */}
 			<div className="p-6 sm:p-8 flex flex-col items-center gap-6">
 				<div className="relative">
+					<div
+						className={`pointer-events-none absolute inset-[-10px] rounded-full border ${mustSpin ? "border-primary/70 animate-pulse" : "border-primary/35"}`}
+						style={{ boxShadow: mustSpin ? "0 0 22px hsl(var(--primary) / 0.4)" : "0 0 10px hsl(var(--primary) / 0.2)" }}
+					/>
 					{data.length > 0 ? (
 						<WheelNoSSR
 							mustStartSpinning={mustSpin}
@@ -85,7 +89,7 @@ export function PunishmentWheel({
 								"hsl(20 55% 20%)",
 							]}
 							textColors={["hsl(35 15% 80%)"]}
-							spinDuration={1}
+							spinDuration={2.8}
 							onStopSpinning={() => {
 								setMustSpin(false);
 								isSpinningRef.current = false;
@@ -112,7 +116,7 @@ export function PunishmentWheel({
 					<p className="font-display text-sm tracking-widest text-primary animate-pulse">SPINNING...</p>
 				) : data.length > 0 ? (
 					<p className="font-mono text-xs text-muted-foreground">
-						Spin the wheel to reveal this week&apos;s punishment
+						Synchronized roulette spin is ready
 					</p>
 				) : null}
 			</div>

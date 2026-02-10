@@ -17,7 +17,7 @@ export function CreateLobbyInfo({ open, onClose }: { open: boolean; onClose: () 
 		<AnimatePresence>
 			{open && (
 				<motion.div
-					className="fixed inset-0 z-[140] flex items-center justify-center p-4 sm:p-6 bg-black/70"
+					className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-black/70"
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
@@ -73,4 +73,3 @@ export function CreateLobbyInfo({ open, onClose }: { open: boolean; onClose: () 
 		document.body
 	);
 }
-

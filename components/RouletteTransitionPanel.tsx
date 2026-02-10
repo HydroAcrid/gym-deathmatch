@@ -28,6 +28,10 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const prevActiveRef = useRef<string | null>(null);
 	const lastSpinIdRef = useRef<string | null>(null);
 	const [spinRequesting, setSpinRequesting] = useState<boolean>(false);
+	const challengeSettings = ((lobby as any).challengeSettings || {}) as any;
+	const suggestionCharLimit = Math.min(140, Math.max(1, Number(challengeSettings.suggestionCharLimit ?? 50)));
+	const allowSuggestions = Boolean(challengeSettings.allowSuggestions ?? true);
+	const canSuggest = allowSuggestions || isOwner;
 	
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -366,18 +370,23 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 								);
 							})}
 						</ul>
-						{!locked && (
+						{!locked && canSuggest && (
 							<div className="mt-3 flex gap-2">
 								<input
 									className="flex-1 px-3 py-2 rounded-md border border-border bg-input text-foreground"
 									placeholder={mySubmission ? "Update your punishment" : "Suggest a punishment"}
 									value={myText}
-									maxLength={50}
+									maxLength={suggestionCharLimit}
 									onChange={e => setMyText(e.target.value)}
 								/>
 								<button className="arena-badge px-3 py-2 text-xs" onClick={submitSuggestion} disabled={!myText.trim()}>
 									{mySubmission ? "Update" : "Submit"}
 								</button>
+							</div>
+						)}
+						{!locked && !canSuggest && (
+							<div className="mt-3 text-xs text-muted-foreground italic">
+								Suggestions are disabled by the host for this round.
 							</div>
 						)}
 						{locked && mySubmission && (
@@ -399,10 +408,13 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 									pendingChosenRef.current = null;
 									if (finalText) setChosen(finalText);
 									setSpinning(false);
-									// Reload page after animation
+									// Refresh data without a full page reload to keep the transition smooth.
 									setTimeout(() => {
-										if (typeof window !== "undefined") window.location.reload();
-									}, 2500);
+										loadPunishments();
+										if (typeof window !== "undefined") {
+											window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
+										}
+									}, 300);
 								}}
 							/>
 						</div>
@@ -444,7 +456,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						animate={{ opacity: 1, y: 0 }}
 						className="mt-4 p-3 rounded-md border border-border bg-muted/30"
 					>
-						<div className="text-sm">Punishment selected: <strong>{chosen}</strong>. Reloading...</div>
+						<div className="text-sm">Punishment selected: <strong>{chosen}</strong></div>
 					</motion.div>
 				)}
 			</div>
@@ -460,18 +472,19 @@ function computeEntries(items: any[], players: Player[]): PunishmentEntry[] {
 	for (const it of items) {
 		const pid = it.created_by as string | undefined;
 		if (!pid) continue;
-		if (seen.has(pid)) continue;
 		const pl = byId.get(pid) || byUserId.get(pid);
 		if (!pl) continue;
+		const playerKey = String(pl.id);
+		if (seen.has(playerKey)) continue;
 		const text = String(it.text || "").trim();
 		if (!text) continue;
-		seen.add(pid);
-			out.push({
-				id: String(it.id),
-				displayName: pl.name,
-				avatarUrl: pl.avatarUrl,
-				punishment: text,
-			createdBy: pid
+		seen.add(playerKey);
+		out.push({
+			id: String(it.id),
+			displayName: pl.name,
+			avatarUrl: pl.avatarUrl,
+			punishment: text,
+			createdBy: playerKey
 		});
 	}
 	return out;
@@ -479,5 +492,8 @@ function computeEntries(items: any[], players: Player[]): PunishmentEntry[] {
 
 function requiresLock(lobby: Lobby) {
 	const cs = (lobby as any).challengeSettings || {};
+	if (String((lobby as any).mode || "").startsWith("CHALLENGE_ROULETTE")) {
+		return cs.requireLockBeforeSpin ?? true;
+	}
 	return !!cs.requireLockBeforeSpin;
 }

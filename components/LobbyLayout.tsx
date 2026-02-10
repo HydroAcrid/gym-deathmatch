@@ -57,7 +57,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 	// Local UI state
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
-	const [activePunishment, setActivePunishment] = useState<{ text: string; week: number } | null>(null);
+	const [activePunishment, setActivePunishment] = useState<{
+		text: string;
+		week: number;
+		createdBy?: string | null;
+	} | null>(null);
 	const [showKo, setShowKo] = useState<boolean>(false);
 	const [showWinner, setShowWinner] = useState<boolean>(false);
 	const [editOpen, setEditOpen] = useState(false);
@@ -223,7 +227,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					const j = await res.json();
 				if (j.active && j.weekStatus) {
 					setWeekStatus(j.weekStatus);
-					setActivePunishment({ text: j.active.text, week: j.week });
+					setActivePunishment({
+						text: j.active.text,
+						week: j.week,
+						createdBy: j.active.created_by ?? null
+					});
 				} else {
 					setWeekStatus(null);
 					setActivePunishment(null);
@@ -340,6 +348,20 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		.sort(compareByPointsDesc)
 		.map((standing, i) => ({ ...standing, rank: i + 1 }));
 
+	const activePunishmentMeta = useMemo(() => {
+		if (!activePunishment) return null;
+		const from = players.find((p) => {
+			const createdBy = activePunishment.createdBy || "";
+			return p.id === createdBy || ((p as any).userId && (p as any).userId === createdBy);
+		});
+		return {
+			text: activePunishment.text,
+			week: activePunishment.week,
+			submittedByName: from?.name ?? null,
+			submittedByAvatarUrl: from?.avatarUrl ?? null
+		};
+	}, [activePunishment, players]);
+
 	const selectedPlayer = selectedPlayerId ? players.find((p) => p.id === selectedPlayerId) ?? null : null;
 
 	// Calculate week info for cycle indicator
@@ -370,6 +392,8 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					seasonStart={lobbyData.seasonStart}
 					seasonEnd={lobbyData.seasonEnd}
 					showCountdown={stage !== "COMPLETED"}
+					showChallengeInfo={mode === "CHALLENGE_ROULETTE" && stage !== "COMPLETED"}
+					challengePunishment={activePunishmentMeta}
 				/>
 
 				{/* Weekly Cycle Indicator */}

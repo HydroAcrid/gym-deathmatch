@@ -200,8 +200,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					weeklyTarget: lrow.weekly_target ?? 3,
 					initialLives: lrow.initial_lives ?? 3,
 					ownerId: lrow.owner_id ?? undefined,
+					ownerUserId: lrow.owner_user_id ?? undefined,
 					mode: (lrow.mode as any) || "MONEY_SURVIVAL",
 					suddenDeathEnabled: !!lrow.sudden_death_enabled,
+					challengeSettings: (lrow.challenge_settings as any) ?? null,
 					stage: rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE"),
 					seasonSummary: lrow.season_summary ? (lrow.season_summary as any) : null
 				} as Lobby;

@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { onSpin } from "@/lib/commentary";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
-
-function currentWeekIndex(startIso: string) {
-	const start = new Date(startIso);
-	const now = new Date();
-	const diffMs = now.getTime() - start.getTime();
-	return Math.max(0, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000))) + 1;
-}
+import { resolvePunishmentWeek } from "@/lib/challengeWeek";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -18,18 +12,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	if (!access.isOwner) return jsonError("FORBIDDEN", "Owner only", 403);
 	const supabase = access.supabase;
 
-	const { data: lobby } = await supabase.from("lobby").select("season_start,status,mode").eq("id", lobbyId).maybeSingle();
+	const { data: lobby } = await supabase
+		.from("lobby")
+		.select("season_start,status,mode,challenge_settings")
+		.eq("id", lobbyId)
+		.maybeSingle();
 	if (!lobby) return jsonError("NOT_FOUND", "Lobby not found", 404);
-	let week = currentWeekIndex(lobby.season_start || new Date().toISOString());
-	if (String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE") && lobby.status === "transition_spin") {
-		const { data: maxw } = await supabase
-			.from("lobby_punishments")
-			.select("week")
-			.eq("lobby_id", lobbyId)
-			.order("week", { ascending: false })
-			.limit(1);
-		week = ((maxw && maxw.length) ? ((maxw[0] as any).week as number) : 1);
-	}
+	const week = await resolvePunishmentWeek(supabase, lobbyId, {
+		mode: (lobby as any).mode,
+		status: (lobby as any).status,
+		seasonStart: (lobby as any).season_start
+	});
 	let spinEvent: { id: string; started_at: string; winner_item_id: string } | null = null;
 	let createdSpinEvent = false;
 	const { data: existingSpinEvent } = await supabase
@@ -41,6 +34,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	spinEvent = (existingSpinEvent as any) ?? null;
 	if (!spinEvent) {
 		const { data: items } = await supabase.from("lobby_punishments").select("*").eq("lobby_id", lobbyId).eq("week", week);
+		const challengeSettings = (lobby as any).challenge_settings || {};
+		const requireLock = Boolean(challengeSettings.requireLockBeforeSpin ?? true);
+		if (requireLock && (items || []).some((x: any) => !x.locked)) {
+			return jsonError("LOCK_REQUIRED", "Lock the punishment list before spinning", 409);
+		}
 		const pool = (items || []).filter((x: any) => !x.active);
 		if (!pool.length) return jsonError("NO_ITEMS", "Nothing to spin");
 		const candidateWinner = pool[Math.floor(Math.random() * pool.length)];
