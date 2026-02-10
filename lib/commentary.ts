@@ -704,6 +704,106 @@ export async function onGhostWeek(lobbyId: string, playerId: string, weekStart: 
 	});
 }
 
+function summarizeNames(players: Array<{ name?: string | null }>, maxNames = 3): string {
+	const names = players
+		.map((p) => (p.name || "Athlete").trim())
+		.filter(Boolean);
+	if (names.length <= maxNames) return names.join(" • ");
+	return `${names.slice(0, maxNames).join(" • ")} +${names.length - maxNames}`;
+}
+
+export async function onGhostWeekGroup(
+	lobbyId: string,
+	players: Array<{ id: string; name?: string | null }>,
+	weekStart: string,
+	weeklyTarget: number
+): Promise<boolean> {
+	if (!players.length) return false;
+	const names = summarizeNames(players);
+	const rendered = players.length === 1
+		? `Ghost week warning: ${names} is 0/${weeklyTarget} so far.`
+		: `Ghost week warning: ${names} are 0/${weeklyTarget} so far.`;
+	return insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { ghostWeekGroup: weekStart, weeklyTarget, players: players.map((p) => p.id) },
+		visibility: "both",
+		dedupeMs: 8 * 24 * 60 * 60 * 1000,
+		dedupeKey: { ghostWeekGroup: weekStart, weeklyTarget, players: players.map((p) => p.id).sort() }
+	});
+}
+
+export async function onWeeklyMissedTargetGroup(
+	lobbyId: string,
+	opts: {
+		weekStart: string;
+		weeklyTarget: number;
+		players: Array<{ id: string; name?: string | null; heartsLost: number; workouts: number }>;
+	}
+): Promise<boolean> {
+	if (!opts.players.length) return false;
+	const names = summarizeNames(opts.players);
+	const totalHeartsLost = opts.players.reduce((sum, p) => sum + Math.max(0, Number(p.heartsLost || 0)), 0);
+	const rendered = opts.players.length === 1
+		? `Arena tax collected: ${names} missed weekly target and lost ${totalHeartsLost} heart.`
+		: `Arena tax collected: ${names} missed weekly target and lost ${totalHeartsLost} hearts combined.`;
+	return insertQuipOnce({
+		lobbyId,
+		type: "HEARTS",
+		rendered,
+		payload: {
+			weeklyMissedTargetGroup: true,
+			weekStart: opts.weekStart,
+			weeklyTarget: opts.weeklyTarget,
+			players: opts.players.map((p) => ({ id: p.id, heartsLost: p.heartsLost, workouts: p.workouts }))
+		},
+		visibility: "both",
+		dedupeMs: 14 * 24 * 60 * 60 * 1000,
+		dedupeKey: {
+			weeklyMissedTargetGroup: true,
+			weekStart: opts.weekStart,
+			weeklyTarget: opts.weeklyTarget,
+			players: opts.players.map((p) => p.id).sort()
+		}
+	});
+}
+
+export async function onWeeklyHitTargetGroup(
+	lobbyId: string,
+	opts: {
+		weekStart: string;
+		weeklyTarget: number;
+		players: Array<{ id: string; name?: string | null; heartsGained: number; workouts: number }>;
+	}
+): Promise<boolean> {
+	if (!opts.players.length) return false;
+	const names = summarizeNames(opts.players);
+	const totalHeartsGained = opts.players.reduce((sum, p) => sum + Math.max(0, Number(p.heartsGained || 0)), 0);
+	const rendered = opts.players.length === 1
+		? `Heart restored: ${names} hit weekly target and gained ${totalHeartsGained} heart.`
+		: `Heart restored: ${names} hit weekly target and gained ${totalHeartsGained} hearts combined.`;
+	return insertQuipOnce({
+		lobbyId,
+		type: "HEARTS",
+		rendered,
+		payload: {
+			weeklyHitTargetGroup: true,
+			weekStart: opts.weekStart,
+			weeklyTarget: opts.weeklyTarget,
+			players: opts.players.map((p) => ({ id: p.id, heartsGained: p.heartsGained, workouts: p.workouts }))
+		},
+		visibility: "both",
+		dedupeMs: 14 * 24 * 60 * 60 * 1000,
+		dedupeKey: {
+			weeklyHitTargetGroup: true,
+			weekStart: opts.weekStart,
+			weeklyTarget: opts.weeklyTarget,
+			players: opts.players.map((p) => p.id).sort()
+		}
+	});
+}
+
 export async function onPerfectWeek(lobbyId: string, playerId: string, workouts: number, weekStart?: string) {
 	const rendered = `Perfect week badge: {name} went ${workouts}/${workouts}.`;
 	await insertQuipOnce({

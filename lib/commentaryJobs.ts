@@ -2,7 +2,16 @@ import { getServerSupabase } from "./supabaseClient";
 import { computeWeeklyHearts } from "./rules";
 import { fetchRecentActivities } from "./strava";
 import { getUserStravaTokens } from "./persistence";
-import { onDailyReminder, onGhostWeek, onHeartsChanged, onPerfectWeek, onTightRace, onWeeklyHype, onWeeklyReset } from "./commentary";
+import {
+	onDailyReminder,
+	onGhostWeekGroup,
+	onPerfectWeek,
+	onTightRace,
+	onWeeklyHype,
+	onWeeklyHitTargetGroup,
+	onWeeklyMissedTargetGroup,
+	onWeeklyReset
+} from "./commentary";
 import { logError } from "./logger";
 
 type LobbyRow = {
@@ -198,6 +207,9 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 			const nowTs = now.getTime();
 			const heartsByPlayer = new Map<string, number>();
 			const currentWeekByPlayer = new Map<string, { weekStart: string; workouts: number } | null>();
+			const missedByWeek = new Map<string, Array<{ id: string; name?: string | null; heartsLost: number; workouts: number }>>();
+			const hitByWeek = new Map<string, Array<{ id: string; name?: string | null; heartsGained: number; workouts: number }>>();
+			const ghostByWeek = new Map<string, Array<{ id: string; name?: string | null }>>();
 			for (const player of players) {
 				const manualActs = manualByPlayer.get(player.id) ?? [];
 				const stravaActs = await fetchStravaActivitiesForPlayer(player);
@@ -218,14 +230,25 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 				const completed = (weekly.events || []).filter((e) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs);
 				if (completed.length) {
 					const last = completed[completed.length - 1];
-					const weekKey = dayKeyUTC(new Date(last.weekStart));
 					if (last.heartsLost > 0) {
-						await onHeartsChanged(lobby.id, player.id, -last.heartsLost, `missed weekly target (${last.workouts}/${weeklyTarget}) - week ${weekKey}`);
-						heartsEvents += 1;
+						const key = String(last.weekStart);
+						if (!missedByWeek.has(key)) missedByWeek.set(key, []);
+						missedByWeek.get(key)?.push({
+							id: player.id,
+							name: player.name ?? null,
+							heartsLost: Number(last.heartsLost || 0),
+							workouts: Number(last.workouts || 0)
+						});
 					}
 					if (last.heartsGained > 0) {
-						await onHeartsChanged(lobby.id, player.id, last.heartsGained, `hit weekly target (${last.workouts}/${weeklyTarget}) - week ${weekKey}`);
-						heartsEvents += 1;
+						const key = String(last.weekStart);
+						if (!hitByWeek.has(key)) hitByWeek.set(key, []);
+						hitByWeek.get(key)?.push({
+							id: player.id,
+							name: player.name ?? null,
+							heartsGained: Number(last.heartsGained || 0),
+							workouts: Number(last.workouts || 0)
+						});
 					}
 					if (last.workouts >= weeklyTarget && weeklyTarget > 0) {
 						await onPerfectWeek(lobby.id, player.id, last.workouts, last.weekStart);
@@ -242,10 +265,37 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 					const we = new Date(ws.getTime() + 7 * 24 * 60 * 60 * 1000);
 					const daysIn = (nowTs - ws.getTime()) / (24 * 60 * 60 * 1000);
 					if (we.getTime() > nowTs && daysIn >= 3 && weeklyTarget > 0 && currentWeek.workouts === 0) {
-						await onGhostWeek(lobby.id, player.id, currentWeek.weekStart, weeklyTarget);
-						ghostWarnings += 1;
+						const key = String(currentWeek.weekStart);
+						if (!ghostByWeek.has(key)) ghostByWeek.set(key, []);
+						ghostByWeek.get(key)?.push({ id: player.id, name: player.name ?? null });
 					}
 				}
+			}
+
+			for (const [weekStart, entries] of missedByWeek.entries()) {
+				if (!entries.length) continue;
+				const inserted = await onWeeklyMissedTargetGroup(lobby.id, {
+					weekStart,
+					weeklyTarget,
+					players: entries
+				});
+				if (inserted) heartsEvents += 1;
+			}
+
+			for (const [weekStart, entries] of hitByWeek.entries()) {
+				if (!entries.length) continue;
+				const inserted = await onWeeklyHitTargetGroup(lobby.id, {
+					weekStart,
+					weeklyTarget,
+					players: entries
+				});
+				if (inserted) heartsEvents += 1;
+			}
+
+			for (const [weekStart, entries] of ghostByWeek.entries()) {
+				if (!entries.length) continue;
+				const inserted = await onGhostWeekGroup(lobby.id, entries, weekStart, weeklyTarget);
+				if (inserted) ghostWarnings += 1;
 			}
 
 			if (weeklyTarget > 0 && now.getUTCDay() === 5) {
