@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
+import { getRequestUserId } from "@/lib/requestAuth";
 
 export async function GET(req: Request) {
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
-		const { searchParams } = new URL(req.url);
-		const userId = searchParams.get("userId");
-		if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+		const userId = await getRequestUserId(req);
+		if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		// Prefer user_profile
 		const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", userId).maybeSingle();
 		if (prof) {
@@ -35,8 +35,9 @@ export async function PUT(req: Request) {
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
-		const { userId, displayName, avatarUrl, location, quip } = await req.json();
-		if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+		const userId = await getRequestUserId(req);
+		if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		const { displayName, avatarUrl, location, quip } = await req.json();
 		const row = { user_id: userId, display_name: displayName ?? null, avatar_url: avatarUrl ?? null, location: location ?? null, quip: quip ?? null };
 		const { error } = await supabase.from("user_profile").upsert(row, { onConflict: "user_id" });
 		if (error) {
@@ -48,5 +49,4 @@ export async function PUT(req: Request) {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }
-
 

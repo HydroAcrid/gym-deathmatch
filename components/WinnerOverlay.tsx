@@ -52,7 +52,7 @@ export function WinnerOverlay({
 					exit={{ opacity: 0 }}
 				>
 					<motion.div
-						className="paper-card paper-grain ink-edge text-center px-8 py-6 relative overflow-hidden"
+						className="scoreboard-panel text-center px-8 py-6 relative overflow-hidden"
 						initial={{ scale: 0.96, opacity: 0 }}
 						animate={{ scale: 1, opacity: 1 }}
 						exit={{ scale: 0.96, opacity: 0 }}
@@ -67,16 +67,16 @@ export function WinnerOverlay({
 							<div className="absolute -top-4 right-14 animate-[fall_1.4s_linear_infinite]">🪙</div>
 							<div className="absolute -top-4 right-20 animate-[fall_1.6s_linear_infinite]">🪙</div>
 						</div>
-						<div className="poster-headline text-2xl mb-2">WINNER</div>
-						<div className="mx-auto h-20 w-20 rounded-full overflow-hidden bg-tan border border-deepBrown/30 mb-2">
+						<div className="font-display text-2xl text-primary mb-2">WINNER</div>
+						<div className="mx-auto h-20 w-20 rounded-full overflow-hidden bg-muted/30 border border-border mb-2">
 							{winnerAvatar ? <img src={winnerAvatar} alt="winner" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-3xl">🏆</div>}
 						</div>
-						<div className="poster-headline text-xl mb-1">{winnerName.toUpperCase()}</div>
-						<div className="text-sm text-deepBrown/80 mb-4">survives them all • Pot: ${displayPot || pot}</div>
+						<div className="font-display text-xl text-foreground mb-1">{winnerName.toUpperCase()}</div>
+						<div className="text-sm text-muted-foreground mb-4">survives them all • Pot: ${displayPot || pot}</div>
 						<div className="flex gap-2 justify-center">
-							<button className="btn-vintage px-4 py-2 rounded-md text-xs" onClick={onClose}>Close</button>
+							<button className="arena-badge arena-badge-primary px-4 py-2 text-xs" onClick={onClose}>Close</button>
 							<button
-								className="px-4 py-2 rounded-md border border-deepBrown/30 text-xs"
+								className="arena-badge px-4 py-2 text-xs"
 								onClick={async () => {
 									const url = typeof window !== "undefined" ? window.location.href : "";
 									const text = `🏆 ${winnerName} wins Gym Deathmatch! Pot: $${pot}`;

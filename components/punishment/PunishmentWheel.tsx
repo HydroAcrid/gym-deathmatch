@@ -43,8 +43,22 @@ export function PunishmentWheel({
 
 	const [mustSpin, setMustSpin] = useState(false);
 	const [prizeNumber, setPrizeNumber] = useState(0);
+	const [wheelSize, setWheelSize] = useState(1);
 	const lastNonceRef = useRef<number | undefined>(undefined);
 	const isSpinningRef = useRef<boolean>(false);
+
+	useEffect(() => {
+		const updateSize = () => {
+			const width = window.innerWidth;
+			if (width <= 360) setWheelSize(0.7);
+			else if (width <= 420) setWheelSize(0.8);
+			else if (width <= 520) setWheelSize(0.9);
+			else setWheelSize(1);
+		};
+		updateSize();
+		window.addEventListener("resize", updateSize);
+		return () => window.removeEventListener("resize", updateSize);
+	}, []);
 
 	// External spin trigger: when nonce changes, spin to provided index
 	useEffect(() => {
@@ -53,9 +67,8 @@ export function PunishmentWheel({
 		if (spinNonce === undefined) return;
 		if (lastNonceRef.current === spinNonce) return;
 		if (!eligible.length) return;
-		if (isSpinningRef.current) return; // Prevent interrupting an active spin
+		if (isSpinningRef.current) return;
 		lastNonceRef.current = spinNonce;
-		// Clamp to valid range
 		const idx = Math.max(0, Math.min(spinToIndex, eligible.length - 1));
 		setPrizeNumber(idx);
 		isSpinningRef.current = true;
@@ -63,33 +76,65 @@ export function PunishmentWheel({
 	}, [disabled, spinToIndex, spinNonce, eligible.length]);
 
 	return (
-		<div className="punishment-wheel flex flex-col items-center gap-3">
-			<div className="relative">
-				{data.length > 0 ? (
-					<WheelNoSSR
-						mustStartSpinning={mustSpin}
-						prizeNumber={prizeNumber}
-						data={data}
-						backgroundColors={["#2b1a12", "#3b2417"]}
-						textColors={["#ffffff"]}
-						spinDuration={1}
-						onStopSpinning={() => {
-							setMustSpin(false);
-							isSpinningRef.current = false;
-							onStop?.(prizeNumber);
-						}}
-						outerBorderColor="#f3e0c8"
-						outerBorderWidth={4}
-						radiusLineColor="#000000"
-						radiusLineWidth={1}
-						fontSize={14}
+		<div className="scoreboard-panel">
+			{/* Header */}
+			<div className="flex items-center justify-center gap-3 p-4 border-b-2 border-border">
+				<h2 className="font-display text-lg sm:text-2xl font-bold tracking-widest text-center">
+					PUNISHMENT ROULETTE
+				</h2>
+			</div>
+
+			{/* Wheel */}
+			<div className="p-6 sm:p-8 flex flex-col items-center gap-6">
+				<div className="relative">
+					<div
+						className={`pointer-events-none absolute inset-[-10px] rounded-full border ${mustSpin ? "border-primary/70 animate-pulse" : "border-primary/35"}`}
+						style={{ boxShadow: mustSpin ? "0 0 22px hsl(var(--primary) / 0.4)" : "0 0 10px hsl(var(--primary) / 0.2)" }}
 					/>
-				) : (
-					<div className="h-64 w-64 rounded-full border-4 border-cream" style={{ background: "radial-gradient(circle, #5c3b2d, #2b211d)" }} />
-				)}
+					{data.length > 0 ? (
+						<WheelNoSSR
+							mustStartSpinning={mustSpin}
+							prizeNumber={prizeNumber}
+							data={data}
+							backgroundColors={[
+								"hsl(30 70% 25%)",
+								"hsl(25 60% 18%)",
+								"hsl(35 65% 22%)",
+								"hsl(20 55% 20%)",
+							]}
+							textColors={["hsl(35 15% 80%)"]}
+							spinDuration={2.8}
+							size={wheelSize}
+							onStopSpinning={() => {
+								setMustSpin(false);
+								isSpinningRef.current = false;
+								onStop?.(prizeNumber);
+							}}
+							outerBorderColor="hsl(30 60% 50%)"
+							outerBorderWidth={wheelSize < 0.9 ? 3 : 4}
+							radiusLineColor="hsl(20 12% 16%)"
+							radiusLineWidth={1}
+							fontSize={wheelSize < 0.9 ? 12 : 14}
+						/>
+					) : (
+						<div
+							className="h-64 w-64 border-4 border-border flex items-center justify-center"
+							style={{ background: "radial-gradient(circle, hsl(20 15% 12%), hsl(20 18% 6%))" }}
+						>
+							<span className="font-display text-sm tracking-widest text-muted-foreground">NO PUNISHMENTS</span>
+						</div>
+					)}
+				</div>
+
+				{/* Status text */}
+				{mustSpin ? (
+					<p className="font-display text-sm tracking-widest text-primary animate-pulse">SPINNING...</p>
+				) : data.length > 0 ? (
+					<p className="font-mono text-xs text-muted-foreground">
+						Synchronized roulette spin is ready
+					</p>
+				) : null}
 			</div>
 		</div>
 	);
 }
-
-

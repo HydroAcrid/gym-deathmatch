@@ -348,6 +348,26 @@ create unique index if not exists comments_activity_dedupe_idx on comments (lobb
 -- Prevent duplicate tight-race summaries (rendered string encodes pot)
 create unique index if not exists comments_tight_race_once_idx on comments (lobby_id, type, rendered) where type = 'SUMMARY' and payload ? 'tightRace';
 
+-- Commentary idempotency ledger
+create table if not exists commentary_emitted (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  event_type text not null,
+  idempotency_key text not null,
+  source_type text null,
+  source_id text null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique(lobby_id, event_type, idempotency_key)
+);
+alter table commentary_emitted enable row level security;
+drop policy if exists commentary_emitted_read_member on commentary_emitted;
+create policy commentary_emitted_read_member on commentary_emitted
+for select using (
+  exists (select 1 from player p where p.lobby_id = commentary_emitted.lobby_id and p.user_id::text = auth.uid()::text)
+);
+create index if not exists commentary_emitted_lobby_created_idx on commentary_emitted (lobby_id, created_at desc);
+
 -- Web push subscriptions (per user)
 create table if not exists push_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -503,6 +523,24 @@ create policy lobby_punishments_member_read on lobby_punishments
 for select using (
   exists (select 1 from player p where p.lobby_id = lobby_punishments.lobby_id and p.user_id = auth.uid())
 );
+
+create table if not exists lobby_spin_events (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  week int not null,
+  winner_item_id uuid not null references lobby_punishments(id) on delete cascade,
+  started_at timestamptz not null,
+  created_by text null references player(id) on delete set null,
+  created_at timestamptz default now(),
+  unique(lobby_id, week)
+);
+alter table lobby_spin_events enable row level security;
+drop policy if exists lobby_spin_events_member_read on lobby_spin_events;
+create policy lobby_spin_events_member_read on lobby_spin_events
+for select using (
+  exists (select 1 from player p where p.lobby_id = lobby_spin_events.lobby_id and p.user_id = auth.uid())
+);
+create index if not exists lobby_spin_events_lobby_week_idx on lobby_spin_events (lobby_id, week desc, created_at desc);
 
 create table if not exists user_punishments (
   id uuid primary key default gen_random_uuid(),

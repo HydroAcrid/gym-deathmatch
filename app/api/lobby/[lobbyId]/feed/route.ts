@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) return NextResponse.json({ items: [] });
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return NextResponse.json({ error: access.message, items: [] }, { status: access.status });
+	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a lobby member", items: [] }, { status: 403 });
+	const supabase = access.supabase;
 	try {
 		// Determine mode to filter money-only events for challenge lobbies
 		const { data: lrow } = await supabase.from("lobby").select("mode").eq("id", lobbyId).maybeSingle();
@@ -52,16 +54,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 				}));
 		}
 		const items2 = (evs ?? []).map((e: any) => ({
-			id: e.id,
-			text: (e.type === "PUNISHMENT_SPUN" ? `🎡 Wheel spun: “${(e.payload as any)?.text ?? ""}”` : e.type),
+			id: `he-${e.id}`,
+			text: (e.type === "PUNISHMENT_SPUN" ? `🎡 Wheel spun: "${(e.payload as any)?.text ?? ""}"` : e.type),
 			createdAt: e.created_at,
 			player: null
 		}));
-		const mixed = [...items1, ...items2].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50);
+		// Dedup: skip history_events entries if a commentary quip already covers the same event
+		const commentTextsLower = new Set(items1.map((i: any) => (i.text ?? "").toLowerCase()));
+		const dedupedItems2 = items2.filter((i: any) => {
+			const t = (i.text ?? "").toLowerCase();
+			return ![...commentTextsLower].some(ct => ct.includes("wheel spun") && t.includes("wheel spun"));
+		});
+		const mixed = [...items1, ...dedupedItems2].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 50);
 		return NextResponse.json({ items: mixed });
 	} catch (e) {
 		return NextResponse.json({ items: [] });
 	}
 }
-
-

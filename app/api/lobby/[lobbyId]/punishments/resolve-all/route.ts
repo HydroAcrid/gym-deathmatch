@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
 import { jsonError, logError } from "@/lib/logger";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) return jsonError("SUPABASE_NOT_CONFIGURED", "Supabase not configured", 501);
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return jsonError(access.code, access.message, access.status);
+	if (!access.memberPlayerId) return jsonError("FORBIDDEN", "Not a lobby member", 403);
+	if (!access.isOwner) return jsonError("FORBIDDEN", "Owner only", 403);
+	const supabase = access.supabase;
 	try {
 		const body = await req.json();
 		const targetUserId = String(body?.userId || "");
@@ -28,5 +31,3 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		return jsonError("BULK_RESOLVE_FAILED", "Failed to resolve", 400);
 	}
 }
-
-

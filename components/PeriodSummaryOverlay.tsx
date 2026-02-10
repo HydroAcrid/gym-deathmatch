@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "./ui/Button";
+import { Button } from "@/src/ui2/ui/button";
 
 type SummaryData = {
 	daily?: {
@@ -28,6 +28,10 @@ type SummaryData = {
 		lowRaw: Array<{ name: string; lives: number }>;
 	};
 	quips?: Array<{ text: string; created_at: string }>;
+	points?: {
+		formula?: string;
+		leaderboard?: Array<{ name: string; points: number; workouts: number; streak: number }>;
+	};
 };
 
 export function PeriodSummaryOverlay({
@@ -63,6 +67,8 @@ period: "daily" | "weekly";
 	const heartsValue = heartsLeadersArr.length ? heartsLeaders : "No data";
 	const heartsDebug = data.heartsDebug;
 	const spotlight = (data.quips || []).find(q => q.text.toLowerCase().includes("photo of the day"));
+	const pointsLeaders = data.points?.leaderboard ?? [];
+	const topPoints = pointsLeaders[0];
 
 	const containerVariants = {
 		hidden: { opacity: 0, scale: 0.96, y: 24 },
@@ -83,11 +89,11 @@ period: "daily" | "weekly";
 		<motion.div
 			custom={0}
 			variants={cardVariants}
-			className="flex items-center gap-3 px-3 py-2 rounded-full border border-accent-primary/40 bg-[#1a1512]/70 text-cream shadow-[0_0_24px_rgba(225,84,42,0.18)]"
+			className="flex items-center gap-3 px-3 py-2 rounded-full border border-primary/40 bg-muted/30 text-foreground"
 		>
 			<span className="text-lg">{icon}</span>
 			<div className="text-left">
-				<div className="uppercase tracking-[0.14em] text-[10px] text-cream/70">{label}</div>
+				<div className="uppercase tracking-[0.14em] text-[10px] text-muted-foreground">{label}</div>
 				<div className="text-base font-semibold">{value}</div>
 			</div>
 		</motion.div>
@@ -99,7 +105,7 @@ period: "daily" | "weekly";
 				initial={{ opacity: 0, scale: 1.02 }}
 				animate={{ opacity: 1, scale: 1 }}
 				exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.25, ease: "easeIn" } }}
-				className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm"
+				className="fixed inset-0 z-[160] flex items-start justify-center p-0 sm:p-4 sm:pt-24 bg-black/85 backdrop-blur-sm"
 				onClick={onClose}
 			>
 				<motion.div
@@ -107,29 +113,25 @@ period: "daily" | "weekly";
 					initial="hidden"
 					animate="show"
 					exit="exit"
-					className="paper-card paper-grain ink-edge w-full max-w-3xl sm:max-w-4xl max-h-[calc(100vh-140px)] sm:max-h-[90vh] overflow-y-scroll overflow-x-hidden [scrollbar-gutter:stable_both-edges] p-3 sm:p-6 pb-20 border-4 relative mt-10 sm:mt-0"
-					style={{
-						borderColor: "#E1542A",
-						boxShadow: "0 0 32px rgba(225,84,42,0.35)",
-						background: "radial-gradient(circle at 20% 20%, rgba(225,84,42,0.06), transparent 25%), #1a0f0a"
-					}}
+					className="scoreboard-panel w-full sm:max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-7rem)] overflow-y-auto overflow-x-hidden [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full p-3 sm:p-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8 border-2 relative"
 					onClick={(e) => e.stopPropagation()}
 				>
-					<div className="absolute inset-0 pointer-events-none mix-blend-screen opacity-[0.06] bg-[radial-gradient(circle_at_top_left,#f3a93e,transparent_40%)]" />
+					<div className="absolute inset-0 pointer-events-none mix-blend-screen opacity-[0.08] bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)),transparent_40%)]" />
 					<div className="text-center mb-4 space-y-1 relative">
-						<div className="poster-headline text-2xl sm:text-4xl tracking-[0.2em]">{heading}</div>
-						<div className="text-deepBrown/80 dark:text-cream/80 text-xs sm:text-sm uppercase tracking-[0.16em]">{sub}</div>
-						<div className="mx-auto w-16 h-[2px] bg-gradient-to-r from-accent-primary/0 via-accent-primary to-accent-primary/0" />
+						<div className="font-display text-2xl sm:text-4xl tracking-[0.2em] text-primary">{heading}</div>
+						<div className="text-muted-foreground text-xs sm:text-sm uppercase tracking-[0.16em]">{sub}</div>
+						<div className="mx-auto w-16 h-[2px] bg-gradient-to-r from-primary/0 via-primary to-primary/0" />
 					</div>
 
 					<motion.div
 						initial="hidden"
 						animate="show"
-						className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3"
+						className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mb-3"
 					>
 						<StatPill icon="🏋️" label="WORKOUTS" value={`${pData?.totalWorkouts ?? 0}`} />
 						<StatPill icon="💰" label="POT" value={`$${data.pot ?? 0}`} />
 						<StatPill icon="❤️" label="HEARTS" value={heartsValue} />
+						<StatPill icon="🏆" label="POINTS LEADER" value={topPoints ? `${topPoints.name} ${topPoints.points}` : "—"} />
 						<StatPill icon="⚔️" label="ARENA EVENTS" value={`${eventsCount}`} />
 					</motion.div>
 
@@ -139,13 +141,13 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={0}
-							className="mb-4 rounded-xl border border-accent-primary/40 bg-gradient-to-r from-[#2a1811] via-[#1a0f0a] to-[#2a1811] text-cream p-4 shadow-[0_0_24px_rgba(225,84,42,0.25)]"
+							className="mb-4 rounded-xl border border-primary/40 bg-muted/30 text-foreground p-4"
 						>
-							<div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.14em] text-cream/80">
+							<div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.14em] text-muted-foreground">
 								<span>🔥 Spotlight</span>
 							</div>
-							<div className="poster-headline text-xl mt-1">ATHLETE SPOTLIGHT</div>
-							<div className="text-sm mt-1 opacity-90">{spotlight.text}</div>
+							<div className="font-display text-xl mt-1 text-primary">ATHLETE SPOTLIGHT</div>
+							<div className="text-sm mt-1">{spotlight.text}</div>
 						</motion.div>
 					)}
 
@@ -155,14 +157,14 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={1}
-							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+							className="rounded-xl border border-border bg-card text-foreground p-4"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">💰</span>
-								<div className="poster-headline text-lg tracking-[0.12em]">Pot</div>
+								<div className="font-display text-lg tracking-[0.12em] text-primary">Pot</div>
 							</div>
-							<div className="text-4xl font-bold text-accent-primary mb-1">${data.pot ?? 0}</div>
-							<div className="text-sm text-cream/80">Stakes climbing.</div>
+							<div className="text-4xl font-bold text-arena-gold mb-1">${data.pot ?? 0}</div>
+							<div className="text-sm text-muted-foreground">Stakes climbing.</div>
 						</motion.div>
 
 						<motion.div
@@ -170,17 +172,17 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={2}
-							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+							className="rounded-xl border border-border bg-card text-foreground p-4"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">❤️</span>
-								<div className="poster-headline text-lg tracking-[0.12em]">Hearts</div>
+								<div className="font-display text-lg tracking-[0.12em] text-primary">Hearts</div>
 							</div>
-							<div className="text-sm text-cream/80">Leaders: {heartsLeaders}</div>
-							<div className="text-sm text-cream/80">Lowest: {heartsLow}</div>
+							<div className="text-sm text-muted-foreground">Leaders: {heartsLeaders}</div>
+							<div className="text-sm text-muted-foreground">Lowest: {heartsLow}</div>
 							{(heartsLeadersArr.length > 3 || heartsLowArr.length > 3) && (
 								<button
-									className="text-[11px] mt-1 text-cream/60 underline underline-offset-2"
+									className="text-[11px] mt-1 text-muted-foreground underline underline-offset-2"
 									onClick={() => setShowHeartsFull(!showHeartsFull)}
 								>
 									{showHeartsFull ? "Hide full list" : "Show full list"}
@@ -188,43 +190,71 @@ period: "daily" | "weekly";
 							)}
 							{showHeartsFull && (
 								<div className="mt-2 text-xs space-y-1">
-									<div className="text-cream/70">Leaders: {heartsLeadersArr.join(" • ") || "—"}</div>
-									<div className="text-cream/70">Lowest: {heartsLowArr.join(" • ") || "—"}</div>
+									<div className="text-muted-foreground">Leaders: {heartsLeadersArr.join(" • ") || "—"}</div>
+									<div className="text-muted-foreground">Lowest: {heartsLowArr.join(" • ") || "—"}</div>
 								</div>
 							)}
 							{heartsDebug && (
-								<div className="mt-2 text-[11px] text-cream/50">
+								<div className="mt-2 text-[11px] text-muted-foreground">
 									<span>Players counted: {heartsDebug.playerCount}</span>
 								</div>
 							)}
 						</motion.div>
 
+						{pointsLeaders.length > 0 && (
+							<motion.div
+								variants={cardVariants}
+								initial="hidden"
+								animate="show"
+								custom={3}
+								className="rounded-xl border border-border bg-card text-foreground p-4 lg:col-span-2"
+							>
+								<div className="flex items-center gap-2 mb-2">
+									<span className="text-lg">🏆</span>
+									<div className="font-display text-lg tracking-[0.12em] text-primary">Points Board</div>
+								</div>
+								<div className="text-xs text-muted-foreground mb-2">
+									{data.points?.formula ?? "Points = workouts + streak - penalties"}
+								</div>
+								<div className="space-y-1 text-sm text-muted-foreground">
+									{pointsLeaders.map((row, idx) => (
+										<div key={`${row.name}-${idx}`} className="flex items-center justify-between gap-3">
+											<span className="truncate">{row.name}</span>
+											<span className="font-display text-foreground">
+												{row.points} pts ({row.workouts}W/{row.streak}S)
+											</span>
+										</div>
+									))}
+								</div>
+							</motion.div>
+						)}
+
 						<motion.div
 							variants={cardVariants}
 							initial="hidden"
 							animate="show"
-							custom={3}
-							className="rounded-xl border border-deepBrown/20 dark:border-white/10 bg-[#140b07]/90 text-cream p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] lg:col-span-2"
+							custom={4}
+							className="rounded-xl border border-border bg-card text-foreground p-4 lg:col-span-2"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">⚔️</span>
-								<div className="poster-headline text-lg tracking-[0.12em]">Battle Log</div>
+								<div className="font-display text-lg tracking-[0.12em] text-primary">Battle Log</div>
 							</div>
-							<div className="space-y-1 text-sm text-cream/85">
+							<div className="space-y-1 text-sm text-muted-foreground">
 								{data.quips && data.quips.length
 									? data.quips.slice(0, 5).map((q, i) => (
 										<div key={i} className="flex items-start gap-2">
-											<span className="text-cream/60">⚔️</span>
+											<span className="text-muted-foreground">⚔️</span>
 											<span className="leading-relaxed">{q.text}</span>
 										</div>
 									))
-									: <div className="text-cream/60">Arena was quiet.</div>}
+									: <div className="text-muted-foreground">Arena was quiet.</div>}
 							</div>
 						</motion.div>
 					</div>
 
 					<div className="flex justify-center mt-6">
-						<Button variant="primary" size="md" onClick={onClose} className="px-6 py-3 text-sm uppercase tracking-[0.16em] shadow-[0_0_24px_rgba(225,84,42,0.4)]">
+						<Button variant="default" onClick={onClose} className="px-6 py-3 text-sm uppercase tracking-[0.16em] shadow-[0_0_24px_hsl(var(--primary)/0.4)]">
 							Return
 						</Button>
 					</div>

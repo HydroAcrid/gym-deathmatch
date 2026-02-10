@@ -3,16 +3,15 @@ import { getTokensForPlayer } from "@/lib/stravaStore";
 import { fetchRecentActivities, refreshAccessToken, toActivitySummary } from "@/lib/strava";
 import { calculateAverageWorkoutsPerWeek, calculateLongestStreak, calculateStreakFromActivities, calculateTotalWorkouts } from "@/lib/streaks";
 import type { LiveLobbyResponse } from "@/types/api";
-import { setTokensForPlayer } from "@/lib/stravaStore";
 import { computeWeeklyHearts } from "@/lib/rules";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import type { Lobby, Player, SeasonSummary, GameMode, LobbyStage } from "@/types/game";
-import { getUserStravaTokens, upsertStravaTokens } from "@/lib/persistence";
+import { getUserStravaTokens } from "@/lib/persistence";
 import { getDailyTaunts } from "@/lib/funFacts";
 import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
-import { onHeartsChanged, onKO, onPotChanged, onWeeklyReset, onAllReady, onGhostWeek, onPerfectWeek, onWeeklyHype, onTightRace } from "@/lib/commentary";
 import { logError } from "@/lib/logger";
+import { calculatePoints } from "@/lib/points";
 
 // Generate season summary when season completes
 function generateSeasonSummary(
@@ -21,6 +20,16 @@ function generateSeasonSummary(
 	finalPot: number,
 	seasonNumber: number
 ): SeasonSummary {
+	const toSummaryPlayer = (p: Player) => ({
+		id: p.id,
+		name: p.name,
+		avatarUrl: p.avatarUrl,
+		hearts: p.livesRemaining,
+		totalWorkouts: p.totalWorkouts,
+		currentStreak: p.currentStreak,
+		points: calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak })
+	});
+
 	// Determine winners and losers based on mode
 	let winners: SeasonSummary["winners"] = [];
 	let losers: SeasonSummary["losers"] = [];
@@ -28,24 +37,8 @@ function generateSeasonSummary(
 	if (mode === "MONEY_SURVIVAL") {
 		// Winners: all players with hearts > 0
 		// Losers: players with 0 hearts
-		winners = players
-			.filter(p => p.livesRemaining > 0)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
-		losers = players
-			.filter(p => p.livesRemaining === 0)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
+		winners = players.filter(p => p.livesRemaining > 0).map(toSummaryPlayer);
+		losers = players.filter(p => p.livesRemaining === 0).map(toSummaryPlayer);
 	} else if (mode === "MONEY_LAST_MAN") {
 		// Winner: player with most hearts (or highest totalWorkouts if tie)
 		const sorted = [...players].sort((a, b) => {
@@ -54,23 +47,11 @@ function generateSeasonSummary(
 		});
 		const winner = sorted[0];
 		if (winner && winner.livesRemaining > 0) {
-			winners = [{
-				id: winner.id,
-				name: winner.name,
-				avatarUrl: winner.avatarUrl,
-				hearts: winner.livesRemaining,
-				totalWorkouts: winner.totalWorkouts
-			}];
+			winners = [toSummaryPlayer(winner)];
 		}
 		losers = players
 			.filter(p => p.id !== winner?.id || p.livesRemaining === 0)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
+			.map(toSummaryPlayer);
 	} else {
 		// Challenge modes: winners = most hearts, losers = least hearts
 		const sorted = [...players].sort((a, b) => {
@@ -80,22 +61,10 @@ function generateSeasonSummary(
 		const maxHearts = sorted[0]?.livesRemaining ?? 0;
 		winners = sorted
 			.filter(p => p.livesRemaining === maxHearts)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
+			.map(toSummaryPlayer);
 		losers = sorted
 			.filter(p => p.livesRemaining < maxHearts)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
+			.map(toSummaryPlayer);
 	}
 	
 	// Calculate highlights (only if we have players with valid stats)
@@ -231,8 +200,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					weeklyTarget: lrow.weekly_target ?? 3,
 					initialLives: lrow.initial_lives ?? 3,
 					ownerId: lrow.owner_id ?? undefined,
+					ownerUserId: lrow.owner_user_id ?? undefined,
 					mode: (lrow.mode as any) || "MONEY_SURVIVAL",
 					suddenDeathEnabled: !!lrow.sudden_death_enabled,
+					challengeSettings: (lrow.challenge_settings as any) ?? null,
 					stage: rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE"),
 					seasonSummary: lrow.season_summary ? (lrow.season_summary as any) : null
 				} as Lobby;
@@ -254,32 +225,23 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						};
 					});
 				}
-				// Auto-transition when scheduled time arrives
-				try {
-					if ((lrow.status === "scheduled") && lrow.scheduled_start) {
-						const now = Date.now();
-						const sched = new Date(lrow.scheduled_start as string).getTime();
-						if (sched <= now) {
-							const mode = (lrow.mode as string) || "MONEY_SURVIVAL";
-							if (String(mode).startsWith("CHALLENGE_ROULETTE")) {
-								await supabase.from("lobby").update({ 
-									status: "transition_spin", 
-									scheduled_start: null,
-									stage: "ACTIVE" // Set stage when transitioning from scheduled
-								}).eq("id", lobbyId);
-								rawStatus = "transition_spin";
-							} else {
-								await supabase.from("lobby").update({ 
-									status: "active", 
-									scheduled_start: null, 
-									season_start: new Date().toISOString(),
-									stage: "ACTIVE" // Set stage when transitioning from scheduled
-								}).eq("id", lobbyId);
-								rawStatus = "active";
+					// Auto-transition when scheduled time arrives
+					try {
+						if ((lrow.status === "scheduled") && lrow.scheduled_start) {
+							const now = Date.now();
+							const sched = new Date(lrow.scheduled_start as string).getTime();
+							if (sched <= now) {
+								const mode = (lrow.mode as string) || "MONEY_SURVIVAL";
+								if (String(mode).startsWith("CHALLENGE_ROULETTE")) {
+									rawStatus = "transition_spin";
+									rawStage = "ACTIVE";
+								} else {
+									rawStatus = "active";
+									rawStage = "ACTIVE";
+								}
 							}
 						}
-					}
-				} catch { /* ignore */ }
+					} catch { /* ignore */ }
 			}
 		}
 	} catch (e) {
@@ -306,21 +268,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		const seasonEndTime = new Date(seasonEnd).getTime();
 		
 		if (currentStage === "ACTIVE" && seasonEndTime <= now) {
-			const supabase = getServerSupabase();
-			if (supabase) {
-				// Generate season summary before updating (we need current player stats)
-				// We'll generate it after player stats are computed, so we'll handle this later
-				// For now, just mark the stage
-				await supabase.from("lobby").update({ 
-					status: "completed",
-					stage: "COMPLETED"
-				}).eq("id", lobby.id);
-				rawStatus = "completed";
-				rawStage = "COMPLETED";
-				currentStage = "COMPLETED"; // Update the variable so rest of code sees the new value
-			}
+			rawStatus = "completed";
+			rawStage = "COMPLETED";
+			currentStage = "COMPLETED"; // Update the variable so rest of code sees the new value
 		}
 	} catch { /* ignore */ }
+	if (rawStatus === "completed" && currentStage !== "COMPLETED") {
+		currentStage = "COMPLETED";
+	}
 
 	// Prefetch approved and pending manual activities for the whole lobby and index by player_id
 	// Pending activities still count toward streaks (they're being challenged but not rejected yet)
@@ -399,6 +354,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				let currentStreak = 0;
 				let longestStreak = 0;
 				let avg = 0;
+				let seasonCombined: any[] = [];
 				
 				if (!seasonStart || currentStage === "PRE_STAGE") {
 					// PRE_STAGE: Use initial hearts, no activity-based calculation
@@ -407,28 +363,42 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						weeksEvaluated: 0,
 						events: []
 					};
-					total = (combined as any[]).length;
-					currentStreak = calculateStreakFromActivities(combined as any[]);
-					longestStreak = calculateLongestStreak(combined as any[]);
-					avg = 0; // No average until season starts
+					total = 0;
+					currentStreak = 0;
+					longestStreak = 0;
+					avg = 0;
 				} else {
 					// ACTIVE or COMPLETED: Calculate hearts from activities
+					const seasonCalcEndIso =
+						currentStage === "COMPLETED"
+							? seasonEnd
+							: new Date().toISOString();
+					const seasonCalcEndDate = new Date(seasonCalcEndIso);
+					seasonCombined = (combined as any[]).filter((a) => {
+						const raw = a.start_date ?? a.start_date_local ?? null;
+						if (!raw) return false;
+						const date = new Date(raw);
+						if (Number.isNaN(date.getTime())) return false;
+						return date >= new Date(seasonStart) && date <= seasonCalcEndDate;
+					});
+
 					// Prevent day-1 KO: if no activity yet and seasonStart is far in past, soft-clamp calculation start to "now"
-					const hasAny = (combined as any[]).length > 0;
+					const hasAny = seasonCombined.length > 0;
 					const seasonStartDate = new Date(seasonStart);
 					const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
 					const startForCalc = (!hasAny && (Date.now() - seasonStartDate.getTime() > twoDaysMs))
 						? new Date()
 						: seasonStartDate;
 
-					// Be robust: count all combined entries as total workouts (season bounds rarely matter for "now" views)
-					total = (combined as any[]).length;
-					// For streaks, be forgiving and consider all combined activities (season-bound streaks are often confusing around start/end)
-					currentStreak = calculateStreakFromActivities(combined as any[]);
-					longestStreak = calculateLongestStreak(combined as any[]);
-					avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc.toISOString(), seasonEnd);
-					// Evaluate hearts up to "now" (not full season) so players aren't penalized for future weeks
-					weekly = computeWeeklyHearts(combined as any[], startForCalc, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+					total = calculateTotalWorkouts(combined as any[], seasonStart, seasonCalcEndIso);
+					currentStreak = calculateStreakFromActivities(combined as any[], seasonStart, seasonCalcEndIso);
+					longestStreak = calculateLongestStreak(combined as any[], seasonStart, seasonCalcEndIso);
+					avg = calculateAverageWorkoutsPerWeek(combined as any[], seasonStart, seasonCalcEndIso);
+					weekly = computeWeeklyHearts(combined as any[], startForCalc, {
+						weeklyTarget,
+						maxHearts: 3,
+						seasonEnd: seasonCalcEndDate
+					});
 				}
 				// Back-compat feed events (met/count) derived from weekly events
 				const nowTs = Date.now();
@@ -441,71 +411,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						count: e.workouts
 					}))
 					.slice(-4); // keep recent few weeks to avoid noisy long histories
-				// Commentary: heart change for the most recent completed week (if any)
-				try {
-					const completed = (weekly.events || []).filter((e: any) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs);
-					if (completed.length) {
-						const last = completed[completed.length - 1];
-						if (last.heartsLost > 0) {
-							await onHeartsChanged(lobby.id, p.id, -last.heartsLost, `missed weekly target (${last.workouts}/${weeklyTarget})`);
-						}
-						if (last.heartsGained > 0) {
-							await onHeartsChanged(lobby.id, p.id, last.heartsGained, `hit weekly target (${last.workouts}/${weeklyTarget})`);
-						}
-						if (last.met && last.workouts >= weeklyTarget) {
-							try { await onPerfectWeek(lobby.id, p.id, last.workouts); } catch { /* ignore */ }
-						}
-					}
-				} catch { /* ignore */ }
-				// Challenge: cumulative punishments — log missing weeks
-				try {
-					const mode = (lobby as any).mode || "MONEY_SURVIVAL";
-					if (mode === "CHALLENGE_CUMULATIVE" && userId) {
-						const supabase = getServerSupabase();
-						if (supabase) {
-							for (const ev of weekly.events) {
-								const weekEnd = new Date(new Date(ev.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000);
-								if (weekEnd.getTime() > nowTs) continue; // only completed weeks
-								if (ev.workouts >= weeklyTarget) continue; // only failed weeks
-								// week index since season start
-								const start = new Date(seasonStart).getTime();
-								const wi = Math.max(1, Math.floor((new Date(ev.weekStart).getTime() - start) / (7 * 24 * 60 * 60 * 1000)) + 1);
-								// fetch active punishment for that week
-								const { data: pun } = await supabase.from("lobby_punishments").select("id,text").eq("lobby_id", lobby.id).eq("week", wi).eq("active", true).maybeSingle();
-								const text = (pun?.text as string) || "Arena punishment";
-								// insert if not exists
-								const { data: exists } = await supabase
-									.from("user_punishments")
-									.select("id")
-									.eq("user_id", userId)
-									.eq("lobby_id", lobby.id)
-									.eq("week", wi)
-									.limit(1);
-								if (!exists || exists.length === 0) {
-									await supabase.from("user_punishments").insert({ user_id: userId, lobby_id: lobby.id, week: wi, text, resolved: false });
-								}
-							}
-						}
-					}
-				} catch { /* ignore */ }
-				// Ghost week warning for in-progress week with 0/target by midweek
-				try {
-					const currentWeek = (weekly.events || [])[weekly.events.length - 1];
-					if (currentWeek) {
-						const ws = new Date(currentWeek.weekStart);
-						const we = new Date(ws.getTime() + 7 * 24 * 60 * 60 * 1000);
-						const daysIn = (Date.now() - ws.getTime()) / (24 * 60 * 60 * 1000);
-						if (we.getTime() > Date.now() && daysIn >= 3 && weeklyTarget > 0 && currentWeek.workouts === 0) {
-							await onGhostWeek(lobby.id, p.id, currentWeek.weekStart, weeklyTarget);
-						}
-					}
-				} catch { /* ignore */ }
 					// Skip logging weekly target met/missed into history to avoid feed spam
-				const recentActivities = (combined as any[]).slice(0, 5).map(a => {
+				const seasonActivityList = seasonCombined.length ? seasonCombined : [];
+				const recentActivities = seasonActivityList.slice(0, 5).map(a => {
 					const s = toActivitySummary(a);
 					return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
 				});
-				const lastStart = (combined as any[])[0]?.start_date || (combined as any[])[0]?.start_date_local || null;
+				const lastStart = seasonActivityList[0]?.start_date || seasonActivityList[0]?.start_date_local || null;
+				const seasonStravaCount = seasonActivityList.filter((a) => a.__source !== "manual").length;
+				const seasonManualCount = seasonActivityList.filter((a) => a.__source === "manual").length;
 				const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
 				let result = {
 					...p,
@@ -520,52 +434,34 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					weeklyTarget,
 					recentActivities,
 					activityCounts: {
-						total: combined.length,
-						strava: (activities as any[]).length,
-						manual: manual.length
+						total: seasonActivityList.length,
+						strava: seasonStravaCount,
+						manual: seasonManualCount
 					},
 					taunt,
 					inSuddenDeath: p.inSuddenDeath
 				};
-				// Sudden death revive: if enabled and player opted-in, show them at 1 heart but mark inSuddenDeath
-				if ((lobby as any).suddenDeathEnabled && (result as any).livesRemaining === 0 && p.inSuddenDeath) {
-					(result as any).livesRemaining = 1;
-					(result as any).inSuddenDeath = true;
-				}
-				// Apply heart adjustments
-				try {
-					const supabase = getServerSupabase();
-					if (supabase) {
-						const { data: adjs } = await supabase.from("heart_adjustments").select("target_player_id, delta").eq("lobby_id", lobby.id).eq("target_player_id", p.id);
-						const bonus = (adjs ?? []).reduce((s: number, r: any) => s + (r.delta as number), 0);
-						(result as any).livesRemaining = Math.max(0, Math.min(3, (result as any).livesRemaining + bonus));
+					// Sudden death revive: if enabled and player opted-in, show them at 1 heart but mark inSuddenDeath
+					if ((lobby as any).suddenDeathEnabled && (result as any).livesRemaining === 0 && p.inSuddenDeath) {
+						(result as any).livesRemaining = 1;
+						(result as any).inSuddenDeath = true;
 					}
-				} catch { /* ignore */ }
-				// Streak quips: milestones and PR
-				try {
-					if ([3,5,7,10].includes(currentStreak)) {
-						const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
-						await onStreakMilestone(lobby.id, p.id, currentStreak);
-						await onStreakPR(lobby.id, p.id, currentStreak);
-					} else {
-						// Still attempt PR detection (if any)
-						const { onStreakPR } = await import("@/lib/commentary");
-						await onStreakPR(lobby.id, p.id, currentStreak);
-					}
-				} catch { /* ignore */ }
-				return result;
-			} catch (e: any) {
+					// Apply heart adjustments
+					try {
+						const supabase = getServerSupabase();
+						if (supabase) {
+							const { data: adjs } = await supabase.from("heart_adjustments").select("target_player_id, delta").eq("lobby_id", lobby.id).eq("target_player_id", p.id);
+							const bonus = (adjs ?? []).reduce((s: number, r: any) => s + (r.delta as number), 0);
+							(result as any).livesRemaining = Math.max(0, Math.min(3, (result as any).livesRemaining + bonus));
+						}
+					} catch { /* ignore */ }
+					return result;
+				} catch (e: any) {
 				// Attempt token refresh on 401/403
 				if (e?.status === 401 || e?.status === 403) {
 					try {
-						const refreshed = await refreshAccessToken(tokens.refreshToken);
-						if (userId) {
-							// Keep user-scoped token chain up to date
-							await (await import("@/lib/persistence")).upsertUserStravaTokens(userId, refreshed);
-						}
-						setTokensForPlayer(p.id, refreshed); // in-memory
-						await upsertStravaTokens(p.id, refreshed); // legacy player-scoped
-						const activities = await fetchRecentActivities(refreshed.accessToken);
+							const refreshed = await refreshAccessToken(tokens.refreshToken);
+							const activities = await fetchRecentActivities(refreshed.accessToken);
 						// manual again (use prefetched index)
 						let manual: ManualActivityRow[] = manualByPlayer[p.id] ?? [];
 						const manualAsStravaLike = (manual || []).map(m => ({
@@ -587,6 +483,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						let currentStreak = 0;
 						let longestStreak = 0;
 						let avg = 0;
+						let seasonCombined: any[] = [];
 						
 						if (!seasonStart || currentStage === "PRE_STAGE") {
 							weekly = {
@@ -594,21 +491,37 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								weeksEvaluated: 0,
 								events: []
 							};
-							total = (combined as any[]).length;
-							currentStreak = calculateStreakFromActivities(combined as any[]);
-							longestStreak = calculateLongestStreak(combined as any[]);
+							total = 0;
+							currentStreak = 0;
+							longestStreak = 0;
 							avg = 0;
 						} else {
+							const seasonCalcEndIso =
+								currentStage === "COMPLETED"
+									? seasonEnd
+									: new Date().toISOString();
+							const seasonCalcEndDate = new Date(seasonCalcEndIso);
+							seasonCombined = (combined as any[]).filter((a) => {
+								const raw = a.start_date ?? a.start_date_local ?? null;
+								if (!raw) return false;
+								const date = new Date(raw);
+								if (Number.isNaN(date.getTime())) return false;
+								return date >= new Date(seasonStart) && date <= seasonCalcEndDate;
+							});
 							const seasonStartDate2 = new Date(seasonStart);
 							const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-							const startForCalc2 = ((combined as any[]).length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
+							const startForCalc2 = (seasonCombined.length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
 								? new Date()
 								: seasonStartDate2;
-							total = (combined as any[]).length;
-							currentStreak = calculateStreakFromActivities(combined as any[]);
-							longestStreak = calculateLongestStreak(combined as any[]);
-							avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc2.toISOString(), seasonEnd);
-							weekly = computeWeeklyHearts(combined as any[], startForCalc2, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+							total = calculateTotalWorkouts(combined as any[], seasonStart, seasonCalcEndIso);
+							currentStreak = calculateStreakFromActivities(combined as any[], seasonStart, seasonCalcEndIso);
+							longestStreak = calculateLongestStreak(combined as any[], seasonStart, seasonCalcEndIso);
+							avg = calculateAverageWorkoutsPerWeek(combined as any[], seasonStart, seasonCalcEndIso);
+							weekly = computeWeeklyHearts(combined as any[], startForCalc2, {
+								weeklyTarget,
+								maxHearts: 3,
+								seasonEnd: seasonCalcEndDate
+							});
 						}
 						const nowTs2 = Date.now();
 						const events = (weekly.events || [])
@@ -619,23 +532,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								count: e.workouts
 							}))
 							.slice(-4);
-						try {
-							const completed = (weekly.events || []).filter((e: any) => new Date(e.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs2);
-							if (completed.length) {
-								const last = completed[completed.length - 1];
-								if (last.heartsLost > 0) {
-									await onHeartsChanged(lobby.id, p.id, -last.heartsLost, `missed weekly target (${last.workouts}/${weeklyTarget})`);
-								}
-								if (last.heartsGained > 0) {
-									await onHeartsChanged(lobby.id, p.id, last.heartsGained, `hit weekly target (${last.workouts}/${weeklyTarget})`);
-								}
-							}
-						} catch { /* ignore */ }
-						const recentActivities = (combined as any[]).slice(0, 5).map(a => {
+						const seasonActivityList = seasonCombined.length ? seasonCombined : [];
+						const recentActivities = seasonActivityList.slice(0, 5).map(a => {
 							const s = toActivitySummary(a);
 							return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
 						});
-						const lastStart = (combined as any[])[0]?.start_date || (combined as any[])[0]?.start_date_local || null;
+						const lastStart = seasonActivityList[0]?.start_date || seasonActivityList[0]?.start_date_local || null;
+						const seasonStravaCount = seasonActivityList.filter((a) => a.__source !== "manual").length;
+						const seasonManualCount = seasonActivityList.filter((a) => a.__source === "manual").length;
 						const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
 						let result2 = {
 							...p,
@@ -650,9 +554,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							weeklyTarget,
 							recentActivities,
 							activityCounts: {
-								total: combined.length,
-								strava: (activities as any[]).length,
-								manual: manual.length
+								total: seasonActivityList.length,
+								strava: seasonStravaCount,
+								manual: seasonManualCount
 							},
 							taunt
 						};
@@ -664,18 +568,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								(result2 as any).livesRemaining = Math.max(0, Math.min(3, (result2 as any).livesRemaining + bonus));
 							}
 						} catch { /* ignore */ }
-						// Streak quips after refresh
-						try {
-							if ([3,5,7,10].includes(currentStreak)) {
-								const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
-								await onStreakMilestone(lobby.id, p.id, currentStreak);
-								await onStreakPR(lobby.id, p.id, currentStreak);
-							} else {
-								const { onStreakPR } = await import("@/lib/commentary");
-								await onStreakPR(lobby.id, p.id, currentStreak);
-							}
-						} catch { /* ignore */ }
-						return result2;
+							return result2;
 					} catch (refreshErr) {
 						logError({ route: "GET /api/lobby/[id]/live", code: "STRAVA_REFRESH_FAILED", err: refreshErr, lobbyId, extra: { playerId: p.id } });
 						errors.push({ playerId: p.id, reason: "refresh_failed" });
@@ -689,26 +582,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		})
 	);
 
-	// Weekly hype: Friday preview for players one workout away
-	try {
-		const now = new Date();
-		const weeklyTargetVal = (lobby as any).weeklyTarget ?? (lobby as any).weekly_target ?? 3;
-		if (weeklyTargetVal > 0 && now.getDay() === 5) { // Friday
-			const hype: Array<{ id: string; name?: string | null }> = [];
-			for (const pl of updatedPlayers) {
-				const timeline = (pl as any).heartsTimeline as any[];
-				const current = timeline?.[timeline.length - 1];
-				if (!current) continue;
-				const we = new Date(new Date(current.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000);
-				if (we.getTime() < now.getTime()) continue; // completed week
-				if (current.workouts === weeklyTargetVal - 1) {
-					hype.push({ id: pl.id, name: (pl as any).name ?? null });
-				}
-			}
-			if (hype.length) await onWeeklyHype(lobby.id, hype, weeklyTargetVal);
-		}
-	} catch { /* ignore */ }
-
 	// Compute pot only for Money modes
 	const mode = (lobby as any).mode || "MONEY_SURVIVAL";
 	let currentPot = 0;
@@ -721,76 +594,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			scalingEnabled: !!lobby.scalingEnabled,
 			perPlayerBoost: lobby.perPlayerBoost ?? 0
 		}, playerCount);
-		const supabase = getServerSupabase();
-		const newContributions: number[] = [];
-		try {
-			if (supabase && weeks > 0) {
-				const weekStarts: string[] = [];
-				// Normalize season start to midnight (start of day) for consistent week calculations
-				// This ensures weeks are calculated from the start of the day, not a specific time
-				const startDate = new Date(lobby.seasonStart);
-				const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-				for (let i = 0; i < weeks; i++) {
-					// Calculate each week start as 7 days from season start (not calendar weeks)
-					const d = new Date(start.getTime() + i * 7 * 24 * 60 * 60 * 1000);
-					weekStarts.push(d.toISOString());
-				}
-				const { data: existing } = await supabase.from("weekly_pot_contributions").select("week_start").eq("lobby_id", lobby.id);
-				// Compare by date only (YYYY-MM-DD) to handle any time component differences
-				const existingSet = new Set((existing ?? []).map((r: any) => {
-					const d = new Date(r.week_start);
-					return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-				}));
-				const survivors = updatedPlayers.filter(p => p.livesRemaining > 0).length;
-				for (const ws of weekStarts) {
-					const wsDate = new Date(ws);
-					const key = `${wsDate.getFullYear()}-${String(wsDate.getMonth() + 1).padStart(2, '0')}-${String(wsDate.getDate()).padStart(2, '0')}`;
-					if (!existingSet.has(key)) {
-						const amt = effectiveAnte * Math.max(survivors, 0);
-						await supabase.from("weekly_pot_contributions").insert({
-							lobby_id: lobby.id,
-							week_start: ws,
-							amount: amt,
-							player_count: survivors
-						});
-						newContributions.push(amt);
-					}
-				}
-			}
-		} catch { /* ignore */ }
-		let contributionsSum = 0;
-		try {
-			if (supabase) {
-				const { data: sumRows } = await supabase.from("weekly_pot_contributions").select("amount").eq("lobby_id", lobby.id);
-				contributionsSum = (sumRows ?? []).reduce((s: number, r: any) => s + (r.amount as number), 0);
+			const supabase = getServerSupabase();
+			void weeks;
+			void effectiveAnte;
+			let contributionsSum = 0;
+			try {
+				if (supabase) {
+					const { data: sumRows } = await supabase.from("weekly_pot_contributions").select("amount").eq("lobby_id", lobby.id);
+					contributionsSum = (sumRows ?? []).reduce((s: number, r: any) => s + (r.amount as number), 0);
 			}
 		} catch { /* ignore */ }
 		currentPot = (lobby.initialPot ?? 0) + contributionsSum;
-		if (Number.isFinite((lobby as any).cashPool)) {
-			currentPot = (lobby as any).cashPool as number;
-		}
-		if (supabase && newContributions.length) {
-			const existingPot = currentPot - newContributions.reduce((s, n) => s + n, 0);
-			let rollingPot = existingPot;
-			for (const amt of newContributions) {
-				rollingPot += amt;
-				try { await onPotChanged(lobby.id, amt, rollingPot); } catch { /* ignore */ }
-			}
-			try { await supabase.from("lobby").update({ cash_pool: currentPot }).eq("id", lobby.id); } catch { /* ignore */ }
-		}
-	}
-
-	// Tight race callout: multiple players tied on top hearts with meaningful pot
-	try {
-		if (String(mode).startsWith("MONEY_") && currentPot >= 50) {
-			const maxHearts = Math.max(...updatedPlayers.map(p => p.livesRemaining));
-			const top = updatedPlayers.filter(p => p.livesRemaining === maxHearts);
-			if (top.length >= 2) {
-				const names = top.map((p: any) => p.name || "Athlete");
-				await onTightRace(lobby.id, names, currentPot);
+			if (Number.isFinite((lobby as any).cashPool)) {
+				currentPot = (lobby as any).cashPool as number;
 			}
 		}
-	} catch { /* ignore */ }
 
 	// KO detection depends on mode
 	let koEvent: LiveLobbyResponse["koEvent"] | undefined;
@@ -801,70 +619,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 			if (mode === "MONEY_SURVIVAL") {
 				const loser = anyZero;
 				if (loser) {
-					const supabase = getServerSupabase();
-					if (supabase) {
-						await supabase.from("lobby").update({ status: "completed", season_end: new Date().toISOString() }).eq("id", lobby.id);
-						await supabase.from("history_events").insert({
-							lobby_id: lobby.id,
-							actor_player_id: null,
-							target_player_id: loser.id,
-							type: "SEASON_KO",
-							payload: { loserPlayerId: loser.id, currentPot, seasonNumber: lobby.seasonNumber }
-						});
-						try { await onKO(lobby.id, loser.id, currentPot); } catch { /* ignore */ }
-						rawStatus = "completed";
-						koEvent = { loserPlayerId: loser.id, potAtKO: currentPot };
-					}
+					rawStatus = "completed";
+					koEvent = { loserPlayerId: loser.id, potAtKO: currentPot };
 				}
 			} else if (mode === "MONEY_LAST_MAN") {
 				// Season ends only when exactly one non-sudden-death player remains alive
 				if (aliveNonSD.length === 1) {
 					const winner = aliveNonSD[0];
-					const supabase = getServerSupabase();
-					if (supabase) {
-						await supabase.from("lobby").update({ status: "completed", season_end: new Date().toISOString() }).eq("id", lobby.id);
-						await supabase.from("history_events").insert({
-							lobby_id: lobby.id,
-							actor_player_id: null,
-							target_player_id: winner.id,
-							type: "SEASON_WINNER",
-							payload: { winnerPlayerId: winner.id, currentPot, seasonNumber: lobby.seasonNumber }
-						});
-						rawStatus = "completed";
-						koEvent = { loserPlayerId: "", winnerPlayerId: winner.id, potAtKO: currentPot };
-					}
+					rawStatus = "completed";
+					koEvent = { loserPlayerId: "", winnerPlayerId: winner.id, potAtKO: currentPot };
 				}
 			}
 		}
 	} catch { /* ignore */ }
-
-	// Weekly reset quip and readiness reset (UTC Sunday 00:00) with 10-min window
-	try {
-		const now = new Date();
-		const day = now.getUTCDay(); // 0 Sun
-		const isWindow = day === 0 && now.getUTCHours() === 0 && now.getUTCMinutes() < 10;
-		if (isWindow) {
-			// start of week iso (UTC)
-			const ws = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString();
-			await onWeeklyReset(lobby.id, ws);
-			// Reset ready states to false
-			const supabase = getServerSupabase();
-			if (supabase) {
-				await supabase.from("user_ready_states").update({ ready: false }).eq("lobby_id", lobby.id);
-			}
-		}
-	} catch (e) {
-		logError({ route: "GET /api/lobby/[id]/live", code: "WEEKLY_RESET_FAILED", err: e, lobbyId: lobby.id });
-	}
-
-	// If everyone is ready, optionally announce once per hour
-	try {
-		if (updatedPlayers.length > 0 && updatedPlayers.every(p => (p as any).ready)) {
-			await onAllReady(lobby.id);
-		}
-	} catch (e) {
-		logError({ route: "GET /api/lobby/[id]/live", code: "ALL_READY_QUIP_FAILED", err: e, lobbyId: lobby.id });
-	}
 
 	// Check if season end has passed and stage is ACTIVE - transition to COMPLETED
 	// This must happen AFTER player stats are computed so we can generate accurate summary
@@ -874,107 +641,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const seasonEndTime = new Date(seasonEnd).getTime();
 	
 	if (currentStage === "ACTIVE" && seasonEndTime <= now) {
-		// Transition to COMPLETED
-		try {
-			const supabase = getServerSupabase();
-			if (supabase) {
-				await supabase.from("lobby").update({ 
-					status: "completed",
-					stage: "COMPLETED"
-				}).eq("id", lobby.id);
-				rawStatus = "completed";
-				rawStage = "COMPLETED";
-				currentStage = "COMPLETED"; // Update the variable
-			}
-		} catch (e) {
-			logError({ route: "GET /api/lobby/[id]/live", code: "STAGE_TRANSITION_FAILED", err: e, lobbyId });
-		}
-	}
-
-	// Daily reminder check: at 8pm (20:00), check if any player hasn't logged an activity today
-	// Use a database flag to prevent duplicate sends across concurrent requests
-	try {
-		const nowDate = new Date();
-		const hour = nowDate.getHours();
-		const minute = nowDate.getMinutes();
-		// Check once per day at 8pm (20:00) with a 10-minute window
-		if (hour === 20 && minute < 10 && currentStage === "ACTIVE") {
-			const supabase = getServerSupabase();
-			if (supabase) {
-				// Check if we've already processed reminders today for this lobby
-				const today = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
-				const todayStart = today.toISOString();
-				const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
-				
-				// Check if any reminder was sent today (within the last 24 hours)
-				const { data: recentReminders } = await supabase
-					.from("comments")
-					.select("primary_player_id")
-					.eq("lobby_id", lobby.id)
-					.eq("type", "SUMMARY")
-					.gte("created_at", todayStart)
-					.lt("created_at", todayEnd)
-					.like("rendered", "%hasn't logged an activity today%")
-					.limit(1);
-				
-				// Only process if no reminders were sent today yet
-				if (!recentReminders || recentReminders.length === 0) {
-					const { onDailyReminder } = await import("@/lib/commentary");
-					
-					for (const p of updatedPlayers) {
-						// Check if player has any activity today (manual or Strava)
-						
-						// Check manual activities
-						const { data: manualToday } = await supabase
-							.from("manual_activities")
-							.select("id")
-							.eq("lobby_id", lobby.id)
-							.eq("player_id", p.id)
-							.gte("date", todayStart)
-							.lt("date", todayEnd)
-							.limit(1);
-						
-						// Check Strava activities (if connected)
-						let stravaToday = false;
-						if ((p as any).isStravaConnected) {
-							const { data: stravaActs } = await supabase
-								.from("strava_activities")
-								.select("id")
-								.eq("lobby_id", lobby.id)
-								.eq("player_id", p.id)
-								.gte("start_date", todayStart)
-								.lt("start_date", todayEnd)
-								.limit(1);
-							stravaToday = !!(stravaActs && stravaActs.length > 0);
-						}
-						
-						// If no activity today, send reminder (onDailyReminder has its own deduplication)
-						if (!manualToday?.length && !stravaToday) {
-							await onDailyReminder(lobby.id, p.id, p.name);
-						}
-					}
-				}
-			}
-		}
-	} catch (e) {
-		logError({ route: "GET /api/lobby/[id]/live", code: "DAILY_REMINDER_FAILED", err: e, lobbyId: lobby.id });
+		// Transition to COMPLETED (read-only projection)
+		rawStatus = "completed";
+		rawStage = "COMPLETED";
+		currentStage = "COMPLETED";
 	}
 
 	// Generate season summary if stage is COMPLETED and we don't have one yet
 	if (currentStage === "COMPLETED" && !lobby.seasonSummary) {
 		// Generate summary with current player stats
 		seasonSummary = generateSeasonSummary(updatedPlayers, mode as GameMode, currentPot, lobby.seasonNumber);
-		// Save to database
-		try {
-			const supabase = getServerSupabase();
-			if (supabase) {
-				await supabase.from("lobby").update({ 
-					season_summary: seasonSummary as any
-				}).eq("id", lobby.id);
-			}
-		} catch (e) {
-			logError({ route: "GET /api/lobby/[id]/live", code: "SEASON_SUMMARY_SAVE_FAILED", err: e, lobbyId });
-		}
 	} else if (lobby.seasonSummary) {
 		// Use existing summary from DB
 		seasonSummary = lobby.seasonSummary;

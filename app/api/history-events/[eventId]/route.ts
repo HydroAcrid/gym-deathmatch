@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
+import { getRequestUserId } from "@/lib/requestAuth";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
 	const { eventId } = await params;
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 
-	const userId = req.headers.get("x-user-id") || "";
+	const userId = await getRequestUserId(req);
 	if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
 
 	// Fetch event to get lobby_id

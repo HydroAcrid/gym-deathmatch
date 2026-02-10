@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import Link from "next/link";
 import { OwnerSettingsModal } from "@/components/OwnerSettingsModal";
 import { useAuth } from "@/components/AuthProvider";
-import { LobbyFiltersBar, type SortOption, type FilterOptions } from "@/components/LobbyFiltersBar";
-import { motion } from "framer-motion";
+import { CreateLobby } from "@/components/CreateLobby";
+import { Button } from "@/src/ui2/ui/button";
+import { LobbyCard } from "@/src/ui2/components/LobbyCard";
+import { LobbyFiltersBar, type LobbySortBy, type LobbyFilters } from "@/src/ui2/components/LobbyFiltersBar";
+import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
+import { authFetch } from "@/lib/clientAuth";
 
 type LobbyRow = {
 	id: string; 
@@ -21,6 +24,7 @@ type LobbyRow = {
 	created_at?: string;
 	status?: string;
 	mode?: string;
+	player_count?: number;
 };
 
 export default function LobbiesPage() {
@@ -29,8 +33,8 @@ export default function LobbiesPage() {
 	const { user, isHydrated } = useAuth();
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [debouncedSearch, setDebouncedSearch] = useState<string>("");
-	const [sortBy, setSortBy] = useState<SortOption>("newest");
-	const [filters, setFilters] = useState<FilterOptions>({
+	const [sortBy, setSortBy] = useState<LobbySortBy>("newest");
+	const [filters, setFilters] = useState<LobbyFilters>({
 		showMine: false, // Default to false so users see all lobbies they're a member of or own
 		showActive: false,
 		showCompleted: false,
@@ -53,9 +57,9 @@ export default function LobbiesPage() {
 		}
 		
 		console.log("[lobbies] Fetching lobbies for user:", user.id);
-		const url = `/api/lobbies?userId=${encodeURIComponent(user.id)}`;
+		const url = `/api/lobbies`;
 		try {
-			const res = await fetch(url);
+			const res = await authFetch(url);
 			const data = await res.json();
 			setAllLobbies(data.lobbies ?? []);
 		} catch (err) {
@@ -163,135 +167,74 @@ export default function LobbiesPage() {
 	const isOwner = (l: LobbyRow) => Boolean(user?.id && l.owner_user_id === user.id);
 
 	return (
-		<div className="mx-auto max-w-6xl px-4 sm:px-6">
-			{/* Header */}
-			<div className="paper-card paper-grain ink-edge p-5 mb-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-				<div className="poster-headline text-lg mb-1">LOBBIES</div>
-				<div className="text-deepBrown/70 text-xs">
-					{user?.email ? `Signed in as ${user.email}` : "Sign in to manage your lobbies"}
-				</div>
-			</div>
-
-			{/* Filters Bar */}
-			<LobbyFiltersBar
-				searchQuery={searchQuery}
-				onSearchChange={setSearchQuery}
-				sortBy={sortBy}
-				onSortChange={setSortBy}
-				filters={filters}
-				onFiltersChange={setFilters}
-				totalCount={allLobbies.length}
-				filteredCount={filteredAndSortedLobbies.length}
-			/>
-
-			{/* Loading state while auth hydrates */}
-			{!isHydrated ? (
-				<div className="paper-card paper-grain ink-edge p-8 text-center">
-					<div className="text-deepBrown/70 text-sm">Loading your account...</div>
-				</div>
-			) : filteredAndSortedLobbies.length === 0 ? (
-				<div className="paper-card paper-grain ink-edge p-8 text-center">
-					<div className="text-deepBrown/70 text-sm">
-						{allLobbies.length === 0 
-							? (user ? "No lobbies yet. Create one from the navbar." : "Sign in to see your lobbies.")
-							: "No lobbies found."}
+		<div className="min-h-screen px-4 sm:px-6">
+			<div className="mx-auto max-w-6xl space-y-6 py-8">
+				<header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<div>
+						<h1 className="font-display text-3xl md:text-4xl font-black uppercase tracking-tight text-foreground">
+							Your Lobbies
+						</h1>
+						<p className="font-mono text-sm text-muted-foreground">
+							{filteredAndSortedLobbies.length} of {allLobbies.length} lobbies
+						</p>
+						<div className="text-xs text-muted-foreground">
+							{user?.email ? `Signed in as ${user.email}` : "Sign in to manage your lobbies"}
+						</div>
 					</div>
-				</div>
-			) : (
-				<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-					{filteredAndSortedLobbies.map((l) => {
-						const mode = String(l.mode || "MONEY_SURVIVAL");
-						const isMoney = mode.startsWith("MONEY_");
-						const daysAgo = getDaysAgo(l.created_at);
-						
-						return (
-							<motion.div
-								key={l.id}
-								initial={{ opacity: 0, y: 12 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ duration: 0.3 }}
-								className="paper-card paper-grain ink-edge p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-deepBrown/20 hover:border-accent-primary/40"
-							>
-								{/* Header with name and owner badge */}
-								<div className="mb-3">
-									<Link 
-										href={`/lobby/${l.id}`} 
-										className="poster-headline text-lg hover:text-accent-primary transition-colors inline-block"
-									>
-										{l.name}
-									</Link>
-									{isOwner(l) && (
-										<span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] border border-deepBrown/40 bg-cream/20">
-											Owner
-										</span>
-									)}
-								</div>
+					<CreateLobby>
+						<Button variant="arenaPrimary">
+							Create Lobby
+						</Button>
+					</CreateLobby>
+				</header>
 
-								{/* Metadata Row */}
-								<div className="text-deepBrown/70 text-xs mb-3 space-y-1">
-									<div className="flex items-center gap-2 flex-wrap">
-										<span>Season {l.season_number}</span>
-										{isMoney && <span>• <span className="inline-flex items-center gap-0.5">💰 ${l.cash_pool}</span></span>}
-										{typeof l.weekly_target === "number" && (
-											<span>• <span className="inline-flex items-center gap-0.5">🎯 {l.weekly_target}/wk</span></span>
-										)}
-										{typeof l.initial_lives === "number" && (
-											<span>• <span className="inline-flex items-center gap-0.5">❤️ {l.initial_lives}</span></span>
-										)}
-									</div>
-									<div className="text-[11px]">
-										Mode: {mode.replace(/_/g, " ")}
-									</div>
-									{l.season_start && l.season_end && (
-										<div className="text-[11px]">
-											{new Date(l.season_start).toLocaleDateString()} → {new Date(l.season_end).toLocaleDateString()}
-										</div>
-									)}
-									{daysAgo && (
-										<div className="text-[10px] text-deepBrown/50 mt-2">
-											Created {daysAgo}
-										</div>
-									)}
-								</div>
+				<LobbyFiltersBar
+					searchQuery={searchQuery}
+					onSearchChange={setSearchQuery}
+					sortBy={sortBy}
+					onSortChange={setSortBy}
+					filters={filters}
+					onFiltersChange={setFilters}
+					totalCount={allLobbies.length}
+					filteredCount={filteredAndSortedLobbies.length}
+				/>
 
-								{/* Action Buttons */}
-								<div className="mt-4 pt-3 border-t border-deepBrown/20 flex flex-col sm:flex-row gap-2">
-									<Link 
-										href={`/lobby/${l.id}`} 
-										className="btn-vintage px-3 py-2 rounded-md text-xs text-center flex-1"
-									>
-										Open
-									</Link>
-									{isOwner(l) ? (
-										<button 
-											className="btn-secondary px-3 py-2 rounded-md text-xs flex-1" 
-											onClick={() => setEditLobby(l)}
-										>
-											Edit
-										</button>
-									) : user?.id ? (
-										<button
-											className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs hover:bg-cream/10 transition-colors flex-1"
-											onClick={async () => {
-												const ok = confirm(`Leave "${l.name}"?`);
-												if (!ok) return;
-												await fetch(`/api/lobby/${encodeURIComponent(l.id)}/leave`, {
-													method: "POST",
-													headers: { "Content-Type": "application/json" },
-													body: JSON.stringify({ userId: user.id })
-												});
-												reloadLobbies();
-											}}
-										>
-											Leave
-										</button>
-									) : null}
-								</div>
-							</motion.div>
-						);
-					})}
-				</div>
-			)}
+				{!isHydrated ? (
+					<div className="arena-panel p-8 text-center">
+						<div className="text-muted-foreground text-sm">Loading your account...</div>
+					</div>
+				) : filteredAndSortedLobbies.length === 0 ? (
+					<div className="arena-panel p-8 text-center">
+						<div className="text-muted-foreground text-sm">
+							{allLobbies.length === 0
+								? (user ? "No lobbies yet. Create one from the navbar." : "Sign in to see your lobbies.")
+								: "No lobbies found."}
+						</div>
+					</div>
+				) : (
+					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+						{filteredAndSortedLobbies.map((l) => {
+							const daysAgo = getDaysAgo(l.created_at);
+							const card = mapLobbyRowToCard(l, { userId: user?.id, createdAgo: daysAgo });
+							return (
+								<LobbyCard
+									key={l.id}
+									lobby={card}
+									onEdit={() => setEditLobby(l)}
+									onLeave={async (lobbyId) => {
+										if (!user?.id) return;
+										await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/leave`, {
+											method: "POST",
+										});
+										reloadLobbies();
+									}}
+									showLeave={Boolean(user?.id)}
+								/>
+							);
+						})}
+					</div>
+				)}
+
 				{editLobby && isOwner(editLobby) && (
 					<OwnerSettingsModal
 						lobbyId={editLobby.id}
@@ -299,12 +242,13 @@ export default function LobbiesPage() {
 						defaultWeekly={editLobby.weekly_target ?? 3}
 						defaultLives={editLobby.initial_lives ?? 3}
 						defaultSeasonEnd={editLobby.season_end ?? new Date().toISOString()}
-					autoOpen
-					hideTrigger
-					onSaved={() => { setEditLobby(null); reloadLobbies(); }}
-					onClose={() => setEditLobby(null)}
-				/>
-			)}
+						autoOpen
+						hideTrigger
+						onSaved={() => { setEditLobby(null); reloadLobbies(); }}
+						onClose={() => setEditLobby(null)}
+					/>
+				)}
+			</div>
 		</div>
 	);
 }

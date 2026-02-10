@@ -9,6 +9,8 @@ import { SeasonCompleteOverlay } from "./SeasonCompleteOverlay";
 import { useLobbyLive } from "@/hooks/useLobbyLive";
 import { useLobbyRealtime } from "@/hooks/useLobbyRealtime";
 import { useAuth } from "./AuthProvider";
+import { authFetch } from "@/lib/clientAuth";
+import { hasSeenSpinReplay } from "@/lib/spinReplay";
 
 export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const [overridePre, setOverridePre] = useState<boolean>(false);
@@ -28,16 +30,23 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	// Fallback poll for week status in challenge modes (every 5s)
 	// This could be moved to realtime if we have a table for it, but sticking to polling for now as requested
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
+	const [pendingSpinReplay, setPendingSpinReplay] = useState<boolean>(false);
 	useEffect(() => {
 		if (!String((lobby as any).mode || "").startsWith("CHALLENGE_")) return;
 		let cancelled = false;
-		async function load() {
-			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
-				if (!res.ok || cancelled) return;
-				const j = await res.json();
+			async function load() {
+				try {
+					const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+					if (!res.ok || cancelled) return;
+					const j = await res.json();
 				if (!cancelled) {
 					setWeekStatus(j.weekStatus || null);
+					const spinId = j?.spinEvent?.spinId as string | undefined;
+					if (spinId) {
+						setPendingSpinReplay(!hasSeenSpinReplay(lobby.id, spinId));
+					} else {
+						setPendingSpinReplay(false);
+					}
 				}
 			} catch { /* ignore */ }
 		}
@@ -70,7 +79,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const shouldShowTransitionPanel = 
 		lobby.status === "transition_spin" && 
 		String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE") &&
-		weekStatus !== "PENDING_CONFIRMATION";
+		(weekStatus !== "PENDING_CONFIRMATION" || pendingSpinReplay);
 
 	// Provide a scheduled start when we fake pre-stage so countdown renders
 	const stagedLobby: Lobby = shouldShowPre && !lobby.scheduledStart
@@ -87,10 +96,10 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 		return (
 			<div className="relative min-h-[400px] sm:min-h-[500px]">
 				{loading && !liveData && (
-					<div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[#120b07]/90 backdrop-blur-sm text-cream">
-						<div className="w-16 h-16 border-4 border-cream/20 border-t-[var(--accent-primary)] rounded-full animate-spin" />
+					<div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[#120b07]/90 backdrop-blur-sm text-foreground">
+						<div className="w-16 h-16 border-4 border-border/20 border-t-primary rounded-full animate-spin" />
 						<div className="text-sm sm:text-base tracking-[0.2em] uppercase">Loading lobby</div>
-						<div className="text-[11px] text-cream/70">Pulling live arena data…</div>
+						<div className="text-[11px] text-muted-foreground">Pulling live arena data…</div>
 					</div>
 				)}
 				{

@@ -1,6 +1,7 @@
 import { getServerSupabase } from "./supabaseClient";
 import type { Activity } from "@/lib/types";
 import { sendPushToLobby, sendPushToUser } from "./push";
+import { createHash } from "crypto";
 
 export type QuipType = 'ACTIVITY'|'VOTE'|'HEARTS'|'POT'|'KO'|'SUMMARY';
 export type Quip = {
@@ -22,6 +23,89 @@ type EngineContext = {
 	event?: any;
 };
 
+type IdempotencyClaimResult = "claimed" | "duplicate" | "unavailable";
+
+function stableSerialize(value: unknown): string {
+	if (value === null || value === undefined) return "null";
+	if (Array.isArray(value)) {
+		return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
+	}
+	if (typeof value === "object") {
+		const obj = value as Record<string, unknown>;
+		const keys = Object.keys(obj).sort();
+		return `{${keys.map((k) => `${JSON.stringify(k)}:${stableSerialize(obj[k])}`).join(",")}}`;
+	}
+	return JSON.stringify(value);
+}
+
+function hashKey(value: string): string {
+	return createHash("sha256").update(value).digest("hex").slice(0, 32);
+}
+
+function buildIdempotencyKey(opts: {
+	dedupeMs: number;
+	dedupeScope: Record<string, unknown>;
+	primaryPlayerId?: string;
+	secondaryPlayerId?: string;
+}): string {
+	const windowBucket = Math.floor(Date.now() / opts.dedupeMs);
+	const serialized = stableSerialize({
+		windowBucket,
+		primaryPlayerId: opts.primaryPlayerId ?? null,
+		secondaryPlayerId: opts.secondaryPlayerId ?? null,
+		scope: opts.dedupeScope
+	});
+	return `${windowBucket}:${hashKey(serialized)}`;
+}
+
+async function claimCommentaryEvent(opts: {
+	lobbyId: string;
+	eventType: QuipType;
+	idempotencyKey: string;
+	sourceType?: string;
+	sourceId?: string;
+	metadata?: Record<string, unknown>;
+}): Promise<IdempotencyClaimResult> {
+	const supabase = getServerSupabase();
+	if (!supabase) return "unavailable";
+	const { data, error } = await supabase
+		.from("commentary_emitted")
+		.upsert({
+			lobby_id: opts.lobbyId,
+			event_type: opts.eventType,
+			idempotency_key: opts.idempotencyKey,
+			source_type: opts.sourceType ?? null,
+			source_id: opts.sourceId ?? null,
+			metadata: opts.metadata ?? {}
+		}, {
+			onConflict: "lobby_id,event_type,idempotency_key",
+			ignoreDuplicates: true
+		})
+		.select("id");
+	if (error) {
+		if (error.code === "42P01" || String(error.message || "").toLowerCase().includes("commentary_emitted")) {
+			return "unavailable";
+		}
+		throw error;
+	}
+	return (data && data.length > 0) ? "claimed" : "duplicate";
+}
+
+async function releaseCommentaryClaim(opts: {
+	lobbyId: string;
+	eventType: QuipType;
+	idempotencyKey: string;
+}) {
+	const supabase = getServerSupabase();
+	if (!supabase) return;
+	await supabase
+		.from("commentary_emitted")
+		.delete()
+		.eq("lobby_id", opts.lobbyId)
+		.eq("event_type", opts.eventType)
+		.eq("idempotency_key", opts.idempotencyKey);
+}
+
 async function insertQuipOnce(opts: {
 	lobbyId: string;
 	type: QuipType;
@@ -32,31 +116,70 @@ async function insertQuipOnce(opts: {
 	visibility?: 'feed'|'history'|'both';
 	dedupeMs?: number;
 	dedupeKey?: Record<string, any>;
-}) {
+}): Promise<boolean> {
 	const supabase = getServerSupabase();
-	if (!supabase) return;
+	if (!supabase) return false;
 	const dedupeMs = opts.dedupeMs ?? 6 * 60 * 60 * 1000;
-	const since = new Date(Date.now() - dedupeMs).toISOString();
-	let query = supabase
-		.from("comments")
-		.select("id,payload")
-		.eq("lobby_id", opts.lobbyId)
-		.eq("type", opts.type)
-		.eq("rendered", opts.rendered)
-		.gte("created_at", since)
-		.limit(1);
-	if (opts.primaryPlayerId) query = query.eq("primary_player_id", opts.primaryPlayerId);
-	if (opts.dedupeKey) query = query.contains("payload", opts.dedupeKey as any);
-	const { data: exists } = await query;
-	if (exists && exists.length) return;
-	await insertQuips(opts.lobbyId, [{
-		type: opts.type,
-		rendered: opts.rendered,
-		payload: opts.payload ?? {},
+	const dedupeScope = opts.dedupeKey ?? { rendered: opts.rendered };
+	const idempotencyKey = buildIdempotencyKey({
+		dedupeMs,
+		dedupeScope,
 		primaryPlayerId: opts.primaryPlayerId,
-		secondaryPlayerId: opts.secondaryPlayerId,
-		visibility: opts.visibility ?? "feed"
-	}]);
+		secondaryPlayerId: opts.secondaryPlayerId
+	});
+
+	const claim = await claimCommentaryEvent({
+		lobbyId: opts.lobbyId,
+		eventType: opts.type,
+		idempotencyKey,
+		sourceType: "insertQuipOnce",
+		metadata: {
+			primaryPlayerId: opts.primaryPlayerId ?? null,
+			secondaryPlayerId: opts.secondaryPlayerId ?? null,
+			dedupeScope
+		}
+	});
+	if (claim === "duplicate") return false;
+
+	if (claim === "unavailable") {
+		const since = new Date(Date.now() - dedupeMs).toISOString();
+		let query = supabase
+			.from("comments")
+			.select("id")
+			.eq("lobby_id", opts.lobbyId)
+			.eq("type", opts.type)
+			.gte("created_at", since)
+			.limit(1);
+		if (opts.primaryPlayerId) query = query.eq("primary_player_id", opts.primaryPlayerId);
+		if (opts.dedupeKey) {
+			query = query.contains("payload", opts.dedupeKey as any);
+		} else {
+			query = query.eq("rendered", opts.rendered);
+		}
+		const { data: exists } = await query;
+		if (exists && exists.length) return false;
+	}
+
+	try {
+		await insertQuips(opts.lobbyId, [{
+			type: opts.type,
+			rendered: opts.rendered,
+			payload: opts.payload ?? {},
+			primaryPlayerId: opts.primaryPlayerId,
+			secondaryPlayerId: opts.secondaryPlayerId,
+			visibility: opts.visibility ?? "feed"
+		}]);
+		return true;
+	} catch (err) {
+		if (claim === "claimed") {
+			await releaseCommentaryClaim({
+				lobbyId: opts.lobbyId,
+				eventType: opts.type,
+				idempotencyKey
+			});
+		}
+		throw err;
+	}
 }
 
 export function generateQuips(ctx: EngineContext): Quip[] {
@@ -145,7 +268,8 @@ async function insertQuips(lobbyId: string, quips: Quip[]) {
 		rendered,
 		visibility: q.visibility ?? "both"
 	}});
-	await supabase.from("comments").insert(rows).select("id");
+	const { error } = await supabase.from("comments").insert(rows).select("id");
+	if (error) throw error;
 }
 
 export async function onActivityLogged(lobbyId: string, activity: Activity): Promise<void> {
@@ -176,6 +300,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 		const hour = now.getHours();
 		const dayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 
+		// Deterministic hash helper for template selection
+		const pickTemplate = (tmpls: string[], seed: string) => {
+			const h = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+			return tmpls[h % tmpls.length];
+		};
+
 		// Time-of-day callouts (late-night / lunch)
 		if (hour >= 22 || hour < 5) {
 			const templates = [
@@ -186,11 +316,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
-				payload: { timeWindow: "late-night" },
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "late"),
+				payload: { timeWindow: "late-night", day: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 6 * 60 * 60 * 1000
+				dedupeMs: 6 * 60 * 60 * 1000,
+				dedupeKey: { timeWindow: "late-night", day: dayKey }
 			});
 		} else if (hour >= 11 && hour < 14) {
 			const templates = [
@@ -201,11 +332,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
-				payload: { timeWindow: "midday" },
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "mid"),
+				payload: { timeWindow: "midday", day: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 6 * 60 * 60 * 1000
+				dedupeMs: 6 * 60 * 60 * 1000,
+				dedupeKey: { timeWindow: "midday", day: dayKey }
 			});
 		}
 
@@ -228,11 +360,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "dbl"),
 				payload: { doubleHeaderDate: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 12 * 60 * 60 * 1000
+				dedupeMs: 12 * 60 * 60 * 1000,
+				dedupeKey: { doubleHeaderDate: dayKey }
 			});
 		}
 
@@ -259,11 +392,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + "streak3"),
 				payload: { streakDays: 3 },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000
+				dedupeMs: 24 * 60 * 60 * 1000,
+				dedupeKey: { streakDays: 3 }
 			});
 		}
 
@@ -282,11 +416,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 				await insertQuipOnce({
 					lobbyId,
 					type: "SUMMARY",
-					rendered: templates[Math.floor(Math.random() * templates.length)],
-					payload: { underdog: true },
+					rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "underdog"),
+					payload: { underdog: true, day: dayKey },
 					primaryPlayerId: activity.playerId,
 					visibility: "both",
-					dedupeMs: 12 * 60 * 60 * 1000
+					dedupeMs: 12 * 60 * 60 * 1000,
+					dedupeKey: { underdog: true, day: dayKey }
 				});
 			}
 		}
@@ -319,11 +454,12 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			await insertQuipOnce({
 				lobbyId,
 				type: "SUMMARY",
-				rendered: templates[Math.floor(Math.random() * templates.length)],
-				payload: { idleBreak: true },
+				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "idle"),
+				payload: { idleBreak: true, day: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000
+				dedupeMs: 24 * 60 * 60 * 1000,
+				dedupeKey: { idleBreak: true, day: dayKey }
 			});
 		}
 
@@ -337,7 +473,8 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 				payload: { weekend: true, day: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000
+				dedupeMs: 24 * 60 * 60 * 1000,
+				dedupeKey: { weekend: true, day: dayKey }
 			});
 		} else if (weekday === 1) {
 			await insertQuipOnce({
@@ -347,7 +484,8 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 				payload: { monday: true, day: dayKey },
 				primaryPlayerId: activity.playerId,
 				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000
+				dedupeMs: 24 * 60 * 60 * 1000,
+				dedupeKey: { monday: true, day: dayKey }
 			});
 		}
 
@@ -359,7 +497,8 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 			payload: { photoDay: dayKey },
 			primaryPlayerId: activity.playerId,
 			visibility: "feed",
-			dedupeMs: 24 * 60 * 60 * 1000
+			dedupeMs: 24 * 60 * 60 * 1000,
+			dedupeKey: { photoDay: dayKey }
 		});
 	} catch {
 		// best-effort flavor; ignore errors
@@ -373,21 +512,6 @@ export async function onVoteResolved(lobbyId: string, activity: Activity, status
 }
 
 export async function onHeartsChanged(lobbyId: string, playerId: string, delta: number, reason: string): Promise<void> {
-	const supabase = getServerSupabase();
-	if (supabase) {
-		// Dedupe so the same heart change reason isn't posted on every live poll
-		const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-		const { data: exists } = await supabase
-			.from("comments")
-			.select("id")
-			.eq("lobby_id", lobbyId)
-			.eq("type", "HEARTS")
-			.eq("primary_player_id", playerId)
-			.contains("payload", { delta, reason } as any)
-			.gte("created_at", since)
-			.limit(1);
-		if (exists && exists.length) return;
-	}
 	const lostTemplates = [
 		`Arena tax collected. {name} lost a heart. ${reason || ""}`.trim(),
 		`Ouch. {name} drops a heart — ${reason || "keep swinging"}`.trim(),
@@ -398,11 +522,12 @@ export async function onHeartsChanged(lobbyId: string, playerId: string, delta: 
 		`Refilled. {name} gains a heart and momentum.`,
 		`Second wind for {name}. Heart restored.`
 	];
-	const rendered = delta < 0
-		? lostTemplates[Math.floor(Math.random() * lostTemplates.length)]
-		: gainTemplates[Math.floor(Math.random() * gainTemplates.length)];
+	// Deterministic selection: hash playerId+reason so the same event always picks the same template
+	const hashSeed = (playerId + reason).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+	const templates = delta < 0 ? lostTemplates : gainTemplates;
+	const rendered = templates[hashSeed % templates.length];
 	// Stronger dedupe using insertQuipOnce to avoid races
-	await insertQuipOnce({
+	const inserted = await insertQuipOnce({
 		lobbyId,
 		type: "HEARTS",
 		rendered,
@@ -412,6 +537,7 @@ export async function onHeartsChanged(lobbyId: string, playerId: string, delta: 
 		dedupeMs: 7 * 24 * 60 * 60 * 1000,
 		dedupeKey: { delta, reason }
 	});
+	if (!inserted) return;
 
 	// Push: heart change
 	try {
@@ -431,8 +557,6 @@ export async function onWeeklyRollover(lobbyId: string): Promise<void> {
 export async function onPotChanged(lobbyId: string, delta: number, potOverride?: number): Promise<void> {
 	const supabase = getServerSupabase();
 	if (!supabase) return;
-	// Dedupe: if we already logged the same delta/pot recently, skip
-	const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 	let potVal = potOverride;
 	if (potVal === undefined) {
 		const { data: lobby } = await supabase.from("lobby").select("cash_pool").eq("id", lobbyId).maybeSingle();
@@ -440,28 +564,29 @@ export async function onPotChanged(lobbyId: string, delta: number, potOverride?:
 	}
 	potVal = Number(potVal ?? 0);
 	const renderedBase = `Ante collected. Pot climbs to $${potVal}`;
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("type", "POT")
-		.contains("payload", { delta, pot: potVal } as any)
-		.gte("created_at", since)
-		.limit(1);
-	if (exists && exists.length) return;
 	const receipts = ["🧾", "💸", "📜", "🏦"];
 	// Deterministic flair to keep dedupe stable
 	const flair = receipts[(Math.abs(Math.floor(potVal)) + receipts.length) % receipts.length];
-	await insertQuips(lobbyId, [{ type: "POT", rendered: `${renderedBase} ${flair}`, payload: { delta, pot: potVal }, visibility: "feed" } as Quip]);
+	const inserted = await insertQuipOnce({
+		lobbyId,
+		type: "POT",
+		rendered: `${renderedBase} ${flair}`,
+		payload: { delta, pot: potVal },
+		visibility: "feed",
+		dedupeMs: 7 * 24 * 60 * 60 * 1000,
+		dedupeKey: { delta, pot: potVal }
+	});
 
 	// Push: pot change alert to lobby
-	try {
-		await sendPushToLobby(lobbyId, {
-			title: "Pot climbed",
-			body: `${renderedBase}. Stakes rising.`,
-			url: `/lobby/${lobbyId}/history`
-		});
-	} catch { /* ignore */ }
+	if (inserted) {
+		try {
+			await sendPushToLobby(lobbyId, {
+				title: "Pot climbed",
+				body: `${renderedBase}. Stakes rising.`,
+				url: `/lobby/${lobbyId}/history`
+			});
+		} catch { /* ignore */ }
+	}
 
 	// Milestone shout-outs
 	const milestones = [50, 100, 250, 500];
@@ -472,13 +597,16 @@ export async function onPotChanged(lobbyId: string, delta: number, potOverride?:
 			`Arena kitty hits $${hit}. Stakes rising.`,
 			`Bank rolls to $${hit}. Gloves tighter.`
 		];
+		// Deterministic pick based on milestone value
+		const rendered = options[hit % options.length];
 		await insertQuipOnce({
 			lobbyId,
 			type: "SUMMARY",
-			rendered: options[Math.floor(Math.random() * options.length)],
+			rendered,
 			payload: { potMilestone: hit, pot: potVal },
 			visibility: "feed",
-			dedupeMs: 24 * 60 * 60 * 1000
+			dedupeMs: 24 * 60 * 60 * 1000,
+			dedupeKey: { potMilestone: hit }
 		});
 	}
 }
@@ -509,171 +637,133 @@ export async function onReadyChanged(lobbyId: string, playerId: string, ready: b
 }
 
 export async function onPunishmentResolved(lobbyId: string, playerId: string): Promise<void> {
-	const supabase = getServerSupabase();
-	if (!supabase) return;
 	const rendered = `{name} cleared a punishment ✅`;
-	// dedupe within 30 minutes per player
-	const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("primary_player_id", playerId)
-		.eq("rendered", rendered)
-		.gte("created_at", since)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: {}, primaryPlayerId: playerId, visibility: "feed" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: {},
+		primaryPlayerId: playerId,
+		visibility: "feed",
+		dedupeMs: 30 * 60 * 1000,
+		dedupeKey: { punishmentResolved: true }
+	});
 }
 
 export async function onAllReady(lobbyId: string): Promise<void> {
-	const supabase = getServerSupabase();
-	if (!supabase) return;
-	// dedupe within an hour
-	const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 	const rendered = `All athletes ready. Bell rings soon.`;
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("rendered", rendered)
-		.gte("created_at", since)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { type: "ALL_READY" }, visibility: "feed" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { type: "ALL_READY" },
+		visibility: "feed",
+		dedupeMs: 60 * 60 * 1000,
+		dedupeKey: { type: "ALL_READY" }
+	});
 }
 
 export async function onWeeklyReset(lobbyId: string, weekStartIso: string): Promise<void> {
-	const supabase = getServerSupabase();
-	if (!supabase) return;
 	const rendered = `The arena resets. New week begins.`;
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("rendered", rendered)
-		.contains("payload", { weekStart: weekStartIso } as any)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { type: "WEEK_RESET", weekStart: weekStartIso }, visibility: "feed" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { type: "WEEK_RESET", weekStart: weekStartIso },
+		visibility: "feed",
+		dedupeMs: 8 * 24 * 60 * 60 * 1000,
+		dedupeKey: { type: "WEEK_RESET", weekStart: weekStartIso }
+	});
 }
 
 export async function onStreakMilestone(lobbyId: string, playerId: string, streak: number): Promise<void> {
-	// Dedupe: skip if same milestone already recorded in last 24h
-	const supabase = getServerSupabase();
-	if (!supabase) return;
-	const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 	const rendered = `{name} hits ${streak}-day streak — pressure’s on.`;
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id").eq("lobby_id", lobbyId)
-		.eq("primary_player_id", playerId)
-		.eq("type", "SUMMARY")
-		.gte("created_at", since)
-		.eq("rendered", rendered)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { streak }, primaryPlayerId: playerId, visibility: "both" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { streak },
+		primaryPlayerId: playerId,
+		visibility: "both",
+		dedupeMs: 24 * 60 * 60 * 1000,
+		dedupeKey: { streakMilestone: streak }
+	});
 }
 
 export async function onGhostWeek(lobbyId: string, playerId: string, weekStart: string, weeklyTarget: number) {
-	const supabase = getServerSupabase();
-	if (!supabase) return;
 	const rendered = `Ghost week warning: {name} is 0/${weeklyTarget} so far.`;
-	const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("primary_player_id", playerId)
-		.eq("type", "SUMMARY")
-		.eq("rendered", rendered)
-		.contains("payload", { weekStart } as any)
-		.gte("created_at", since)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { weekStart, weeklyTarget }, primaryPlayerId: playerId, visibility: "both" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { weekStart, weeklyTarget },
+		primaryPlayerId: playerId,
+		visibility: "both",
+		dedupeMs: 48 * 60 * 60 * 1000,
+		dedupeKey: { ghostWeek: weekStart, weeklyTarget }
+	});
 }
 
-export async function onPerfectWeek(lobbyId: string, playerId: string, workouts: number) {
-	const supabase = getServerSupabase();
-	if (!supabase) return;
+export async function onPerfectWeek(lobbyId: string, playerId: string, workouts: number, weekStart?: string) {
 	const rendered = `Perfect week badge: {name} went ${workouts}/${workouts}.`;
-	const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("primary_player_id", playerId)
-		.eq("type", "SUMMARY")
-		.eq("rendered", rendered)
-		.gte("created_at", since)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { perfectWeek: workouts }, primaryPlayerId: playerId, visibility: "both" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { perfectWeek: workouts, weekStart: weekStart ?? null },
+		primaryPlayerId: playerId,
+		visibility: "both",
+		dedupeMs: 8 * 24 * 60 * 60 * 1000,
+		dedupeKey: { perfectWeek: workouts, weekStart: weekStart ?? null }
+	});
 }
 
 export async function onWeeklyHype(lobbyId: string, players: Array<{ id: string; name?: string | null }>, weeklyTarget: number) {
 	if (!players.length) return;
-	const supabase = getServerSupabase();
-	if (!supabase) return;
 	const names = players.map(p => p.name || "Athlete").slice(0, 3).join(" • ");
 	const rendered = `Weekly hype: ${names} need 1 more to hit ${weeklyTarget}.`;
-	const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("type", "SUMMARY")
-		.eq("rendered", rendered)
-		.gte("created_at", since)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { hype: true }, visibility: "both" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { hype: true, weeklyTarget, players: players.map((p) => p.id) },
+		visibility: "both",
+		dedupeMs: 24 * 60 * 60 * 1000,
+		dedupeKey: { hype: true, weeklyTarget, players: players.map((p) => p.id).sort() }
+	});
 }
 
 export async function onTightRace(lobbyId: string, playerNames: string[], pot: number) {
 	if (playerNames.length < 2) return;
-	const supabase = getServerSupabase();
-	if (!supabase) return;
 	const names = playerNames.slice(0, 3).join(" • ");
 	const rendered = `Tight race: ${names} tied on hearts with a $${pot} pot.`;
-	const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("type", "SUMMARY")
-		.eq("rendered", rendered)
-		.gte("created_at", since)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { tightRace: true, pot }, visibility: "feed" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { tightRace: true, pot, names: playerNames.slice(0, 3) },
+		visibility: "feed",
+		dedupeMs: 12 * 60 * 60 * 1000,
+		dedupeKey: { tightRace: true, pot, names: playerNames.slice(0, 3).sort() }
+	});
 }
 
-export async function onDailyReminder(lobbyId: string, playerId: string, playerName: string): Promise<void> {
-	// Check if we've already sent a reminder today (within last 24 hours)
+export async function onDailyReminder(lobbyId: string, playerId: string, playerName: string, dayKey?: string): Promise<void> {
 	const supabase = getServerSupabase();
 	if (!supabase) return;
-	const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+	const resolvedDayKey = dayKey ?? new Date().toISOString().slice(0, 10);
 	const rendered = `{name} hasn't logged an activity today — time to move 💪`;
-	const { data: exists } = await supabase
-		.from("comments")
-		.select("id")
-		.eq("lobby_id", lobbyId)
-		.eq("primary_player_id", playerId)
-		.eq("type", "SUMMARY")
-		.gte("created_at", since)
-		.eq("rendered", rendered)
-		.limit(1);
-	if (exists && exists.length) return;
-	await insertQuips(lobbyId, [{ 
-		type: "SUMMARY", 
-			rendered: rendered.replace("{name}", playerName), 
-			payload: { reminder: true }, 
-			primaryPlayerId: playerId, 
-			visibility: "both" 
-		}]);
+	const inserted = await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { reminder: true, day: resolvedDayKey },
+		primaryPlayerId: playerId,
+		visibility: "both",
+		dedupeMs: 24 * 60 * 60 * 1000,
+		dedupeKey: { reminder: true, day: resolvedDayKey }
+	});
+	if (!inserted) return;
 
 	// Push: nudge the player only
 	try {
@@ -707,7 +797,16 @@ export async function onStreakPR(lobbyId: string, playerId: string, streak: numb
 	const prevStreak = Number(prior?.[0]?.payload?.streak || 0);
 	if (prevStreak >= streak) return;
 	const rendered = `New PR streak for {name}: ${streak} days 🔥`;
-	await insertQuips(lobbyId, [{ type: "SUMMARY", rendered, payload: { streak }, primaryPlayerId: playerId, visibility: "both" }]);
+	await insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: { streak },
+		primaryPlayerId: playerId,
+		visibility: "both",
+		dedupeMs: 365 * 24 * 60 * 60 * 1000,
+		dedupeKey: { streakPR: streak }
+	});
 }
 
 // Social coincidence helpers
@@ -755,7 +854,9 @@ export async function onRivalryPulse(lobbyId: string, playerIdA: string, playerI
 			"{a} and {b} keep trading blows within minutes.",
 			"Smells like a duel — {a} and {b} stay neck and neck."
 		];
-		const rendered = renderedOptions[Math.floor(Math.random() * renderedOptions.length)];
+		// Deterministic pick from rivalry key
+		const keyHash = key.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+		const rendered = renderedOptions[keyHash % renderedOptions.length];
 		const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
 		const { data: exists } = await supabase
 			.from("comments")

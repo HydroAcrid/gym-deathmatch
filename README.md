@@ -20,6 +20,46 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Commentary Cron Jobs
+
+The commentary system now runs scheduled jobs through:
+
+- `POST /api/cron/commentary/daily`
+- `POST /api/cron/commentary/weekly`
+- `POST /api/cron/roulette/weekly`
+
+All routes require:
+
+- `Authorization: Bearer <CRON_SECRET>`
+
+Environment:
+
+- Set `CRON_SECRET` in your deployment environment.
+- If `CRON_SECRET` is not set, routes fall back to `ADMIN_SECRET`.
+
+Vercel schedule:
+
+- `vercel.json` includes:
+  - `roulette weekly` daily at 19:00 UTC (`0 19 * * *`)
+  - `weekly` commentary job daily at 20:30 UTC (`30 20 * * *`) with internal weekday gating
+  - `daily` job at 20:00 UTC (`0 20 * * *`)
+
+Manual run examples:
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://<your-domain>/api/cron/commentary/daily
+
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  "https://<your-domain>/api/cron/commentary/weekly?lobbyId=<lobby-id>"
+
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  "https://<your-domain>/api/cron/roulette/weekly?lobbyId=<lobby-id>"
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

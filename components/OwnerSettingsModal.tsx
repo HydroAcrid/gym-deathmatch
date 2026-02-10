@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
 import { ChallengeSettingsCard } from "./ChallengeSettingsCard";
 import type { ChallengeSettings } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
-import { useAuth } from "./AuthProvider";
+import { authFetch } from "@/lib/clientAuth";
 
 export function OwnerSettingsModal({
 	lobbyId,
@@ -53,13 +54,26 @@ export function OwnerSettingsModal({
 	const [seasonEnd, setSeasonEnd] = useState<string>(initialEnd);
 	const [saving, setSaving] = useState(false);
 	const toast = useToast();
-	const { user } = useAuth();
 	const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
 	const [removeId, setRemoveId] = useState<string>("");
 	const [newOwnerId, setNewOwnerId] = useState<string>("");
 	const [confirmName, setConfirmName] = useState<string>("");
 	const [infoOpen, setInfoOpen] = useState(false);
 	const [challengeSettings, setChallengeSettings] = useState<ChallengeSettings | null>(null);
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	useEffect(() => {
+		if (!open || typeof document === "undefined") return;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			document.body.style.overflow = previousOverflow;
+		};
+	}, [open]);
 
 	// Allow external control
 	useEffect(() => {
@@ -89,7 +103,7 @@ export function OwnerSettingsModal({
 	useEffect(() => {
 		(async () => {
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/mode`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/mode`, { cache: "no-store" });
 				if (res.ok) {
 					const j = await res.json();
 					if (j?.mode) setMode(j.mode);
@@ -109,7 +123,7 @@ export function OwnerSettingsModal({
 				const newSeasonEnd = new Date(seasonEnd).toISOString();
 				
 				// First update settings, then start next season
-				await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
+				await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -127,7 +141,7 @@ export function OwnerSettingsModal({
 				});
 				
 				// Then start next season
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/season/next`, {
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/season/next`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -149,7 +163,7 @@ export function OwnerSettingsModal({
 			}
 			
 			// Normal settings update
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -183,7 +197,7 @@ export function OwnerSettingsModal({
 		if (!open) return;
 		(async () => {
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 				const data = await res.json();
 				const p = (data?.lobby?.players ?? []).map((x: any) => ({ id: x.id, name: x.name }));
 				setPlayers(p);
@@ -206,18 +220,16 @@ export function OwnerSettingsModal({
 
 	async function removePlayer() {
 		if (!removeId) return;
-		if (!ownerPlayerId) {
-			toast.push("Owner identity unavailable");
-			return;
-		}
 		// owner path requires ownerPlayerId; admin path uses header
 		const headers: any = { "Content-Type": "application/json", ...(await adminHeaders()) };
 		const isAdmin = !!headers.Authorization;
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}/player/${encodeURIComponent(removeId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}/players/${encodeURIComponent(removeId)}`;
-		const body = isAdmin ? undefined : JSON.stringify({ ownerPlayerId });
-		const res = await fetch(url, { method: "DELETE", headers, body });
+		const body = undefined;
+		const res = isAdmin
+			? await fetch(url, { method: "DELETE", headers, body })
+			: await authFetch(url, { method: "DELETE", headers: { "Content-Type": "application/json" } });
 		if (res.ok) {
 			toast.push("Player removed");
 			onSaved();
@@ -233,11 +245,10 @@ export function OwnerSettingsModal({
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}`;
-		const body = isAdmin ? undefined : JSON.stringify({
-			ownerPlayerId: ownerPlayerId || "",
-			userId: user?.id || undefined
-		});
-		const res = await fetch(url, { method: "DELETE", headers, body });
+		const body = undefined;
+		const res = isAdmin
+			? await fetch(url, { method: "DELETE", headers, body })
+			: await authFetch(url, { method: "DELETE", headers: { "Content-Type": "application/json" } });
 		if (res.ok) {
 			toast.push("Lobby deleted");
 			window.location.href = "/lobbies";
@@ -248,15 +259,10 @@ export function OwnerSettingsModal({
 
 	async function transferOwner() {
 		if (!newOwnerId) return;
-		if (!ownerPlayerId) {
-			toast.push("Owner identity unavailable");
-			return;
-		}
-		const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/owner`, {
+		const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/owner`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				ownerPlayerId,
 				newOwnerPlayerId: newOwnerId
 			})
 		});
@@ -282,39 +288,53 @@ export function OwnerSettingsModal({
 					</svg>
 				</button>
 			)}
-			<AnimatePresence>
-				{open && (
-					<motion.div className="overlay-below-nav z-50 flex items-start justify-center p-0 sm:p-6 bg-black/70"
-						initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-						<motion.div
-							role="dialog"
-							aria-modal="true"
-							className="ui-panel relative w-full sm:max-w-5xl h-full rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
-							initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}>
-							<header className="sticky top-0 z-10 ui-panel px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3">
+			{mounted
+				? createPortal(
+					<AnimatePresence>
+						{open && (
+							<motion.div
+								className="fixed inset-0 z-[150] flex items-start sm:items-center justify-center p-0 sm:p-6 bg-black/80 backdrop-blur-sm"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								onClick={() => {
+									setOpen(false);
+									onClose?.();
+								}}
+							>
+								<motion.div
+									role="dialog"
+									aria-modal="true"
+									className="scoreboard-panel relative w-full sm:max-w-5xl h-[100dvh] sm:h-[85vh] rounded-none sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+									initial={{ scale: 0.96, opacity: 0 }}
+									animate={{ scale: 1, opacity: 1 }}
+									exit={{ scale: 0.96, opacity: 0 }}
+									onClick={(e) => e.stopPropagation()}
+								>
+									<header className="sticky top-0 z-10 bg-card border-2 border-border px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 border-b flex items-center justify-between gap-3">
 								<div className="min-w-0">
-									<h2 className="poster-headline text-lg sm:text-xl tracking-wide truncate">Edit Lobby</h2>
-									<p className="ui-panel-muted text-xs sm:text-sm truncate">Adjust dates, mode, pot, and challenge options</p>
+									<h2 className="font-display tracking-widest text-primary text-lg sm:text-xl tracking-wide truncate">Edit Lobby</h2>
+									<p className="text-muted-foreground text-xs sm:text-sm truncate">Adjust dates, mode, pot, and challenge options</p>
 								</div>
 								<div className="shrink-0 flex items-center gap-2">
 									<button
-										className="h-9 w-9 rounded-md border border-deepBrown/30 flex items-center justify-center"
+										className="h-9 w-9 rounded-md border border-border flex items-center justify-center"
 										aria-label="Help"
 										onClick={() => setInfoOpen(true)}
 										title="Lobby Info"
 									>
 										<span className="text-base leading-none">?</span>
 									</button>
-									<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
-									<button className="btn-vintage px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
+									<button className="px-3 py-2 rounded-md border border-border text-xs" onClick={() => { setOpen(false); onClose?.(); }}>Cancel</button>
+									<button className="arena-badge arena-badge-primary px-3 py-2 rounded-md text-xs" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
 								</div>
 							</header>
-							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
+							<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+8rem)] sm:pb-6 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
 								<div>
 									{/* Basic Info */}
 									<div className="mb-4">
-										<div className="poster-headline text-sm mb-2">BASIC INFO</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">BASIC INFO</div>
 										<div className="grid gap-3">
 											<label className="text-xs">
 												<span className="block mb-1">Weekly target</span>
@@ -330,7 +350,7 @@ export function OwnerSettingsModal({
 									</div>
 									{/* Season Timing */}
 									<div className="mb-4">
-										<div className="poster-headline text-sm mb-2">SEASON TIMING</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">SEASON TIMING</div>
 										<div className="grid gap-3">
 											<label className="text-xs">
 												<span className="block mb-1">Season start (local)</span>
@@ -348,9 +368,9 @@ export function OwnerSettingsModal({
 								<div>
 									{/* Pot & Ante */}
 									<div className="mb-4">
-										<div className="poster-headline text-sm mb-2">POT & ANTE</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">POT & ANTE</div>
 										{String(mode).startsWith("CHALLENGE_") && (
-											<div className="text-[11px] text-deepBrown/60 mb-1 flex items-center gap-1">
+											<div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
 												<span>🔒</span>
 												<span>Disabled in Challenge modes</span>
 											</div>
@@ -382,13 +402,13 @@ export function OwnerSettingsModal({
 									</div>
 									{/* Stage controls */}
 									<div className="mt-4">
-										<div className="poster-headline text-sm mb-2">STAGE CONTROLS</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">STAGE CONTROLS</div>
 										<div className="grid sm:grid-cols-3 gap-2">
 											<button
-												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Return to pre-stage (waiting room)"
 												onClick={async () => {
-													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 														method: "PATCH",
 														headers: { "Content-Type": "application/json" },
 														body: JSON.stringify({ status: "pending", scheduledStart: null })
@@ -401,10 +421,10 @@ export function OwnerSettingsModal({
 												Set to Pre-Stage
 											</button>
 											<button
-												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Begin now"
 												onClick={async () => {
-													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 														method: "PATCH",
 														headers: { "Content-Type": "application/json" },
 														body: JSON.stringify({ startNow: true })
@@ -417,10 +437,10 @@ export function OwnerSettingsModal({
 												Start now
 											</button>
 											<button
-												className="btn-secondary px-3 py-2 rounded-md text-xs"
+												className="arena-badge px-3 py-2 rounded-md text-xs"
 												title="Mark season completed"
 												onClick={async () => {
-													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+														await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 														method: "PATCH",
 														headers: { "Content-Type": "application/json" },
 														body: JSON.stringify({ status: "completed" })
@@ -436,12 +456,12 @@ export function OwnerSettingsModal({
 									</div>
 									{/* Mode */}
 									<div className="mt-6">
-										<div className="poster-headline text-sm mb-2">GAME MODE</div>
+										<div className="font-display tracking-widest text-primary text-sm mb-2">GAME MODE</div>
 										<div className="grid gap-3">
 											<label className="text-xs">
 												<span className="block mb-1">Mode</span>
 												<select
-													className="ui-select w-full h-10 px-3 rounded-md"
+													className="bg-input border border-border text-foreground w-full h-10 px-3 rounded-md"
 													value={mode}
 													onChange={e => setMode(e.target.value as any)}
 												>
@@ -456,7 +476,7 @@ export function OwnerSettingsModal({
 												<span>Allow Sudden Death revive (1 heart, cannot win pot)</span>
 											</label>
 											{String(mode).startsWith("CHALLENGE_") && (
-												<div className="ui-panel rounded-xl p-4 border">
+												<div className="scoreboard-panel rounded-xl p-4 border">
 													<ChallengeSettingsCard mode={mode as any} value={(challengeSettings as any) ?? { selection: "ROULETTE", spinFrequency: "WEEKLY", visibility: "PUBLIC", stackPunishments: false, allowSuggestions: true, requireLockBeforeSpin: true, autoSpinAtWeekStart: false, showLeaderboard: true, profanityFilter: true, suggestionCharLimit: 50 }} onChange={setChallengeSettings as any} />
 												</div>
 											)}
@@ -466,28 +486,28 @@ export function OwnerSettingsModal({
 							</div>
 							{/* Danger zone */}
 							<div className="mt-6 md:mt-8 md:col-span-2">
-								<div className="poster-headline text-sm mb-2">DANGER ZONE</div>
+								<div className="font-display tracking-widest text-primary text-sm mb-2">DANGER ZONE</div>
 								<div className="grid gap-3">
 									<div className="border border-strong rounded-md p-3">
 										<div className="text-xs mb-2">Remove player</div>
-										<select className="ui-select w-full h-10 px-3 rounded-md"
+										<select className="bg-input border border-border text-foreground w-full h-10 px-3 rounded-md"
 											value={removeId} onChange={e => setRemoveId(e.target.value)}>
 											<option value="">Select player</option>
 											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
 										</select>
 										<div className="mt-2 flex justify-end">
-											<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={removePlayer}>Remove</button>
+											<button className="arena-badge px-3 py-2 rounded-md text-xs" onClick={removePlayer}>Remove</button>
 										</div>
 									</div>
 									<div className="border border-strong rounded-md p-3">
 										<div className="text-xs mb-2">Transfer ownership</div>
-										<select className="ui-select w-full h-10 px-3 rounded-md"
+										<select className="bg-input border border-border text-foreground w-full h-10 px-3 rounded-md"
 											value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)}>
 											<option value="">Select new owner</option>
 											{players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
 										</select>
 										<div className="mt-2 flex justify-end">
-											<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={transferOwner}>Transfer</button>
+											<button className="arena-badge px-3 py-2 rounded-md text-xs" onClick={transferOwner}>Transfer</button>
 										</div>
 									</div>
 									<div className="border border-strong rounded-md p-3">
@@ -495,7 +515,7 @@ export function OwnerSettingsModal({
 										<input className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main" placeholder="Type lobby name exactly"
 											value={confirmName} onChange={e => setConfirmName(e.target.value)} />
 										<div className="mt-2 flex justify-end">
-											<button className="btn-vintage px-3 py-2 rounded-md text-xs"
+											<button className="arena-badge arena-badge-primary px-3 py-2 rounded-md text-xs"
 												onClick={deleteLobby}
 												disabled={confirmName.trim().length === 0}>
 												Delete Lobby
@@ -505,7 +525,7 @@ export function OwnerSettingsModal({
 									<button
 										className="px-3 py-2 rounded-md border border-strong text-xs"
 										onClick={async () => {
-											await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
+												await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/stage`, {
 												method: "PATCH",
 												headers: { "Content-Type": "application/json" },
 												body: JSON.stringify({ status: "pending", scheduledStart: null })
@@ -520,11 +540,14 @@ export function OwnerSettingsModal({
 								</div>
 							</div>
 							</div>
-						</motion.div>
-						<CreateLobbyInfo open={infoOpen} onClose={() => setInfoOpen(false)} />
-					</motion.div>
-				)}
-			</AnimatePresence>
+								</motion.div>
+								<CreateLobbyInfo open={infoOpen} onClose={() => setInfoOpen(false)} />
+							</motion.div>
+						)}
+					</AnimatePresence>,
+					document.body
+				)
+				: null}
 		</>
 	);
 }

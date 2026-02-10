@@ -8,11 +8,11 @@ export function AuthButtons() {
 		<div className="flex items-center gap-2">
 			{user ? (
 				<>
-					<span className="text-[11px] text-deepBrown/70">{user.email}</span>
-					<button className="px-2 py-1 rounded-md border border-deepBrown/30 text-[11px]" onClick={signOut}>Sign out</button>
+					<span className="text-[11px] text-muted-foreground">{user.email}</span>
+					<button className="arena-badge px-2 py-1 text-[11px]" onClick={signOut}>Sign out</button>
 				</>
 			) : (
-				<button className="px-2 py-1 rounded-md border border-deepBrown/30 text-[11px]" onClick={signInWithGoogle}>Sign in</button>
+				<button className="arena-badge px-2 py-1 text-[11px]" onClick={signInWithGoogle}>Sign in</button>
 			)}
 		</div>
 	);

@@ -1,5 +1,8 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Button } from "@/src/ui2/ui/button";
+import { authFetch } from "@/lib/clientAuth";
 
 type Contribution = { week_start: string; amount: number; player_count: number };
 type EventRow = { id: string; type: string; payload: any; created_at: string; target_player_id?: string | null };
@@ -43,95 +46,103 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 	const loserName = ko ? (players.find(p => p.id === (ko.payload?.loserPlayerId || ""))?.name || "Player") : "";
 
 	return (
-		<div className="mx-auto max-w-5xl">
-			<div className="paper-card paper-grain ink-edge p-5 mb-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-				<div className="poster-headline text-lg">SEASON {seasonNumber} SUMMARY</div>
-				<div className="text-sm text-deepBrown/80">Lobby: {lobbyId}</div>
-			</div>
-			<div className="grid md:grid-cols-3 gap-4">
-				<div className="paper-card paper-grain ink-edge p-5">
-					<div className="poster-headline text-base mb-2">Final Pot</div>
-					<div className="poster-headline text-3xl">${finalPot}</div>
-					<div className="text-xs text-deepBrown/70 mt-1">Initial: ${initialPot} · Contributions: ${totalContribs}</div>
-				</div>
-				<div className="paper-card paper-grain ink-edge p-5 md:col-span-2">
-					<div className="poster-headline text-base mb-2">Weekly Contributions</div>
-					<div className="space-y-1 text-sm">
-						{contribs.map(c => (
-							<div key={c.week_start} className="flex justify-between bg-cream/80 border border-deepBrown/20 rounded-md px-3 py-2">
-								<div>{new Date(c.week_start).toLocaleDateString()}</div>
-								<div>${c.amount} · {c.player_count} players</div>
-							</div>
-						))}
-						{contribs.length === 0 && <div className="text-deepBrown/70 text-sm">No contributions logged yet.</div>}
+		<div className="min-h-screen">
+			<div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+				<div className="scoreboard-panel p-5 text-center relative overflow-hidden">
+					<div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
+					<div className="relative z-10 space-y-1">
+						<div className="font-display text-lg tracking-widest text-primary">SEASON {seasonNumber} SUMMARY</div>
+						<div className="text-sm text-muted-foreground">Lobby: {lobbyId}</div>
 					</div>
 				</div>
-			</div>
 
-			<div className="paper-card paper-grain ink-edge p-5 mt-6">
-				<div className="poster-headline text-base mb-2">KO</div>
-				{ko ? (
-					<div className="flex items-center gap-3">
-						<div className="h-12 w-12 rounded-md overflow-hidden bg-tan border border-deepBrown/30">
-							{players.find(p => p.id === ko.target_player_id)?.avatar_url
-								? <img src={players.find(p => p.id === ko.target_player_id)?.avatar_url as string} alt="" className="h-full w-full object-cover" />
-								: <div className="h-full w-full flex items-center justify-center text-2xl">💀</div>}
-						</div>
-						<div className="text-sm">
-							<span className="font-semibold">{loserName}</span> was KO’d · Pot at KO: ${ko.payload?.currentPot ?? finalPot}
-						</div>
-						<div className="text-xs text-deepBrown/70 ml-auto">{new Date(ko.created_at).toLocaleString()}</div>
+				<div className="grid md:grid-cols-3 gap-4">
+					<div className="scoreboard-panel p-5 text-center">
+						<div className="text-xs text-muted-foreground">FINAL POT</div>
+						<div className="font-display text-3xl text-arena-gold">${finalPot}</div>
+						<div className="text-xs text-muted-foreground mt-1">Initial: ${initialPot} · Contributions: ${totalContribs}</div>
 					</div>
-				) : (
-					<div className="text-deepBrown/70 text-sm">No KO recorded yet.</div>
-				)}
-			</div>
-
-			<div className="paper-card paper-grain ink-edge p-5 mt-6">
-				<div className="poster-headline text-base mb-2">Cumulative Punishments</div>
-				{userPuns.length ? (
-					<div className="space-y-2">
-						{players.map(pl => {
-							const list = userPuns.filter(u => u.user_id === (pl.user_id || "")) || [];
-							if (!list.length) return null;
-							const unresolved = list.filter(u => !u.resolved);
-							return (
-								<div key={pl.id}>
-									<div className="font-semibold mb-1">{pl.name}</div>
-									<ul className="list-disc pl-5 text-sm">
-										{list.map(u => <li key={u.id}>Week {u.week}: “{u.text}” {u.resolved ? "✅" : "⚠️"}</li>)}
-									</ul>
-									{unresolved.length > 0 && (
-										<div className="mt-1">
-											<button
-												className="px-3 py-1.5 rounded-md border border-deepBrown/30 text-xs"
-												onClick={async () => {
-													await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments/resolve-all`, {
-														method: "POST",
-														headers: { "Content-Type": "application/json" },
-														body: JSON.stringify({ userId: pl.user_id })
-													});
-													window.location.reload();
-												}}
-											>
-												Resolve all ({unresolved.length})
-											</button>
-										</div>
-									)}
+					<div className="scoreboard-panel p-5 md:col-span-2">
+						<div className="font-display text-base tracking-widest text-primary mb-2">WEEKLY CONTRIBUTIONS</div>
+						<div className="space-y-2 text-sm">
+							{contribs.map(c => (
+								<div key={c.week_start} className="flex justify-between bg-muted/30 border border-border px-3 py-2">
+									<div>{new Date(c.week_start).toLocaleDateString()}</div>
+									<div>${c.amount} · {c.player_count} players</div>
 								</div>
-							);
-						})}
+							))}
+							{contribs.length === 0 && <div className="text-muted-foreground text-sm">No contributions logged yet.</div>}
+						</div>
 					</div>
-				) : (
-					<div className="text-deepBrown/70 text-sm">No punishments recorded.</div>
-				)}
-			</div>
+				</div>
 
-			<div className="mt-6">
-				<a href={`/lobby/${encodeURIComponent(lobbyId)}`} className="btn-vintage px-4 py-2 rounded-md text-xs">Back to Lobby</a>
+				<div className="scoreboard-panel p-5">
+					<div className="font-display text-base tracking-widest text-primary mb-2">KO</div>
+					{ko ? (
+						<div className="flex items-center gap-3">
+							<div className="h-12 w-12 overflow-hidden bg-muted border border-border flex items-center justify-center">
+								{players.find(p => p.id === ko.target_player_id)?.avatar_url
+									? <img src={players.find(p => p.id === ko.target_player_id)?.avatar_url as string} alt="" className="h-full w-full object-cover" />
+									: <div className="h-full w-full flex items-center justify-center text-2xl">💀</div>}
+							</div>
+							<div className="text-sm">
+								<span className="font-display text-primary">{loserName}</span> was KO’d · Pot at KO: ${ko.payload?.currentPot ?? finalPot}
+							</div>
+							<div className="text-xs text-muted-foreground ml-auto">{new Date(ko.created_at).toLocaleString()}</div>
+						</div>
+					) : (
+						<div className="text-muted-foreground text-sm">No KO recorded yet.</div>
+					)}
+				</div>
+
+				<div className="scoreboard-panel p-5">
+					<div className="font-display text-base tracking-widest text-primary mb-2">CUMULATIVE PUNISHMENTS</div>
+					{userPuns.length ? (
+						<div className="space-y-2">
+							{players.map(pl => {
+								const list = userPuns.filter(u => u.user_id === (pl.user_id || "")) || [];
+								if (!list.length) return null;
+								const unresolved = list.filter(u => !u.resolved);
+								return (
+									<div key={pl.id}>
+										<div className="font-display text-foreground mb-1">{pl.name}</div>
+										<ul className="list-disc pl-5 text-sm text-muted-foreground">
+											{list.map(u => <li key={u.id}>Week {u.week}: “{u.text}” {u.resolved ? "✅" : "⚠️"}</li>)}
+										</ul>
+										{unresolved.length > 0 && (
+											<div className="mt-2">
+												<Button
+													variant="outline"
+													size="sm"
+														onClick={async () => {
+															await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments/resolve-all`, {
+																method: "POST",
+																headers: { "Content-Type": "application/json" },
+																body: JSON.stringify({ userId: pl.user_id })
+														});
+														window.location.reload();
+													}}
+												>
+													Resolve all ({unresolved.length})
+												</Button>
+											</div>
+										)}
+									</div>
+								);
+							})}
+						</div>
+					) : (
+						<div className="text-muted-foreground text-sm">No punishments recorded.</div>
+					)}
+				</div>
+
+				<div>
+					<Link href={`/lobby/${encodeURIComponent(lobbyId)}`}>
+						<Button variant="arenaPrimary" size="sm">Back to Lobby</Button>
+					</Link>
+				</div>
 			</div>
 		</div>
 	);
 }
-
 

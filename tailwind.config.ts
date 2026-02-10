@@ -1,29 +1,127 @@
 import type { Config } from "tailwindcss";
 
 export default {
-	content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./data/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
+	darkMode: ["class", ".dark"],
+	content: [
+		"./app/**/*.{ts,tsx}",
+		"./components/**/*.{ts,tsx}",
+		"./data/**/*.{ts,tsx}",
+		"./lib/**/*.{ts,tsx}",
+		"./src/**/*.{ts,tsx}"
+	],
 	theme: {
 		extend: {
 			colors: {
-				cream: "#1E1714",       // dark cream (background)
-				tan: "#2B211D",         // dark tan (cards)
-				burntOrange: "#E1542A", // accent
-				deepBrown: "#F5E7D3",   // light text on dark surfaces
-				mutedTeal: "#7FA39A",   // secondary accent
-				neonBlue: "#00FFFF",
-				neonPink: "#FF00FF",
-				neonPurple: "#A020F0",
-				darkBg: "#0B002B",
-				magentaGlow: "#E4007C"
+				/* Legacy names → arena palette */
+				cream: "hsl(var(--card))",
+				tan: "hsl(var(--muted))",
+				burntOrange: "hsl(var(--primary))",
+				deepBrown: "hsl(var(--muted-foreground))",
+				border: "hsl(var(--border))",
+				input: "hsl(var(--input))",
+				ring: "hsl(var(--ring))",
+				background: "hsl(var(--background))",
+				foreground: "hsl(var(--foreground))",
+				primary: {
+					DEFAULT: "hsl(var(--primary))",
+					foreground: "hsl(var(--primary-foreground))",
+				},
+				secondary: {
+					DEFAULT: "hsl(var(--secondary))",
+					foreground: "hsl(var(--secondary-foreground))",
+				},
+				destructive: {
+					DEFAULT: "hsl(var(--destructive))",
+					foreground: "hsl(var(--destructive-foreground))",
+				},
+				muted: {
+					DEFAULT: "hsl(var(--muted))",
+					foreground: "hsl(var(--muted-foreground))",
+				},
+				accent: {
+					DEFAULT: "hsl(var(--accent))",
+					foreground: "hsl(var(--accent-foreground))",
+				},
+				popover: {
+					DEFAULT: "hsl(var(--popover))",
+					foreground: "hsl(var(--popover-foreground))",
+				},
+				card: {
+					DEFAULT: "hsl(var(--card))",
+					foreground: "hsl(var(--card-foreground))",
+				},
+				arena: {
+					gold: "hsl(var(--arena-gold))",
+					"gold-foreground": "hsl(var(--arena-gold-foreground))",
+				},
+				status: {
+					online: "hsl(var(--status-online))",
+					offline: "hsl(var(--status-offline))",
+					active: "hsl(var(--status-active))",
+				},
+				sidebar: {
+					DEFAULT: "hsl(var(--sidebar-background))",
+					foreground: "hsl(var(--sidebar-foreground))",
+					primary: "hsl(var(--sidebar-primary))",
+					"primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+					accent: "hsl(var(--sidebar-accent))",
+					"accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+					border: "hsl(var(--sidebar-border))",
+					ring: "hsl(var(--sidebar-ring))",
+				},
 			},
 			boxShadow: {
 				"glow-cyan": "0 0 15px #00FFFF",
 				"glow-pink": "0 0 15px #FF00FF",
 				"glow-purple": "0 0 20px #A020F0"
+			},
+			fontFamily: {
+				display: ["Oswald", "sans-serif"],
+				mono: ["Space Mono", "monospace"],
+			},
+			borderRadius: {
+				lg: "var(--radius)",
+				md: "calc(var(--radius) - 2px)",
+				sm: "calc(var(--radius) - 4px)",
+			},
+			keyframes: {
+				"accordion-down": {
+					from: { height: "0" },
+					to: { height: "var(--radix-accordion-content-height)" },
+				},
+				"accordion-up": {
+					from: { height: "var(--radix-accordion-content-height)" },
+					to: { height: "0" },
+				},
+				"pulse-glow": {
+					"0%, 100%": {
+						opacity: "1",
+						boxShadow: "0 0 8px hsl(var(--status-active) / 0.6)",
+					},
+					"50%": {
+						opacity: "0.7",
+						boxShadow: "0 0 16px hsl(var(--status-active) / 0.8)",
+					},
+				},
+				"countdown-tick": {
+					"0%, 100%": { transform: "scale(1)" },
+					"50%": { transform: "scale(1.02)" },
+				},
+				"feed-slide": {
+					from: { opacity: "0", transform: "translateX(-10px)" },
+					to: { opacity: "1", transform: "translateX(0)" },
+				},
+			},
+			animation: {
+				"accordion-down": "accordion-down 0.2s ease-out",
+				"accordion-up": "accordion-up 0.2s ease-out",
+				"pulse-glow": "pulse-glow 2s ease-in-out infinite",
+				"countdown-tick": "countdown-tick 1s ease-in-out infinite",
+				"feed-slide": "feed-slide 0.3s ease-out",
 			}
 		}
 	},
-	plugins: []
+	plugins: [require("tailwindcss-animate")]
 } satisfies Config;
 
 

@@ -54,6 +54,8 @@ export interface SeasonSummary {
 		avatarUrl: string;
 		hearts: number;
 		totalWorkouts: number;
+		currentStreak?: number;
+		points?: number;
 	}>;
 	losers: Array<{
 		id: PlayerId;
@@ -61,6 +63,8 @@ export interface SeasonSummary {
 		avatarUrl: string;
 		hearts: number;
 		totalWorkouts: number;
+		currentStreak?: number;
+		points?: number;
 	}>;
 	finalPot: number;
 	highlights: {

@@ -5,6 +5,8 @@ import type { Lobby, Player } from "@/types/game";
 import { motion } from "framer-motion";
 import { useAuth } from "./AuthProvider";
 import { PunishmentWheel, type PunishmentEntry } from "./punishment/PunishmentWheel";
+import { authFetch } from "@/lib/clientAuth";
+import { hasSeenSpinReplay, markSpinReplaySeen } from "@/lib/spinReplay";
 
 export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const { user } = useAuth();
@@ -21,14 +23,31 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const [spinIndex, setSpinIndex] = useState<number | null>(null);
 	const [spinNonce, setSpinNonce] = useState<number>(0);
 	const pendingChosenRef = useRef<string | null>(null);
+	const pendingSpinIdRef = useRef<string | null>(null);
+	const spinTimerRef = useRef<number | null>(null);
 	const [showDebug, setShowDebug] = useState<boolean>(false);
 	const initialLoadRef = useRef(false);
 	const prevActiveRef = useRef<string | null>(null);
+	const lastSpinIdRef = useRef<string | null>(null);
+	const [spinRequesting, setSpinRequesting] = useState<boolean>(false);
+	const challengeSettings = ((lobby as any).challengeSettings || {}) as any;
+	const suggestionCharLimit = Math.min(140, Math.max(1, Number(challengeSettings.suggestionCharLimit ?? 50)));
+	const allowSuggestions = Boolean(challengeSettings.allowSuggestions ?? true);
+	const canSuggest = allowSuggestions || isOwner;
 	
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		const search = new URLSearchParams(window.location.search);
 		setShowDebug(search.get("debug") === "1");
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (spinTimerRef.current) {
+				window.clearTimeout(spinTimerRef.current);
+				spinTimerRef.current = null;
+			}
+		};
 	}, []);
 
 	useEffect(() => {
@@ -41,7 +60,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 
 	const loadPunishments = async () => {
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
 			if (!res.ok) return;
 			const j = await res.json();
 			const newItems = j.items || [];
@@ -55,9 +74,36 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			
 			setLocked(!!j.locked);
 
+			const spinEvent = j.spinEvent as { spinId: string; startedAt: string; winnerItemId: string } | null;
+			if (spinEvent && spinEvent.spinId !== lastSpinIdRef.current) {
+				lastSpinIdRef.current = spinEvent.spinId;
+				const currentEntries = computeEntries(newItems, players);
+				const idx = currentEntries.findIndex((e) => e.id === spinEvent.winnerItemId);
+				const winnerText = (newItems.find((it: any) => it.id === spinEvent.winnerItemId)?.text as string | undefined) || null;
+				const alreadySeen = hasSeenSpinReplay(lobby.id, spinEvent.spinId);
+				const shouldAnimate = !alreadySeen && !chosen && idx >= 0;
+				if (shouldAnimate) {
+					if (spinTimerRef.current) {
+						window.clearTimeout(spinTimerRef.current);
+						spinTimerRef.current = null;
+					}
+					const delay = Math.max(0, new Date(spinEvent.startedAt).getTime() - Date.now());
+					spinTimerRef.current = window.setTimeout(() => {
+						setSpinIndex(idx);
+						setSpinNonce((n) => n + 1);
+						setSpinning(true);
+						pendingChosenRef.current = winnerText;
+						pendingSpinIdRef.current = spinEvent.spinId;
+					}, delay);
+				} else if (winnerText) {
+					setChosen(winnerText);
+					if (!alreadySeen) markSpinReplaySeen(lobby.id, spinEvent.spinId);
+				}
+			}
+
 			// Handle spin trigger
 			const activeText = j.active?.text || null;
-			if (activeText && activeText !== prevActiveRef.current) {
+			if (!spinEvent && activeText && activeText !== prevActiveRef.current) {
 				// New active punishment detected
 				if (initialLoadRef.current && !chosen) {
 					// We are live and watching, trigger spin!
@@ -93,10 +139,61 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	};
 
 	// Listen for realtime updates
-	useEffect(() => {
+		useEffect(() => {
 		function onRefresh() { loadPunishments(); }
 		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
 		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
+	}, [lobby.id]);
+
+	// Realtime sync for wheel submissions + spin event broadcast.
+	useEffect(() => {
+		let cancelled = false;
+		let spinChannel: any = null;
+		let punishmentsChannel: any = null;
+		(async () => {
+			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+			if (!supabase || cancelled) return;
+			spinChannel = supabase
+				.channel(`spin-events-${lobby.id}-${Date.now()}`)
+				.on(
+					"postgres_changes",
+					{
+						event: "*",
+						schema: "public",
+						table: "lobby_spin_events",
+						filter: `lobby_id=eq.${lobby.id}`
+					},
+					() => {
+						if (!cancelled) loadPunishments();
+					}
+				)
+				.subscribe();
+			punishmentsChannel = supabase
+				.channel(`punishments-${lobby.id}-${Date.now()}`)
+				.on(
+					"postgres_changes",
+					{
+						event: "*",
+						schema: "public",
+						table: "lobby_punishments",
+						filter: `lobby_id=eq.${lobby.id}`
+					},
+					() => {
+						if (!cancelled) loadPunishments();
+					}
+				)
+				.subscribe();
+		})();
+		return () => {
+			cancelled = true;
+			(async () => {
+				const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
+				if (supabase) {
+					if (spinChannel) await supabase.removeChannel(spinChannel);
+					if (punishmentsChannel) await supabase.removeChannel(punishmentsChannel);
+				}
+			})();
+		};
 	}, [lobby.id]);
 
 	// Find current user's submission
@@ -139,10 +236,17 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		pendingChosenRef.current = null;
 		justSubmittedRef.current = false;
 		prevMySubmissionRef.current = null;
-		itemsHashRef.current = "";
-		initialLoadRef.current = false;
-		prevActiveRef.current = null;
-	}, [lobby.id]);
+			itemsHashRef.current = "";
+			initialLoadRef.current = false;
+			prevActiveRef.current = null;
+			lastSpinIdRef.current = null;
+			setSpinRequesting(false);
+			pendingSpinIdRef.current = null;
+			if (spinTimerRef.current) {
+				window.clearTimeout(spinTimerRef.current);
+				spinTimerRef.current = null;
+			}
+		}, [lobby.id]);
 	
 	useEffect(() => {
 		loadPunishments();
@@ -156,7 +260,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		async function refresh() {
 			if (cancelled || document.hidden) return;
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				if (!cancelled && data?.lobby?.players) {
@@ -205,11 +309,11 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 				setItems(prev => [...prev, { id: `temp-${Date.now()}`, text: textToSubmit, created_by: meId as string }]);
 			}
 			
-			const r = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ text: textToSubmit, playerId: meId })
-			});
+				const r = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ text: textToSubmit })
+				});
 			
 			if (!r.ok) {
 				setErrorMsg("Submit failed");
@@ -226,27 +330,25 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 
 	async function spin() {
 		setErrorMsg(null);
-		// Don't set spinning locally yet, wait for DB
-		// But disable button
-		setSpinning(true); 
+		setSpinRequesting(true);
 		try {
-			const r = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/spin`, { method: "POST" });
+			const r = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/spin`, { method: "POST" });
 			if (!r.ok) {
-				setSpinning(false);
 				setErrorMsg("Spin failed");
 			}
 			// Success: do nothing, wait for realtime event to trigger animation
 		} catch {
-			setSpinning(false);
 			setErrorMsg("Spin failed");
+		} finally {
+			setSpinRequesting(false);
 		}
 	}
 
 	return (
-		<div className="mx-auto max-w-6xl">
-			<div className="paper-card paper-grain ink-edge p-4 sm:p-6 mb-6">
-				<div className="poster-headline text-xl mb-1">Punishment Selection</div>
-				<div className="text-deepBrown/70 text-sm">Here's what everyone put on the wheel.</div>
+		<div className="mx-auto max-w-6xl px-1 sm:px-0">
+			<div className="scoreboard-panel p-4 sm:p-6 mb-6">
+				<div className="font-display text-xl text-primary mb-1">PUNISHMENT SELECTION</div>
+				<div className="text-muted-foreground text-sm">Here's what everyone put on the wheel.</div>
 				{showDebug && (
 					<div className="mt-2 flex flex-wrap gap-2 text-[11px]">
 						{/* Debug buttons */}
@@ -255,7 +357,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 				{errorMsg && <div className="mt-2 text-[12px] text-[#a13535]">⚠ {errorMsg}</div>}
 				<div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
 					<div>
-						<div className="text-xs text-deepBrown/70 mb-2">Submissions</div>
+						<div className="text-xs text-muted-foreground mb-2">Submissions</div>
 						<ul className="space-y-2">
 							{players.map(p => {
 								const sub = items.find(i => {
@@ -264,33 +366,38 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 								});
 								return (
 									<li key={p.id} className="flex items-start gap-2">
-										<div className="h-8 w-8 rounded-full overflow-hidden bg-tan border border-deepBrown/30">
+										<div className="h-8 w-8 rounded-full overflow-hidden bg-muted border border-border">
 											{p.avatarUrl ? <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-sm">🏋️</div>}
 										</div>
 										<div className="flex-1">
 											<div className="text-sm font-semibold">{p.name}</div>
-											<div className="text-[13px] mt-0.5">{sub ? `“${sub.text}”` : <span className="text-deepBrown/60 italic">No suggestion submitted</span>}</div>
+											<div className="text-[13px] mt-0.5">{sub ? `“${sub.text}”` : <span className="text-muted-foreground italic">No suggestion submitted</span>}</div>
 										</div>
 									</li>
 								);
 							})}
 						</ul>
-						{!locked && (
+						{!locked && canSuggest && (
 							<div className="mt-3 flex gap-2">
 								<input
-									className="flex-1 px-3 py-2 rounded-md border border-deepBrown/30 bg-cream text-deepBrown"
+									className="flex-1 px-3 py-2 rounded-md border border-border bg-input text-foreground"
 									placeholder={mySubmission ? "Update your punishment" : "Suggest a punishment"}
 									value={myText}
-									maxLength={50}
+									maxLength={suggestionCharLimit}
 									onChange={e => setMyText(e.target.value)}
 								/>
-								<button className="btn-secondary px-3 py-2 rounded-md text-xs" onClick={submitSuggestion} disabled={!myText.trim()}>
+								<button className="arena-badge px-3 py-2 text-xs" onClick={submitSuggestion} disabled={!myText.trim()}>
 									{mySubmission ? "Update" : "Submit"}
 								</button>
 							</div>
 						)}
+						{!locked && !canSuggest && (
+							<div className="mt-3 text-xs text-muted-foreground italic">
+								Suggestions are disabled by the host for this round.
+							</div>
+						)}
 						{locked && mySubmission && (
-							<div className="mt-3 text-xs text-deepBrown/70 italic">
+							<div className="mt-3 text-xs text-muted-foreground italic">
 								List is locked. Your submission: "{mySubmission.text}"
 							</div>
 						)}
@@ -307,11 +414,18 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 									const finalText = pendingChosenRef.current ?? winner?.punishment ?? null;
 									pendingChosenRef.current = null;
 									if (finalText) setChosen(finalText);
+									if (pendingSpinIdRef.current) {
+										markSpinReplaySeen(lobby.id, pendingSpinIdRef.current);
+										pendingSpinIdRef.current = null;
+									}
 									setSpinning(false);
-									// Reload page after animation
+									// Refresh data without a full page reload to keep the transition smooth.
 									setTimeout(() => {
-										if (typeof window !== "undefined") window.location.reload();
-									}, 2500);
+										loadPunishments();
+										if (typeof window !== "undefined") {
+											window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
+										}
+									}, 300);
 								}}
 							/>
 						</div>
@@ -321,28 +435,28 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 					{isOwner ? (
 						<>
 							<button
-								className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs"
-								onClick={async () => {
-									await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments/lock`, {
-										method: "POST",
-										headers: { "Content-Type": "application/json" },
-										body: JSON.stringify({ locked: !locked })
+								className="arena-badge px-3 py-2 text-xs"
+									onClick={async () => {
+										await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments/lock`, {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({ locked: !locked })
 									});
 									loadPunishments();
 								}}
 							>
 								{locked ? "Unlock list" : "Lock list"}
 							</button>
-							<button
-								className="btn-vintage px-3 py-2 rounded-md text-xs"
-								onClick={spin}
-								disabled={spinning || wheelEntries.length === 0 || (locked === false && requiresLock(lobby))}
-							>
-								{spinning ? "Spinning…" : "Spin wheel"}
-							</button>
+								<button
+									className="arena-badge arena-badge-primary px-3 py-2 text-xs"
+									onClick={spin}
+									disabled={spinning || spinRequesting || wheelEntries.length === 0 || (locked === false && requiresLock(lobby))}
+								>
+									{spinning || spinRequesting ? "Spinning…" : "Spin wheel"}
+								</button>
 						</>
 					) : (
-						<div className="text-xs text-deepBrown/70">
+						<div className="text-xs text-muted-foreground">
 							{spinning ? "Wheel is spinning…" : "Waiting for host to spin…"}
 						</div>
 					)}
@@ -351,9 +465,9 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 					<motion.div
 						initial={{ opacity: 0, y: 8 }}
 						animate={{ opacity: 1, y: 0 }}
-						className="mt-4 p-3 rounded-md border border-deepBrown/30 bg-cream/5"
+						className="mt-4 p-3 rounded-md border border-border bg-muted/30"
 					>
-						<div className="text-sm">Punishment selected: <strong>{chosen}</strong>. Reloading...</div>
+						<div className="text-sm">Punishment selected: <strong>{chosen}</strong></div>
 					</motion.div>
 				)}
 			</div>
@@ -363,23 +477,25 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 
 function computeEntries(items: any[], players: Player[]): PunishmentEntry[] {
 	const byId = new Map(players.map(p => [p.id, p]));
+	const byUserId = new Map(players.map(p => [(p as any).userId as string | undefined, p]).filter((x) => !!x[0]) as Array<[string, Player]>);
 	const seen = new Set<string>();
 	const out: PunishmentEntry[] = [];
 	for (const it of items) {
 		const pid = it.created_by as string | undefined;
 		if (!pid) continue;
-		if (seen.has(pid)) continue;
-		const pl = byId.get(pid);
+		const pl = byId.get(pid) || byUserId.get(pid);
 		if (!pl) continue;
+		const playerKey = String(pl.id);
+		if (seen.has(playerKey)) continue;
 		const text = String(it.text || "").trim();
 		if (!text) continue;
-		seen.add(pid);
+		seen.add(playerKey);
 		out.push({
-			id: pid,
+			id: String(it.id),
 			displayName: pl.name,
 			avatarUrl: pl.avatarUrl,
 			punishment: text,
-			createdBy: pid
+			createdBy: playerKey
 		});
 	}
 	return out;
@@ -387,5 +503,8 @@ function computeEntries(items: any[], players: Player[]): PunishmentEntry[] {
 
 function requiresLock(lobby: Lobby) {
 	const cs = (lobby as any).challengeSettings || {};
+	if (String((lobby as any).mode || "").startsWith("CHALLENGE_ROULETTE")) {
+		return cs.requireLockBeforeSpin ?? true;
+	}
 	return !!cs.requireLockBeforeSpin;
 }

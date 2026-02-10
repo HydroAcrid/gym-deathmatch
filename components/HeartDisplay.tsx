@@ -1,37 +1,49 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { Heart } from "lucide-react";
 
-export function HeartDisplay({ lives }: { lives: number }) {
-	const prefersReduced = useReducedMotion();
-	return (
-		<div className="flex items-center gap-2 pl-2">
-			{[0, 1, 2].map((i) => {
-				const filled = i < lives;
-				return (
-					<motion.span
-						key={i}
-						className={`text-2xl ${filled ? "text-deepBrown" : "text-deepBrown/40"}`}
-						whileHover={{ scale: 1.08 }}
-						animate={
-							prefersReduced
-								? undefined
-								: { scale: filled ? [1, 1.06, 1] : 1 }
-						}
-						transition={
-							prefersReduced
-								? undefined
-								: { duration: 1.8, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }
-						}
-						aria-label={filled ? "life" : "lost life"}
-					>
-						{filled ? "❤️" : "🤍"}
-					</motion.span>
-				);
-			})}
-			{lives === 1 && <span className="text-xs text-deepBrown/70 ml-1">ON THIN ICE…</span>}
-		</div>
-	);
+export interface HeartDisplayProps {
+  lives: number;
+  maxLives?: number;
+  size?: "sm" | "md" | "lg";
+  showCount?: boolean;
 }
 
+export function HeartDisplay({
+  lives,
+  maxLives = 3,
+  size = "md",
+  showCount = false,
+}: HeartDisplayProps) {
+  const sizeClasses = {
+    sm: "w-4 h-4",
+    md: "w-5 h-5",
+    lg: "w-6 h-6",
+  };
 
+  const hearts = Array.from({ length: maxLives }, (_, i) => i < lives);
+
+  return (
+    <div className="flex items-center gap-1">
+      {hearts.map((filled, index) => (
+        <Heart
+          key={index}
+          className={`${sizeClasses[size]} ${
+            filled
+              ? "fill-destructive text-destructive"
+              : "fill-muted text-muted-foreground/30"
+          } transition-colors`}
+          style={filled ? { filter: 'drop-shadow(0 0 3px hsl(var(--destructive) / 0.5))' } : {}}
+        />
+      ))}
+      {showCount && (
+        <span className="font-mono text-xs text-muted-foreground ml-1">
+          {lives}/{maxLives}
+        </span>
+      )}
+      {lives === 1 && (
+        <span className="text-[10px] text-destructive ml-1 font-display tracking-wider">ON THIN ICE</span>
+      )}
+    </div>
+  );
+}

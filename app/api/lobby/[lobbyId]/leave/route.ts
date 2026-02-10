@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
+import { getRequestUserId } from "@/lib/requestAuth";
 
 export async function POST(req: Request, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ ok: false }, { status: 501 });
 	try {
-		const { userId } = await req.json();
-		if (!userId) return NextResponse.json({ ok: false, error: "Missing userId" }, { status: 400 });
+		const userId = await getRequestUserId(req);
+		if (!userId) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 		// Find the player's row in this lobby
 		const { data: me } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
 		if (!me?.id) return NextResponse.json({ ok: false, error: "Not in lobby" }, { status: 404 });
@@ -27,5 +28,4 @@ export async function POST(req: Request, { params }: { params: Promise<{ lobbyId
 		return NextResponse.json({ ok: false, error: "bad request" }, { status: 400 });
 	}
 }
-
 

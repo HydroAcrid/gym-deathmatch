@@ -49,7 +49,7 @@ export function MobileNav() {
 	return (
 		<>
 			<div className="h-[calc(76px+env(safe-area-inset-bottom))] sm:hidden" />
-			<div className="fixed bottom-0 left-0 right-0 bg-main border-t border-deepBrown/20 z-40 sm:hidden pb-[calc(env(safe-area-inset-bottom)+12px)] pt-1 overflow-visible">
+			<div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-40 sm:hidden pb-[calc(env(safe-area-inset-bottom)+12px)] pt-1 overflow-visible">
 				<div className="flex items-center justify-around h-[70px]">
 					{navItems.map((item) => {
 						if (item.isLog) {
@@ -59,10 +59,10 @@ export function MobileNav() {
 									onClick={handleLogClick}
 									className="flex flex-col items-center justify-center w-16 h-full cursor-pointer relative z-50"
 								>
-									<span className="w-14 h-14 bg-[var(--accent-primary)] rounded-full flex items-center justify-center shadow-lg text-white mb-1 mt-[-24px] border-2 border-[var(--accent-primary)]">
+									<span className="w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-lg text-primary-foreground mb-1 mt-[-24px] border-2 border-primary">
 										<Plus size={24} strokeWidth={3} />
 									</span>
-									<span className="text-[9px] uppercase font-bold tracking-wide mt-1">Log</span>
+									<span className="text-[9px] uppercase font-bold tracking-wide mt-1 text-foreground">Log</span>
 								</button>
 							);
 						}
@@ -72,7 +72,7 @@ export function MobileNav() {
 								<button
 									key="menu"
 									onClick={() => setMenuOpen(!menuOpen)}
-									className={`flex flex-col items-center justify-center w-16 h-full border-t-2 ${menuOpen ? "text-[var(--accent-primary)] border-[var(--accent-primary)]" : "text-deepBrown/60 border-transparent"}`}
+									className={`flex flex-col items-center justify-center w-16 h-full border-t-2 ${menuOpen ? "text-primary border-primary" : "text-muted-foreground border-transparent"}`}
 								>
 									<Menu size={20} />
 									<span className="text-[9px] uppercase font-bold tracking-wide mt-1">More</span>
@@ -85,7 +85,7 @@ export function MobileNav() {
 							<Link
 								key={item.label}
 								href={item.href!}
-								className={`flex flex-col items-center justify-center w-16 h-full border-t-2 ${item.active ? "text-[var(--accent-primary)] border-[var(--accent-primary)]" : "text-deepBrown/60 border-transparent"}`}
+								className={`flex flex-col items-center justify-center w-16 h-full border-t-2 ${item.active ? "text-primary border-primary" : "text-muted-foreground border-transparent"}`}
 							>
 								<Icon size={20} />
 								<span className="text-[9px] uppercase font-bold tracking-wide mt-1">{item.label}</span>
@@ -110,41 +110,41 @@ export function MobileNav() {
 							animate={{ y: 0 }}
 							exit={{ y: "100%" }}
 							transition={{ type: "spring", damping: 25, stiffness: 300 }}
-							className="fixed bottom-0 left-0 right-0 bg-main rounded-t-2xl z-50 sm:hidden pb-[calc(60px+env(safe-area-inset-bottom))]"
+							className="fixed bottom-0 left-0 right-0 bg-background rounded-t-2xl z-50 sm:hidden pb-[calc(60px+env(safe-area-inset-bottom))]"
 						>
 							<div className="p-4">
 								<div className="flex items-center justify-between mb-4">
-									<h3 className="poster-headline text-lg">More</h3>
-									<button onClick={() => setMenuOpen(false)} className="p-2 bg-deepBrown/5 rounded-full">
+									<h3 className="font-display text-lg text-primary">More</h3>
+									<button onClick={() => setMenuOpen(false)} className="p-2 bg-muted/30 rounded-full text-foreground">
 										<X size={20} />
 									</button>
 								</div>
 								<div className="grid grid-cols-3 gap-4">
 									<CreateLobby>
-										<span className="flex flex-col items-center justify-center p-4 rounded-xl bg-elevated border border-deepBrown/10 h-full w-full">
-											<Plus size={24} className="mb-2 text-accent-primary" />
+										<span className="flex flex-col items-center justify-center p-4 rounded-xl bg-muted/30 border border-border h-full w-full text-foreground">
+											<Plus size={24} className="mb-2 text-primary" />
 											<span className="text-xs font-medium">Create Lobby</span>
 										</span>
 									</CreateLobby>
 									<Link
 										href={statsHref}
 										onClick={() => setMenuOpen(false)}
-										className={`flex flex-col items-center justify-center p-4 rounded-xl bg-elevated border border-deepBrown/10 ${isActive(statsHref) ? "ring-2 ring-accent-primary" : ""}`}
+										className={`flex flex-col items-center justify-center p-4 rounded-xl bg-muted/30 border border-border ${isActive(statsHref) ? "ring-2 ring-primary" : ""}`}
 									>
-										<BarChart2 size={24} className="mb-2 text-accent-primary" />
-										<span className="text-xs font-medium">Stats</span>
+										<BarChart2 size={24} className="mb-2 text-primary" />
+										<span className="text-xs font-medium text-foreground">Stats</span>
 									</Link>
 									<Link
 										href="/rules"
 										onClick={() => setMenuOpen(false)}
-										className={`flex flex-col items-center justify-center p-4 rounded-xl bg-elevated border border-deepBrown/10 ${isRulesActive ? "ring-2 ring-accent-primary" : ""}`}
+										className={`flex flex-col items-center justify-center p-4 rounded-xl bg-muted/30 border border-border ${isRulesActive ? "ring-2 ring-primary" : ""}`}
 									>
-										<BookOpen size={24} className="mb-2 text-accent-primary" />
-										<span className="text-xs font-medium">Rules</span>
+										<BookOpen size={24} className="mb-2 text-primary" />
+										<span className="text-xs font-medium text-foreground">Rules</span>
 									</Link>
 									<IntroGuide>
-										<span className="flex flex-col items-center justify-center p-4 rounded-xl bg-elevated border border-deepBrown/10 h-full w-full">
-											<HelpCircle size={24} className="mb-2 text-accent-primary" />
+										<span className="flex flex-col items-center justify-center p-4 rounded-xl bg-muted/30 border border-border h-full w-full text-foreground">
+											<HelpCircle size={24} className="mb-2 text-primary" />
 											<span className="text-xs font-medium">Guide</span>
 										</span>
 									</IntroGuide>

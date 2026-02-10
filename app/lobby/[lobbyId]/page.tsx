@@ -51,7 +51,8 @@ export default async function LobbyPage({
 			seasonSummary: lrow.season_summary ? (lrow.season_summary as any) : null,
 			scheduledStart: lrow.scheduled_start ?? null,
 			mode: (lrow.mode as any) || "MONEY_SURVIVAL",
-			suddenDeathEnabled: !!lrow.sudden_death_enabled
+			suddenDeathEnabled: !!lrow.sudden_death_enabled,
+			challengeSettings: (lrow.challenge_settings as any) ?? null
 		};
 		return <LobbySwitcher lobby={lobby} />;
 	} catch {
@@ -99,5 +100,4 @@ export async function generateMetadata({ params }: { params: Promise<{ lobbyId: 
 		}
 	};
 }
-
 

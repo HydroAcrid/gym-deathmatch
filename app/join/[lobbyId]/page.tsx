@@ -7,12 +7,14 @@ export default function JoinLobbyPage() {
 	const params = useParams<{ lobbyId: string }>();
 	const lobbyId = params?.lobbyId ?? "kevin-nelly";
 	return (
-		<div className="mx-auto max-w-3xl">
-			<div className="paper-card paper-grain ink-edge p-5 mb-6 border-b-4" style={{ borderColor: "#E1542A" }}>
-				<div className="poster-headline text-lg">Join Lobby</div>
-				<div className="text-deepBrown/70 text-xs">Lobby: {lobbyId}</div>
+		<div className="min-h-screen">
+			<div className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+				<div className="scoreboard-panel p-5 text-center">
+					<div className="font-display text-lg tracking-widest text-primary">JOIN LOBBY</div>
+					<div className="text-muted-foreground text-xs">Lobby: {lobbyId}</div>
+				</div>
+				<JoinLobby lobbyId={String(lobbyId)} />
 			</div>
-			<JoinLobby lobbyId={String(lobbyId)} />
 		</div>
 	);
 }

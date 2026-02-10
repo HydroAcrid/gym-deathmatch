@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { updateLobbyStage } from "@/lib/persistence";
 import { jsonError, logError } from "@/lib/logger";
-import { getServerSupabase } from "@/lib/supabaseClient";
-import { onReadyChanged } from "@/lib/commentary";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyId: string }> }) {
 	try {
 		const { lobbyId } = await params;
 		const decoded = decodeURIComponent(lobbyId);
+		const access = await resolveLobbyAccess(req, decoded);
+		if (!access.ok) return jsonError(access.code, access.message, access.status);
+		if (!access.memberPlayerId) return jsonError("FORBIDDEN", "Not a lobby member", 403);
+		if (!access.isOwner) return jsonError("FORBIDDEN", "Owner only", 403);
 		const body = await req.json();
 		const payload: any = {};
 		if (body.status) {
@@ -26,11 +29,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 			// Keep Season start in sync with the scheduled time for consistent UI display
 			if (!body.startNow) payload.seasonStart = body.scheduledStart;
 		}
-		if (body.startNow === true) {
-			// Determine mode to decide if we go into transition (roulette) or active directly
-			try {
-				const supabase = getServerSupabase();
-				if (supabase) {
+			if (body.startNow === true) {
+				// Determine mode to decide if we go into transition (roulette) or active directly
+				try {
+					const supabase = access.supabase;
+					if (supabase) {
 					const { data: lrow } = await supabase.from("lobby").select("mode,status").eq("id", decoded).maybeSingle();
 					const mode = (lrow?.mode as string) || "MONEY_SURVIVAL";
 					if (String(mode).startsWith("CHALLENGE_ROULETTE")) {
@@ -111,5 +114,3 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 		return jsonError("STAGE_BAD_REQUEST", "Bad request", 400);
 	}
 }
-
-

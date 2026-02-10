@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { motion } from "framer-motion";
 import { Player } from "@/types/game";
 import { HeartDisplay } from "./HeartDisplay";
 import { QuipBubble } from "./QuipBubble";
@@ -9,50 +8,56 @@ import { ManualActivityModal } from "./ManualActivityModal";
 import { useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { StatusBadge } from "./StatusBadge";
+import { MapPin, Flame, Target, Trophy } from "lucide-react";
+import { authFetch } from "@/lib/clientAuth";
 
 export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player: Player; lobbyId?: string; mePlayerId?: string; showReady?: boolean }) {
 	const avatar = player.avatarUrl || "";
 	const [openManual, setOpenManual] = useState(false);
 	const { user } = useAuth();
 	const isMe = (mePlayerId && mePlayerId === player.id) || (!!user?.id && !!player.userId && user.id === player.userId);
-	return (
-		<motion.div
-			className={`paper-card paper-grain ink-edge p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 min-h-[520px] h-full ${player.livesRemaining === 0 ? "opacity-80" : ""}`}
-			initial={{ opacity: 0, scale: 0.96, y: 12 }}
-			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
-			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
-		>
-			{/* Burnt orange stripe */}
-			<div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: "#E1542A" }} />
+	const isEliminated = player.livesRemaining === 0;
+	const initials = (player.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
-			<div className="flex items-center gap-3 pl-2">
-				<div className="relative h-16 w-16 rounded-md overflow-hidden border-2" style={{ borderColor: "#4A2620" }}>
-					{avatar ? (
-						<Image src={avatar} alt={`${player.name} avatar`} fill sizes="56px" className="object-cover" />
-					) : (
-						<div className="h-full w-full flex items-center justify-center text-2xl bg-tan">🏋️</div>
-					)}
+	return (
+		<div className={`athlete-card p-4 sm:p-5 h-full flex flex-col ${isEliminated ? "opacity-50" : ""}`}>
+			{/* Header with avatar and status */}
+			<div className="flex items-start justify-between mb-3 sm:mb-4">
+				<div className="flex items-center gap-3">
+					<div className="relative">
+						<div className="w-12 h-12 sm:w-14 sm:h-14 bg-muted border-2 border-border flex items-center justify-center overflow-hidden">
+							{avatar ? (
+								<Image src={avatar} alt={`${player.name} avatar`} fill sizes="56px" className="object-cover" />
+							) : (
+								<span className="text-xl sm:text-2xl font-display font-bold text-muted-foreground">
+									{initials}
+								</span>
+							)}
+						</div>
+					</div>
+					<div>
+						<h3 className="font-display text-base sm:text-lg font-bold text-foreground tracking-wider">
+							{player.name.toUpperCase()}
+						</h3>
+						{player.location && (
+							<div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground font-display tracking-wider">
+								<MapPin className="w-3 h-3" />
+								{player.location}
+							</div>
+						)}
+					</div>
 				</div>
-				<div className="flex flex-col">
-					<div className="text-[10px] text-deepBrown/70">ATHLETE</div>
-					<div className="poster-headline text-2xl leading-5">{player.name.toUpperCase()}</div>
-					{player.location && <div className="text-xs text-deepBrown/70">{player.location}</div>}
-				</div>
-				{/* Top-right status/actions with a reserved height so the card doesn't jump when buttons appear */}
-				<div className="ml-auto flex flex-col items-end gap-1 min-h-[48px]">
+				
+				<div className="flex flex-col items-end gap-1">
 					{player.inSuddenDeath && player.livesRemaining > 0 && (
-						<span className="mr-2 text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
-							SUDDEN DEATH ⚡
-						</span>
+						<span className="arena-badge arena-badge-destructive text-[10px]">SUDDEN DEATH</span>
 					)}
-					{player.livesRemaining === 0 && (
-						<span className="mr-2 text-[10px] px-2 py-1 rounded-md border text-deepBrown border-deepBrown/40 bg-cream">
-							KO’D 💀
-						</span>
+					{isEliminated && (
+						<span className="arena-badge text-[10px] text-muted-foreground">ELIMINATED</span>
 					)}
 					{showReady && typeof player.ready === "boolean" && (
-						<span className={`mr-2 text-[10px] px-2 py-1 rounded-md border ${player.ready ? "bg-[#2b6b2b] text-cream border-transparent" : "text-deepBrown border-deepBrown/40 bg-cream"}`}>
-							{player.ready ? "READY ✅" : "NOT READY ⏳"}
+						<span className={`arena-badge text-[10px] ${player.ready ? "arena-badge-primary" : ""}`}>
+							{player.ready ? "READY" : "NOT READY"}
 						</span>
 					)}
 					{player.isStravaConnected ? (
@@ -61,14 +66,14 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 							{isMe && lobbyId && (
 								<button
 									onClick={async () => {
-										await fetch(`/api/strava/disconnect`, {
+										await authFetch(`/api/strava/disconnect`, {
 											method: "POST",
 											headers: { "Content-Type": "application/json" },
-											body: JSON.stringify({ playerId: player.id, userId: user?.id || null })
+											body: JSON.stringify({ playerId: player.id })
 										});
 										if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
 									}}
-									className="px-2 py-1 rounded-md border border-deepBrown/30 text-[10px]"
+									className="arena-badge text-[10px]"
 								>
 									Disconnect
 								</button>
@@ -77,8 +82,8 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 					) : (
 						isMe ? (
 							<a
-								href={`/api/strava/authorize?playerId=${encodeURIComponent(player.id)}&lobbyId=${encodeURIComponent(lobbyId ?? "kevin-nelly")}`}
-								className="btn-vintage px-3 py-2 rounded-md text-[10px] transition-all duration-300"
+								href={`/api/strava/authorize?playerId=${encodeURIComponent(player.id)}&lobbyId=${encodeURIComponent(lobbyId ?? "")}`}
+								className="arena-badge arena-badge-primary px-3 py-2 text-[10px]"
 							>
 								CONNECT STRAVA
 							</a>
@@ -87,42 +92,58 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 				</div>
 			</div>
 
-			<div className="grid grid-cols-2 gap-3 pl-2">
-				<div className="bg-cream rounded-md p-3 border border-deepBrown/20">
-					<div className="text-[10px] text-deepBrown/70">🔥 CURRENT FORM</div>
-					<div className="poster-headline text-xl">{player.currentStreak}-DAY STREAK</div>
+			{/* Divider */}
+			<div className="arena-divider-solid mb-3 sm:mb-4" />
+
+			{/* Stats grid - industrial readout style */}
+			<div className="grid grid-cols-4 gap-1 sm:gap-2">
+				<div className="stat-block">
+					<div className="stat-value text-lg sm:text-xl">{player.totalWorkouts}</div>
+					<div className="stat-label text-[8px] sm:text-[10px]">WORKOUTS</div>
 				</div>
-				<div className="bg-cream rounded-md p-3 border border-deepBrown/20">
-					<div className="text-[10px] text-deepBrown/70">🏅 LONGEST</div>
-					<div className="poster-headline text-xl">{player.longestStreak} DAYS</div>
+				<div className="stat-block">
+					<div className="stat-value text-lg sm:text-xl flex items-center justify-center gap-1">
+						{player.currentStreak}
+						<Flame className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+					</div>
+					<div className="stat-label text-[8px] sm:text-[10px]">STREAK</div>
 				</div>
-				<div className="bg-cream rounded-md p-3 border border-deepBrown/20">
-					<div className="text-[10px] text-deepBrown/70">📈 AVG/WK</div>
-					<div className="poster-headline text-xl">{player.averageWorkoutsPerWeek.toFixed(1)}</div>
+				<div className="stat-block">
+					<div className="stat-value text-lg sm:text-xl">{player.averageWorkoutsPerWeek.toFixed(1)}</div>
+					<div className="stat-label text-[8px] sm:text-[10px]">AVG/WK</div>
 				</div>
-				<div className="bg-cream rounded-md p-3 border border-deepBrown/20">
-					<div className="text-[10px] text-deepBrown/70">✅ TOTAL</div>
-					<div className="poster-headline text-xl">{player.totalWorkouts}</div>
+				<div className="stat-block">
+					<div className="stat-value text-lg sm:text-xl">{player.longestStreak}</div>
+					<div className="stat-label text-[8px] sm:text-[10px]">BEST</div>
 				</div>
 			</div>
 
-			<div className="pl-2">
-				<HeartDisplay lives={player.livesRemaining} />
-				{typeof player.weeklyTarget === "number" && (
-					<div className="text-[11px] text-deepBrown/70 mt-1">Weekly goal: {player.weeklyTarget} workouts</div>
-				)}
+			{/* Hearts & Weekly goal */}
+			<div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t-2 border-border">
+				<div className="flex items-center justify-between">
+					<HeartDisplay lives={player.livesRemaining} maxLives={3} />
+					{typeof player.weeklyTarget === "number" && (
+						<span className="arena-badge arena-badge-primary text-[10px]">
+							<Target className="w-3 h-3 mr-1 inline" />
+							GOAL: {player.weeklyTarget}/WK
+						</span>
+					)}
+				</div>
 			</div>
-			{/* Reserve a consistent space for the manual log CTA so card heights align even when the button is hidden */}
-			<div className="pl-2 min-h-[48px] flex items-start">
+
+			{/* Manual log CTA */}
+			<div className="mt-3 min-h-[44px] flex items-start">
 				{isMe && lobbyId ? (
-					<button className="px-3 py-2 rounded-md border border-deepBrown/30 text-xs min-h-[44px]" onClick={() => setOpenManual(true)}>
-						Log workout manually
+					<button className="arena-badge arena-badge-primary px-3 py-2 text-xs min-h-[44px] w-full text-center" onClick={() => setOpenManual(true)}>
+						LOG WORKOUT
 					</button>
 				) : (
 					<div className="h-[44px] w-0" aria-hidden />
 				)}
 			</div>
-			<QuipBubble text={player.quip} />
+			<div className="mt-3">
+				<QuipBubble text={player.quip} />
+			</div>
 			{lobbyId && (
 				<ManualActivityModal
 					open={openManual}
@@ -130,7 +151,6 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 					lobbyId={lobbyId}
 					onSaved={() => {
 						try {
-							// soft refresh data by reloading /live through a custom event
 							if (typeof window !== "undefined") {
 								window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
 							}
@@ -138,7 +158,6 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 					}}
 				/>
 			)}
-		</motion.div>
+		</div>
 	);
 }
-

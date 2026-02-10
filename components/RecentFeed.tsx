@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "./AuthProvider";
+import { authFetch } from "@/lib/clientAuth";
 
 export type FeedEvent = { message: string; timestamp: string };
 
@@ -14,7 +14,6 @@ export function RecentFeed({
 	events?: FeedEvent[];
 }) {
 	const [items, setItems] = useState<any[]>([]);
-	const { user } = useAuth();
 
 	// Seed from props when they change
 	useEffect(() => {
@@ -30,7 +29,7 @@ export function RecentFeed({
 		async function refresh() {
 			try {
 				const lid = lobbyId as string;
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lid)}/feed`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lid)}/feed`, { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				if (ignore) return;
@@ -46,14 +45,14 @@ export function RecentFeed({
 
 	return (
 		<motion.div
-			className="paper-card paper-grain ink-edge p-4 sm:p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 h-full"
+			className="scoreboard-panel p-4 sm:p-5 flex flex-col gap-4 relative overflow-hidden transition-shadow duration-300 h-full"
 			initial={{ opacity: 0, scale: 0.96, y: 12 }}
 			animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }}
-			whileHover={{ y: -4, boxShadow: "0 6px 14px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
+			whileHover={{ y: -4 }}
 		>
-			<div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: "#E1542A" }} />
+			<div className="absolute left-0 top-0 bottom-0 w-2 bg-primary" />
 			<div className="pl-2 flex flex-col">
-				<div className="poster-headline text-sm sm:text-base mb-2">LIVE ARENA FEED</div>
+				<div className="font-display text-sm sm:text-base text-primary mb-2">LIVE ARENA FEED</div>
 				<div className="space-y-2 relative scroll-fade-bottom overflow-y-auto max-h-[400px] pr-2">
 					<AnimatePresence initial={false}>
 						{items.map((e) => (
@@ -63,12 +62,12 @@ export function RecentFeed({
 								animate={{ opacity: 1, y: 0 }}
 								exit={{ opacity: 0, y: -6 }}
 								transition={{ duration: 0.5, ease: "easeOut" }}
-								className="group flex items-start gap-2 p-2 transition rounded-none hover:ring-2 hover:ring-inset hover:ring-[rgba(225,84,42,0.35)] min-h-[44px] border-b border-strong/30 last:border-b-0"
+								className="group flex items-start gap-2 p-2 transition rounded-none hover:ring-2 hover:ring-inset hover:ring-primary/30 min-h-[44px] border-b border-border/60 last:border-b-0"
 							>
 								{e.player?.avatar_url ? (
 									<img src={e.player.avatar_url} alt="" className="h-7 w-7 rounded-md object-cover" />
 								) : (
-									<div className="h-7 w-7 rounded-md bg-muted flex items-center justify-center">💬</div>
+									<div className="h-7 w-7 rounded-md bg-muted/40 flex items-center justify-center">💬</div>
 								)}
 								<div className="flex-1">
 									<div className="text-sm leading-tight">
@@ -87,16 +86,16 @@ export function RecentFeed({
 											);
 										})() : (e.text)}
 									</div>
-									<div className="text-[11px] text-deepBrown/70">{timeAgo(e.createdAt)}</div>
+									<div className="text-[11px] text-muted-foreground">{timeAgo(e.createdAt)}</div>
 								</div>
 							</motion.div>
 						))}
 					</AnimatePresence>
 					{items.length === 0 && (
-						<div className="text-[12px] text-muted px-2 py-3">No events yet.</div>
+						<div className="text-[12px] text-muted-foreground px-2 py-3">No events yet.</div>
 					)}
 				</div>
-				<a href={lobbyId ? `/lobby/${encodeURIComponent(lobbyId)}/history` : "/history"} className="mt-3 inline-flex items-center gap-1 text-xs underline hover:shadow-[0_0_0_2px_rgba(225,84,42,0.25)] transition">
+				<a href={lobbyId ? `/lobby/${encodeURIComponent(lobbyId)}/history` : "/history"} className="mt-3 inline-flex items-center gap-1 text-xs underline text-primary hover:shadow-[0_0_0_2px_rgba(214,177,87,0.25)] transition">
 					View full history →
 				</a>
 			</div>

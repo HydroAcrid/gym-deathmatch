@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import type { PlayerRow } from "@/types/db";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) {
-		return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
-	}
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
+	const supabase = access.supabase;
+	const authUserId = access.userId;
 	try {
 		const body = await req.json();
-		// Prevent duplicate player for the same user in this lobby
-		// If user already has a player in this lobby, use that player's ID instead of creating a new one
+		// Owners can create unlinked guest players; everyone else self-joins as authenticated user.
+		const allowUnlinkedGuest = access.isOwner && !!access.memberPlayerId && !body.userId;
+
+		// Prevent duplicate player for this authenticated user in this lobby.
 		let playerId = typeof body.id === "string" && body.id.trim().length ? body.id.trim() : "";
 		if (!playerId) {
 			if (body.name) {
@@ -21,12 +23,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				playerId = crypto.randomUUID();
 			}
 		}
-		if (body.userId) {
+		if (!allowUnlinkedGuest) {
 			const { data: existing } = await supabase
 				.from("player")
 				.select("id")
 				.eq("lobby_id", lobbyId)
-				.eq("user_id", body.userId)
+				.eq("user_id", authUserId)
 				.maybeSingle();
 			if (existing?.id) {
 				// User already has a player - use the existing player ID
@@ -47,10 +49,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		let avatarUrl = (body.avatarUrl ?? null) as string | null;
 		let location = (body.location ?? null) as string | null;
 		let quip = (body.quip ?? null) as string | null;
-		// If userId provided, default name/avatar from profile when not supplied
-		if (body.userId) {
+		// For authenticated self-join, default name/avatar from profile when not supplied.
+		if (!allowUnlinkedGuest) {
 			try {
-				const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", body.userId).maybeSingle();
+				const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", authUserId).maybeSingle();
 				if ((!name || name.trim().length === 0) && prof?.display_name) name = prof.display_name;
 				if (!avatarUrl && prof?.avatar_url) avatarUrl = prof.avatar_url;
 				if (!location && prof?.location) location = prof.location;
@@ -65,8 +67,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			location,
 			quip
 		};
-		// attach user id if provided
-		if (body.userId) (p as any).user_id = body.userId;
+		// Attach authenticated user for self-joins; guest invites stay unlinked.
+		if (!allowUnlinkedGuest) (p as any).user_id = authUserId;
 		// Use upsert by primary key (id) to attach the user_id if the player row already exists
 		const { error } = await supabase.from("player").upsert(p as any, { onConflict: "id" });
 		if (error) {

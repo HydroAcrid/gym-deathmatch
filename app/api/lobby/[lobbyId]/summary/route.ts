@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 type SummaryPayload = {
 	daily?: {
@@ -29,14 +29,10 @@ type SummaryPayload = {
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
-
-	// Membership check via x-user-id header (same pattern as history route)
-	const userId = req.headers.get("x-user-id") || "";
-	if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
-	const { data: member } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
-	if (!member) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
+	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
+	const supabase = access.supabase;
 
 	const now = new Date();
 	const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());

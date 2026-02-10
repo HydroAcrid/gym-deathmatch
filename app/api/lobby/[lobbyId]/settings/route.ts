@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabaseClient";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
-	const supabase = getServerSupabase();
-	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
+	const access = await resolveLobbyAccess(req, lobbyId);
+	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
+	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a lobby member" }, { status: 403 });
+	if (!access.isOwner) return NextResponse.json({ error: "Owner only" }, { status: 403 });
+	const supabase = access.supabase;
 	try {
 		const body = await req.json();
 		const patch: any = {};
@@ -43,4 +46,3 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }
-

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { sendPushToUser } from "@/lib/push";
+import { getRequestUserId } from "@/lib/requestAuth";
 
 type CommentResponse = {
 	id: string;
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ acti
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ comments: [] }, { status: 501 });
 
-	const userId = req.headers.get("x-user-id") || "";
+	const userId = await getRequestUserId(req);
 	if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
 
 	const { data: activity } = await supabase
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 
-	const userId = req.headers.get("x-user-id") || "";
+	const userId = await getRequestUserId(req);
 	if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
 
 	const bodyJson = await req.json().catch(() => null);

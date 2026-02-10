@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
-import { MobileNav } from "@/components/MobileNav";
+import { ArenaNav } from "@/src/ui2/components/ArenaNav";
+import { MobileBottomNav } from "@/src/ui2/components/MobileBottomNav";
 import { PageMotion } from "@/components/PageMotion";
 import { ToastProvider } from "@/components/ToastProvider";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -35,18 +35,16 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en" suppressHydrationWarning>
-			<body className="antialiased min-h-screen overflow-x-hidden touch-manipulation bg-main text-main">
-				{/* subtle paper/noise overlays still work for both themes */}
-				<div className="paper-overlay" />
+			<body className="antialiased min-h-screen overflow-x-hidden touch-manipulation">
 				<AuthProvider>
 					<ToastProvider>
-						<Navbar />
+						<ArenaNav />
 						{/* Main content with bottom padding to reserve space for fixed mobile nav */}
 						<main className="relative z-20 px-3 sm:px-6 lg:px-8 pt-nav pb-24 sm:pb-6">
 							<PageMotion>{children}</PageMotion>
 						</main>
 						{/* Mobile bottom nav - fixed to viewport, doesn't affect layout */}
-						<MobileNav />
+						<MobileBottomNav />
 					</ToastProvider>
 				</AuthProvider>
 				<Analytics />
