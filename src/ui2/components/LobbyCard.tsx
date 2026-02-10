@@ -96,12 +96,12 @@ export function LobbyCard({ lobby, onLeave, onEdit, showLeave }: LobbyCardProps)
 					</div>
 				</div>
 
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
 					<Badge variant="outline" className="font-display text-xs">
 						{modeLabel}
 					</Badge>
 					{lobby.seasonStart && lobby.seasonEnd && (
-						<span className="text-xs text-muted-foreground">
+						<span className="text-xs text-muted-foreground break-anywhere">
 							{new Date(lobby.seasonStart).toLocaleDateString()} →{" "}
 							{new Date(lobby.seasonEnd).toLocaleDateString()}
 						</span>

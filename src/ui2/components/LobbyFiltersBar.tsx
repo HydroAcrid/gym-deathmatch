@@ -46,8 +46,8 @@ export function LobbyFiltersBar({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex gap-3">
-				<div className="relative flex-1">
+			<div className="flex flex-col sm:flex-row gap-3">
+				<div className="relative flex-1 min-w-0">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 					<Input
 						placeholder="Search lobbies..."
@@ -57,7 +57,7 @@ export function LobbyFiltersBar({
 					/>
 				</div>
 				<Select value={sortBy} onValueChange={(v) => onSortChange(v as LobbySortBy)}>
-					<SelectTrigger className="w-44">
+					<SelectTrigger className="w-full sm:w-44">
 						<SelectValue placeholder="Sort by" />
 					</SelectTrigger>
 					<SelectContent>
@@ -96,7 +96,7 @@ export function LobbyFiltersBar({
 				>
 					Completed
 				</Button>
-				<div className="w-px bg-border mx-1" />
+				<div className="hidden sm:block w-px bg-border mx-1" />
 				<Button
 					variant={filters.showMoney ? "arenaPrimary" : "outline"}
 					size="sm"

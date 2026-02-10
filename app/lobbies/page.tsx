@@ -167,8 +167,8 @@ export default function LobbiesPage() {
 	const isOwner = (l: LobbyRow) => Boolean(user?.id && l.owner_user_id === user.id);
 
 	return (
-		<div className="min-h-screen px-4 sm:px-6">
-			<div className="mx-auto max-w-6xl space-y-6 py-8">
+		<div className="min-h-screen">
+			<div className="mx-auto max-w-6xl space-y-6 py-6 sm:py-8">
 				<header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
 						<h1 className="font-display text-3xl md:text-4xl font-black uppercase tracking-tight text-foreground">
