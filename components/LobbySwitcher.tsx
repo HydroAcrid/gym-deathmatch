@@ -10,6 +10,7 @@ import { useLobbyLive } from "@/hooks/useLobbyLive";
 import { useLobbyRealtime } from "@/hooks/useLobbyRealtime";
 import { useAuth } from "./AuthProvider";
 import { authFetch } from "@/lib/clientAuth";
+import { hasSeenSpinReplay } from "@/lib/spinReplay";
 
 export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const [overridePre, setOverridePre] = useState<boolean>(false);
@@ -29,6 +30,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	// Fallback poll for week status in challenge modes (every 5s)
 	// This could be moved to realtime if we have a table for it, but sticking to polling for now as requested
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
+	const [pendingSpinReplay, setPendingSpinReplay] = useState<boolean>(false);
 	useEffect(() => {
 		if (!String((lobby as any).mode || "").startsWith("CHALLENGE_")) return;
 		let cancelled = false;
@@ -39,6 +41,12 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 					const j = await res.json();
 				if (!cancelled) {
 					setWeekStatus(j.weekStatus || null);
+					const spinId = j?.spinEvent?.spinId as string | undefined;
+					if (spinId) {
+						setPendingSpinReplay(!hasSeenSpinReplay(lobby.id, spinId));
+					} else {
+						setPendingSpinReplay(false);
+					}
 				}
 			} catch { /* ignore */ }
 		}
@@ -71,7 +79,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const shouldShowTransitionPanel = 
 		lobby.status === "transition_spin" && 
 		String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE") &&
-		weekStatus !== "PENDING_CONFIRMATION";
+		(weekStatus !== "PENDING_CONFIRMATION" || pendingSpinReplay);
 
 	// Provide a scheduled start when we fake pre-stage so countdown renders
 	const stagedLobby: Lobby = shouldShowPre && !lobby.scheduledStart

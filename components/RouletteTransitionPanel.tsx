@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "./AuthProvider";
 import { PunishmentWheel, type PunishmentEntry } from "./punishment/PunishmentWheel";
 import { authFetch } from "@/lib/clientAuth";
+import { hasSeenSpinReplay, markSpinReplaySeen } from "@/lib/spinReplay";
 
 export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const { user } = useAuth();
@@ -22,6 +23,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const [spinIndex, setSpinIndex] = useState<number | null>(null);
 	const [spinNonce, setSpinNonce] = useState<number>(0);
 	const pendingChosenRef = useRef<string | null>(null);
+	const pendingSpinIdRef = useRef<string | null>(null);
 	const spinTimerRef = useRef<number | null>(null);
 	const [showDebug, setShowDebug] = useState<boolean>(false);
 	const initialLoadRef = useRef(false);
@@ -78,7 +80,9 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 				const currentEntries = computeEntries(newItems, players);
 				const idx = currentEntries.findIndex((e) => e.id === spinEvent.winnerItemId);
 				const winnerText = (newItems.find((it: any) => it.id === spinEvent.winnerItemId)?.text as string | undefined) || null;
-				if (initialLoadRef.current && !chosen && idx >= 0) {
+				const alreadySeen = hasSeenSpinReplay(lobby.id, spinEvent.spinId);
+				const shouldAnimate = !alreadySeen && !chosen && idx >= 0;
+				if (shouldAnimate) {
 					if (spinTimerRef.current) {
 						window.clearTimeout(spinTimerRef.current);
 						spinTimerRef.current = null;
@@ -89,9 +93,11 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 						setSpinNonce((n) => n + 1);
 						setSpinning(true);
 						pendingChosenRef.current = winnerText;
+						pendingSpinIdRef.current = spinEvent.spinId;
 					}, delay);
-				} else if (!initialLoadRef.current && winnerText) {
+				} else if (winnerText) {
 					setChosen(winnerText);
+					if (!alreadySeen) markSpinReplaySeen(lobby.id, spinEvent.spinId);
 				}
 			}
 
@@ -235,6 +241,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			prevActiveRef.current = null;
 			lastSpinIdRef.current = null;
 			setSpinRequesting(false);
+			pendingSpinIdRef.current = null;
 			if (spinTimerRef.current) {
 				window.clearTimeout(spinTimerRef.current);
 				spinTimerRef.current = null;
@@ -338,7 +345,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	}
 
 	return (
-		<div className="mx-auto max-w-6xl">
+		<div className="mx-auto max-w-6xl px-1 sm:px-0">
 			<div className="scoreboard-panel p-4 sm:p-6 mb-6">
 				<div className="font-display text-xl text-primary mb-1">PUNISHMENT SELECTION</div>
 				<div className="text-muted-foreground text-sm">Here's what everyone put on the wheel.</div>
@@ -407,6 +414,10 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 									const finalText = pendingChosenRef.current ?? winner?.punishment ?? null;
 									pendingChosenRef.current = null;
 									if (finalText) setChosen(finalText);
+									if (pendingSpinIdRef.current) {
+										markSpinReplaySeen(lobby.id, pendingSpinIdRef.current);
+										pendingSpinIdRef.current = null;
+									}
 									setSpinning(false);
 									// Refresh data without a full page reload to keep the transition smooth.
 									setTimeout(() => {

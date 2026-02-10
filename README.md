@@ -26,8 +26,9 @@ The commentary system now runs scheduled jobs through:
 
 - `POST /api/cron/commentary/daily`
 - `POST /api/cron/commentary/weekly`
+- `POST /api/cron/roulette/weekly`
 
-Both routes require:
+All routes require:
 
 - `Authorization: Bearer <CRON_SECRET>`
 
@@ -39,6 +40,7 @@ Environment:
 Vercel schedule:
 
 - `vercel.json` includes:
+  - `roulette weekly` every 10 minutes (`*/10 * * * *`)
   - `weekly` job every 6 hours (`0 */6 * * *`)
   - `daily` job at 20:00 UTC (`0 20 * * *`)
 
@@ -52,6 +54,10 @@ curl -X POST \
 curl -X POST \
   -H "Authorization: Bearer $CRON_SECRET" \
   "https://<your-domain>/api/cron/commentary/weekly?lobbyId=<lobby-id>"
+
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  "https://<your-domain>/api/cron/roulette/weekly?lobbyId=<lobby-id>"
 ```
 
 ## Learn More

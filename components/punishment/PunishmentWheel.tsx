@@ -43,8 +43,22 @@ export function PunishmentWheel({
 
 	const [mustSpin, setMustSpin] = useState(false);
 	const [prizeNumber, setPrizeNumber] = useState(0);
+	const [wheelSize, setWheelSize] = useState(1);
 	const lastNonceRef = useRef<number | undefined>(undefined);
 	const isSpinningRef = useRef<boolean>(false);
+
+	useEffect(() => {
+		const updateSize = () => {
+			const width = window.innerWidth;
+			if (width <= 360) setWheelSize(0.7);
+			else if (width <= 420) setWheelSize(0.8);
+			else if (width <= 520) setWheelSize(0.9);
+			else setWheelSize(1);
+		};
+		updateSize();
+		window.addEventListener("resize", updateSize);
+		return () => window.removeEventListener("resize", updateSize);
+	}, []);
 
 	// External spin trigger: when nonce changes, spin to provided index
 	useEffect(() => {
@@ -90,16 +104,17 @@ export function PunishmentWheel({
 							]}
 							textColors={["hsl(35 15% 80%)"]}
 							spinDuration={2.8}
+							size={wheelSize}
 							onStopSpinning={() => {
 								setMustSpin(false);
 								isSpinningRef.current = false;
 								onStop?.(prizeNumber);
 							}}
 							outerBorderColor="hsl(30 60% 50%)"
-							outerBorderWidth={4}
+							outerBorderWidth={wheelSize < 0.9 ? 3 : 4}
 							radiusLineColor="hsl(20 12% 16%)"
 							radiusLineWidth={1}
-							fontSize={14}
+							fontSize={wheelSize < 0.9 ? 12 : 14}
 						/>
 					) : (
 						<div
