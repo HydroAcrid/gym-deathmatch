@@ -479,5 +479,32 @@ select option {
   hyphens: auto;
 }
 
+/* Consistent modal scrollbars (desktop/tablet) */
+.arena-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.arena-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.arena-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.arena-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.arena-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.7);
+  background-clip: padding-box;
+}
+
 /* Legacy — hidden elements */
 .paper-overlay { display: none; }

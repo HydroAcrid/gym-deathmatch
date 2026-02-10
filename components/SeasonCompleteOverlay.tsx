@@ -107,7 +107,7 @@ export function SeasonCompleteOverlay({
 						animate={{ opacity: 1, scale: 1, y: 0 }}
 						exit={{ opacity: 0, scale: 0.95, y: 20 }}
 						transition={{ duration: 0.3, ease: "easeOut" }}
-						className="scoreboard-panel w-full h-[100dvh] sm:h-auto sm:max-w-5xl sm:max-h-[90vh] overflow-y-auto border-2 p-4 sm:p-8 pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8"
+						className="scoreboard-panel w-full h-[100dvh] sm:h-auto sm:max-w-5xl sm:max-h-[90vh] overflow-y-auto arena-scrollbar border-2 p-4 sm:p-8 pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8"
 						onClick={(e) => e.stopPropagation()}
 					>
 						{/* Header */}

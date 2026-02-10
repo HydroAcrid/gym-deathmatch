@@ -179,7 +179,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 											<button className="arena-badge arena-badge-primary px-3 py-2 text-xs" onClick={submit}>Create</button>
 										</div>
 									</header>
-									<div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+8rem)] sm:pb-6 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
+									<div className="flex-1 overflow-y-auto overscroll-contain arena-scrollbar px-4 sm:px-6 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+8rem)] sm:pb-6 max-w-full [overflow-wrap:anywhere] break-words hyphens-auto">
 										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-2 sm:pr-0">
 									<section className="space-y-4">
 										<div className="scoreboard-panel p-4 space-y-3">
