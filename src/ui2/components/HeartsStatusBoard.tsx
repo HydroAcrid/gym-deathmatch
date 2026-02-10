@@ -65,7 +65,8 @@ export function HeartsStatusBoard({ athletes, onAthleteSelect }: HeartsStatusBoa
         {athletes.map((athlete) => {
           const config = statusConfig[athlete.status];
           const StatusIcon = config.icon;
-          const progressPercent = Math.min((athlete.weeklyProgress / athlete.weeklyTarget) * 100, 100);
+          const safeTarget = Math.max(1, athlete.weeklyTarget || 1);
+          const progressPercent = Math.min((athlete.weeklyProgress / safeTarget) * 100, 100);
           const isEliminated = athlete.status === "eliminated";
 
           const content = (
@@ -135,20 +136,12 @@ export function HeartsStatusBoard({ athletes, onAthleteSelect }: HeartsStatusBoa
                       </span>
                       <div className="w-14 sm:w-20 h-2 bg-muted border border-border overflow-hidden">
                         <div 
-                          className={`h-full transition-all ${
-                            progressPercent >= 100 
-                              ? "bg-[hsl(var(--status-online))]" 
-                              : progressPercent >= 50 
-                                ? "bg-primary" 
-                                : "bg-destructive"
-                          }`}
+                          className={`h-full transition-all ${progressPercent >= 100 ? "bg-[hsl(var(--status-online))]" : "bg-primary"}`}
                           style={{ 
                             width: `${progressPercent}%`,
                             boxShadow: progressPercent >= 100 
                               ? '0 0 6px hsl(var(--status-online) / 0.6)' 
-                              : progressPercent >= 50 
-                                ? '0 0 6px hsl(var(--primary) / 0.4)' 
-                                : '0 0 6px hsl(var(--destructive) / 0.4)'
+                              : '0 0 6px hsl(var(--primary) / 0.5)'
                           }}
                         />
                       </div>

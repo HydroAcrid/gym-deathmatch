@@ -306,10 +306,27 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		const initials = (p.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 		const hearts = typeof p.livesRemaining === "number" ? p.livesRemaining : (lobbyData.initialLives ?? 3);
 		const maxHearts = lobbyData.initialLives ?? 3;
-		const weeklyProgress = p.heartsTimeline?.length
-			? (p.heartsTimeline[p.heartsTimeline.length - 1]?.workouts ?? 0)
-			: 0;
 		const weeklyTarget = lobbyData.weeklyTarget ?? 3;
+		const weeklyProgress = (() => {
+			const timeline = Array.isArray(p.heartsTimeline) ? p.heartsTimeline : [];
+			if (!timeline.length) return 0;
+			const seasonStartRaw = lobbyData.seasonStart;
+			if (!seasonStartRaw) {
+				return timeline[timeline.length - 1]?.workouts ?? 0;
+			}
+			const seasonStart = new Date(seasonStartRaw);
+			if (Number.isNaN(seasonStart.getTime())) {
+				return timeline[timeline.length - 1]?.workouts ?? 0;
+			}
+			const msPerDay = 24 * 60 * 60 * 1000;
+			const msPerWeek = 7 * msPerDay;
+			const seasonStartMidnight = new Date(seasonStart.getFullYear(), seasonStart.getMonth(), seasonStart.getDate()).getTime();
+			const now = new Date();
+			const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+			const weekIndex = Math.max(0, Math.floor((nowMidnight - seasonStartMidnight) / msPerWeek));
+			const event = timeline[weekIndex] ?? timeline[timeline.length - 1];
+			return event?.workouts ?? 0;
+		})();
 		const status: "safe" | "at_risk" | "eliminated" = hearts <= 0 ? "eliminated" : hearts === 1 ? "at_risk" : "safe";
 		return {
 			id: p.id,
