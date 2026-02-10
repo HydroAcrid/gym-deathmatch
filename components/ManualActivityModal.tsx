@@ -195,7 +195,7 @@ export function ManualActivityModal({
 									<SelectTrigger className="bg-input border-border">
 										<SelectValue placeholder="Select type" />
 									</SelectTrigger>
-									<SelectContent>
+									<SelectContent className="z-[140] border-border bg-card">
 										<SelectItem value="run">Run</SelectItem>
 										<SelectItem value="ride">Ride</SelectItem>
 										<SelectItem value="gym">Gym</SelectItem>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { History, BookOpen, Home, Trophy } from "lucide-react";
+import { History, BookOpen, Home, Trophy, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { CreateLobby } from "@/components/CreateLobby";
 import { IntroGuide } from "@/components/IntroGuide";
@@ -15,6 +15,7 @@ const baseTabs = [
 	{ href: "/lobbies", label: "LOBBIES", icon: Trophy },
 	{ href: "/stats", label: "STATS", icon: History },
 	{ href: "/records", label: "RECORDS", icon: Trophy },
+	{ href: "/profile", label: "PROFILE", icon: User },
 	{ href: "/history", label: "HISTORY", icon: History },
 	{ href: "/rules", label: "RULES", icon: BookOpen },
 ];
@@ -75,13 +76,14 @@ export function ArenaNav() {
 								<Link
 									key={link.href}
 									href={link.href}
-									className={`font-display text-xs tracking-widest px-3 py-2 transition-colors border-b-2 ${
+									className={`group relative font-display text-xs tracking-widest px-3 py-2 transition-all duration-200 border-b-2 ${
 										isActive(link.href)
 											? "text-primary border-primary"
-											: "text-muted-foreground hover:text-foreground border-transparent hover:border-border"
+											: "text-muted-foreground hover:text-[hsl(var(--arena-gold))] border-transparent hover:border-[hsl(var(--arena-gold)/0.65)] hover:shadow-[inset_0_-1px_0_hsl(var(--arena-gold)/0.55),0_0_14px_hsl(var(--arena-gold)/0.22)]"
 									}`}
 								>
 									{link.label}
+									<span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 bg-[radial-gradient(circle_at_50%_120%,hsl(var(--arena-gold)/0.18),transparent_62%)]" />
 								</Link>
 							))}
 						</div>
