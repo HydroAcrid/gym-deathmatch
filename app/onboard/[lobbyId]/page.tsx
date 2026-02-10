@@ -23,6 +23,8 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [existingPlayerId, setExistingPlayerId] = useState<string | null>(null);
+	const [membershipChecked, setMembershipChecked] = useState(false);
+	const [lobbyMissing, setLobbyMissing] = useState(false);
 	const emailName = useMemo(() => (user?.email || "").split("@")[0], [user?.email]);
 
 	// Prefill from profile when signed in
@@ -48,20 +50,40 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 		(async () => {
 			if (!user?.id || !lobbyId) {
 				setExistingPlayerId(null);
+				setLobbyMissing(false);
+				setMembershipChecked(false);
 				return;
 			}
+			setExistingPlayerId(null);
+			setLobbyMissing(false);
+			setMembershipChecked(false);
 			try {
 				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
-				if (!res.ok) return;
+				if (res.status === 404) {
+					setLobbyMissing(true);
+					setMembershipChecked(true);
+					return;
+				}
+				if (!res.ok) {
+					setMembershipChecked(true);
+					return;
+				}
 				const data = await res.json();
 				const players = (data?.lobby?.players || []) as Array<{ id: string; userId?: string | null }>;
 				const mine = players.find((p) => p.userId === user.id);
 				setExistingPlayerId(mine ? mine.id : null);
+				setMembershipChecked(true);
 			} catch {
 				setExistingPlayerId(null);
+				setMembershipChecked(true);
 			}
 		})();
 	}, [user?.id, lobbyId]);
+
+	useEffect(() => {
+		if (!user?.id || !existingPlayerId) return;
+		window.location.replace(`/lobby/${encodeURIComponent(lobbyId)}`);
+	}, [user?.id, existingPlayerId, lobbyId]);
 
 	const canSubmit = Boolean(user?.id && lobbyId);
 
@@ -167,7 +189,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 	if (!user) {
 		return (
 			<div className="min-h-screen">
-				<div className="container mx-auto max-w-2xl py-12 px-4">
+				<div className="container mx-auto max-w-2xl py-10 px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)]">
 					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
 						<div className="font-display text-xl tracking-widest text-primary">WELCOME</div>
 						<div className="text-sm text-muted-foreground">You were invited to a lobby. Sign in to get started.</div>
@@ -178,10 +200,36 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 		);
 	}
 
+	if (lobbyMissing) {
+		return (
+			<div className="min-h-screen">
+				<div className="container mx-auto max-w-2xl py-10 px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)]">
+					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
+						<div className="font-display text-xl tracking-widest text-primary">LOBBY NOT FOUND</div>
+						<div className="text-sm text-muted-foreground">This invite link is invalid or the lobby was removed.</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (!membershipChecked) {
+		return (
+			<div className="min-h-screen">
+				<div className="container mx-auto max-w-2xl py-10 px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)]">
+					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
+						<div className="font-display text-xl tracking-widest text-primary">CHECKING INVITE</div>
+						<div className="text-sm text-muted-foreground">Looking up your lobby access...</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="min-h-screen">
-			<div className="container mx-auto max-w-2xl py-10 px-4 space-y-4">
-				<div className="scoreboard-panel p-6 space-y-4">
+			<div className="container mx-auto max-w-2xl py-10 px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] space-y-4">
+				<div className="scoreboard-panel p-4 sm:p-6 space-y-4 overflow-hidden">
 					<div className="font-display text-xl tracking-widest text-primary">SET UP YOUR PROFILE</div>
 					<div className="grid gap-3">
 						<div className="space-y-2">
@@ -229,27 +277,27 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 								<Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={submitting}>
 									Choose file
 								</Button>
-								<span className="text-[11px] text-muted-foreground truncate max-w-[220px]">{fileName}</span>
+								<span className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{fileName}</span>
 							</div>
 							<input ref={fileInputRef} className="hidden" type="file" accept="image/*" onChange={onUpload} />
 						</div>
 						{avatarUrl && (
-							<div className="mt-2 flex items-center gap-3">
+							<div className="mt-2 flex items-center gap-3 min-w-0">
 								<img src={avatarUrl} alt="preview" className="h-12 w-12 object-cover border border-border" />
-								<span className="text-xs text-muted-foreground truncate">{avatarUrl}</span>
+								<span className="text-xs text-muted-foreground truncate min-w-0 flex-1">{avatarUrl}</span>
 							</div>
 						)}
-						<div className="flex gap-2">
-							<Button variant="secondary" onClick={saveProfile} disabled={submitting}>
+						<div className="flex flex-col sm:flex-row gap-2">
+							<Button className="w-full sm:w-auto" variant="secondary" onClick={saveProfile} disabled={submitting}>
 								Save profile
 							</Button>
-							<Button variant="arenaPrimary" onClick={joinLobby} disabled={submitting || !!existingPlayerId}>
-								{existingPlayerId ? "Already joined" : "Join this lobby"}
+							<Button className="w-full sm:w-auto" variant="arenaPrimary" onClick={joinLobby} disabled={submitting}>
+								Join this lobby
 							</Button>
 						</div>
 					</div>
 				</div>
-				<div className="scoreboard-panel p-6 space-y-3">
+				<div className="scoreboard-panel p-4 sm:p-6 space-y-3 overflow-hidden">
 					<div className="font-display text-lg tracking-widest text-primary">CONNECT STRAVA</div>
 					<div className="text-sm text-muted-foreground">Once you’ve joined, connect your Strava account so your workouts sync.</div>
 					<a
