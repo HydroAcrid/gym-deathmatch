@@ -1,9 +1,12 @@
-import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import Image from "next/image";
+import { CircleHelp, Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { POINTS_FORMULA_TEXT } from "@/lib/points";
 
 export interface Standing {
   rank: number;
   previousRank?: number;
   athleteName: string;
+  avatarUrl?: string | null;
   workouts: number;
   streak: number;
   penalties: number;
@@ -39,7 +42,16 @@ export function Standings({ standings }: StandingsProps) {
         <div className="col-span-5">ATHLETE</div>
         <div className="col-span-2 text-center">WKT</div>
         <div className="col-span-2 text-center">STK</div>
-        <div className="col-span-2 text-right">PTS</div>
+        <div className="col-span-2 flex items-center justify-end gap-1">
+          <span>PTS</span>
+          <span
+            title={POINTS_FORMULA_TEXT}
+            aria-label={POINTS_FORMULA_TEXT}
+            className="inline-flex text-muted-foreground/80"
+          >
+            <CircleHelp className="w-3.5 h-3.5" />
+          </span>
+        </div>
       </div>
 
       {/* Rows */}
@@ -69,10 +81,20 @@ export function Standings({ standings }: StandingsProps) {
                   >
                     {standing.rank}
                   </span>
-                  <div className="w-9 h-9 bg-muted border-2 border-border flex items-center justify-center">
-                    <span className="text-xs font-display font-bold text-muted-foreground">
-                      {standing.athleteName.charAt(0)}
-                    </span>
+                  <div className="w-9 h-9 bg-muted border-2 border-border flex items-center justify-center overflow-hidden">
+                    {standing.avatarUrl ? (
+                      <Image
+                        src={standing.avatarUrl}
+                        alt={standing.athleteName}
+                        width={36}
+                        height={36}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs font-display font-bold text-muted-foreground">
+                        {standing.athleteName.charAt(0)}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <span className="font-display font-bold text-foreground text-sm block tracking-wider">
@@ -111,10 +133,20 @@ export function Standings({ standings }: StandingsProps) {
 
                 {/* Athlete */}
                 <div className="col-span-5 flex items-center gap-2">
-                  <div className="w-9 h-9 bg-muted border-2 border-border flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-display font-bold text-muted-foreground">
-                      {standing.athleteName.charAt(0)}
-                    </span>
+                  <div className="w-9 h-9 bg-muted border-2 border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {standing.avatarUrl ? (
+                      <Image
+                        src={standing.avatarUrl}
+                        alt={standing.athleteName}
+                        width={36}
+                        height={36}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm font-display font-bold text-muted-foreground">
+                        {standing.athleteName.charAt(0)}
+                      </span>
+                    )}
                   </div>
                   <div className="min-w-0">
                     <span className="font-display font-bold text-foreground truncate block tracking-wider">

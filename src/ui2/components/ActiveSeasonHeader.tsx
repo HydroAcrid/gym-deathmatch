@@ -1,4 +1,4 @@
-import { Swords, Users, Crown, Radio } from "lucide-react";
+import { Swords, Users, Crown, Radio, Coins } from "lucide-react";
 
 interface ActiveSeasonHeaderProps {
 	seasonName: string;
@@ -6,6 +6,9 @@ interface ActiveSeasonHeaderProps {
 	gameMode: string;
 	hostName: string;
 	athleteCount: number;
+	currentPot?: number;
+	weeklyAnte?: number;
+	showMoneyInfo?: boolean;
 }
 
 export function ActiveSeasonHeader({
@@ -14,6 +17,9 @@ export function ActiveSeasonHeader({
 	gameMode,
 	hostName,
 	athleteCount,
+	currentPot = 0,
+	weeklyAnte = 0,
+	showMoneyInfo = false,
 }: ActiveSeasonHeaderProps) {
 	return (
 		<div className="scoreboard-panel p-6 sm:p-8 text-center relative overflow-hidden">
@@ -64,6 +70,28 @@ export function ActiveSeasonHeader({
 						<span className="font-display font-bold text-foreground">{athleteCount}</span>
 					</div>
 				</div>
+
+				{showMoneyInfo && (
+					<div className="mt-5 sm:mt-6 mx-auto max-w-xl border border-border/80 bg-card/50 px-4 py-3">
+						<div className="grid grid-cols-2 gap-3 text-left">
+							<div className="flex items-center gap-2">
+								<Coins className="w-4 h-4 text-arena-gold" />
+								<div>
+									<div className="text-[10px] sm:text-xs text-muted-foreground font-display tracking-widest">POT</div>
+									<div className="font-display text-lg sm:text-xl font-bold text-arena-gold">
+										${currentPot}
+									</div>
+								</div>
+							</div>
+							<div className="text-right">
+								<div className="text-[10px] sm:text-xs text-muted-foreground font-display tracking-widest">WEEKLY ANTE</div>
+								<div className="font-display text-lg sm:text-xl font-bold text-foreground">
+									${weeklyAnte}/WK
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);

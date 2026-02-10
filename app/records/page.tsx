@@ -14,6 +14,7 @@ import {
   Flame,
   Dumbbell,
 } from "lucide-react";
+import { calculatePoints } from "@/lib/points";
 
 /* ---------- Types ---------- */
 
@@ -51,8 +52,8 @@ type LiveLobby = {
     players: EnrichedPlayer[];
     seasonSummary?: {
       seasonNumber?: number;
-      winners?: Array<{ id: string; name: string; totalWorkouts: number; hearts: number }>;
-      losers?: Array<{ id: string; name: string; totalWorkouts: number }>;
+      winners?: Array<{ id: string; name: string; totalWorkouts: number; hearts: number; currentStreak?: number; points?: number }>;
+      losers?: Array<{ id: string; name: string; totalWorkouts: number; hearts?: number; currentStreak?: number; points?: number }>;
       finalPot?: number;
       highlights?: {
         longestStreak?: { playerName: string; streak: number };
@@ -84,6 +85,7 @@ type ActiveSeason = {
   athleteCount: number;
   totalWorkouts: number;
   currentLeader: string;
+  currentLeaderPoints: number;
 };
 
 /* ---------- Helpers ---------- */
@@ -137,6 +139,7 @@ export default function RecordsPage() {
       longestStreak: { holder: "", value: 0, lobby: "" },
       mostWorkouts: { holder: "", value: 0, lobby: "" },
       mostChampionships: { holder: "", value: 0 },
+      mostPoints: { holder: "", value: 0, lobby: "" },
       mostConsistent: { holder: "", value: 0, lobby: "" },
     };
 
@@ -149,15 +152,23 @@ export default function RecordsPage() {
 
       // Active seasons
       if (live.lobby.stage === "ACTIVE" && players.length > 0) {
-        const sorted = [...players].sort((a, b) => b.totalWorkouts - a.totalWorkouts);
+        const sorted = [...players].sort((a, b) =>
+          calculatePoints({ workouts: b.totalWorkouts, streak: b.currentStreak }) -
+          calculatePoints({ workouts: a.totalWorkouts, streak: a.currentStreak })
+        );
         const totalW = players.reduce((s, p) => s + p.totalWorkouts, 0);
+        const leader = sorted[0];
+        const leaderPoints = leader
+          ? calculatePoints({ workouts: leader.totalWorkouts, streak: leader.currentStreak })
+          : 0;
         activeList.push({
           lobbyId: lobby.id,
           lobbyName: lobby.name,
           seasonNumber: live.lobby.seasonNumber,
           athleteCount: players.length,
           totalWorkouts: totalW,
-          currentLeader: sorted[0]?.name ?? "—",
+          currentLeader: leader?.name ?? "—",
+          currentLeaderPoints: leaderPoints,
         });
       }
 
@@ -170,6 +181,20 @@ export default function RecordsPage() {
             (s: number, p: { totalWorkouts?: number }) => s + (p.totalWorkouts ?? 0),
             0
           );
+        const seasonPlayers = [...(summary.winners ?? []), ...(summary.losers ?? [])];
+        const seasonTop = seasonPlayers.reduce(
+          (best, player) => {
+            const points = player.points ?? calculatePoints({
+              workouts: player.totalWorkouts ?? 0,
+              streak: player.currentStreak ?? 0
+            });
+            return points > best.points ? { name: player.name, points } : best;
+          },
+          { name: "", points: 0 }
+        );
+        if (seasonTop.points > recordCandidates.mostPoints.value) {
+          recordCandidates.mostPoints = { holder: seasonTop.name, value: seasonTop.points, lobby: lobby.name };
+        }
 
         pastList.push({
           lobbyId: lobby.id,
@@ -219,11 +244,15 @@ export default function RecordsPage() {
 
       // Aggregate player records from live data
       for (const p of players) {
+        const points = calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak });
         if (p.longestStreak > recordCandidates.longestStreak.value) {
           recordCandidates.longestStreak = { holder: p.name, value: p.longestStreak, lobby: lobby.name };
         }
         if (p.totalWorkouts > recordCandidates.mostWorkouts.value) {
           recordCandidates.mostWorkouts = { holder: p.name, value: p.totalWorkouts, lobby: lobby.name };
+        }
+        if (points > recordCandidates.mostPoints.value) {
+          recordCandidates.mostPoints = { holder: p.name, value: points, lobby: lobby.name };
         }
       }
     }
@@ -251,6 +280,14 @@ export default function RecordsPage() {
         holder: recordCandidates.mostWorkouts.holder,
         value: `${recordCandidates.mostWorkouts.value}`,
         lobby: recordCandidates.mostWorkouts.lobby,
+      });
+    }
+    if (recordCandidates.mostPoints.value > 0) {
+      recordsList.push({
+        record: "MOST POINTS",
+        holder: recordCandidates.mostPoints.holder,
+        value: `${recordCandidates.mostPoints.value}`,
+        lobby: recordCandidates.mostPoints.lobby,
       });
     }
     if (recordCandidates.mostChampionships.value > 0) {
@@ -569,7 +606,9 @@ export default function RecordsPage() {
                     </div>
                     <div className="text-center">
                       <div className="text-lg sm:text-3xl font-display font-bold text-arena-gold">{active.currentLeader}</div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">CURRENT LEADER</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+                        POINTS LEADER ({active.currentLeaderPoints})
+                      </div>
                     </div>
                   </div>
                 </Link>

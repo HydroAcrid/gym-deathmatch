@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { authFetch } from "@/lib/clientAuth";
+import { calculatePoints, POINTS_FORMULA_TEXT } from "@/lib/points";
 
 export function SeasonCompleteOverlay({
 	lobbyId,
@@ -72,10 +73,18 @@ export function SeasonCompleteOverlay({
 
 	// Combine winners and losers for standings display
 	const allPlayers = [
-		...seasonSummary.winners.map(p => ({ ...p, isWinner: true })),
-		...seasonSummary.losers.map(p => ({ ...p, isWinner: false }))
+		...seasonSummary.winners.map(p => ({
+			...p,
+			isWinner: true,
+			points: p.points ?? calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak ?? 0 })
+		})),
+		...seasonSummary.losers.map(p => ({
+			...p,
+			isWinner: false,
+			points: p.points ?? calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak ?? 0 })
+		}))
 	].sort((a, b) => {
-		// Sort by hearts first, then totalWorkouts
+		if ((b.points ?? 0) !== (a.points ?? 0)) return (b.points ?? 0) - (a.points ?? 0);
 		if (b.hearts !== a.hearts) return b.hearts - a.hearts;
 		return b.totalWorkouts - a.totalWorkouts;
 	});
@@ -116,6 +125,7 @@ export function SeasonCompleteOverlay({
 							{/* Left: Standings */}
 							<div className="space-y-4">
 								<div className="font-display tracking-widest text-primary text-lg mb-3">STANDINGS</div>
+								<div className="text-[11px] text-muted-foreground -mt-2 mb-2">{POINTS_FORMULA_TEXT}</div>
 								<div className="space-y-3">
 									{allPlayers.map((player, idx) => (
 										<motion.div
@@ -148,7 +158,7 @@ export function SeasonCompleteOverlay({
 											<div className="flex-1 min-w-0">
 												<div className="font-display tracking-widest text-primary text-base truncate">{player.name.toUpperCase()}</div>
 												<div className="text-xs text-muted-foreground">
-													❤️ {player.hearts} • {player.totalWorkouts} workouts
+													🏆 {player.points ?? 0} pts • ❤️ {player.hearts} • {player.totalWorkouts} workouts
 												</div>
 											</div>
 										</motion.div>

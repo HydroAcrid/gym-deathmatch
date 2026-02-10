@@ -17,13 +17,13 @@ import { LAST_LOBBY_STORAGE_KEY } from "@/lib/localStorageKeys";
 import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
 import { ActiveSeasonHeader } from "@/src/ui2/components/ActiveSeasonHeader";
 import { LiveFeed } from "@/src/ui2/components/LiveFeed";
-import { PotStakesPanel } from "@/src/ui2/components/PotStakesPanel";
 import { HeartsStatusBoard, type AthleteHeartStatus } from "@/src/ui2/components/HeartsStatusBoard";
 import { Standings, type Standing } from "@/src/ui2/components/Standings";
 import { HostControls } from "@/src/ui2/components/HostControls";
 import { WeeklyCycleIndicator } from "@/src/ui2/components/WeeklyCycleIndicator";
 import { Button } from "@/src/ui2/ui/button";
 import { authFetch } from "@/lib/clientAuth";
+import { calculatePoints, compareByPointsDesc, POINTS_FORMULA_TEXT } from "@/lib/points";
 
 type LobbyLayoutProps = {
 	lobby: Lobby;
@@ -53,14 +53,6 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const isChallengeMode = String(mode || "").startsWith("CHALLENGE_");
 	const ownerName = players.find((p) => p.id === lobbyData.ownerId)?.name || "Host";
 	const weeklyAnte = (lobbyData as any).weeklyAnte ?? 10;
-
-	const potGameMode = (() => {
-		const key = String(mode || "").toUpperCase();
-		if (key.includes("LAST_MAN")) return "last_man_standing";
-		if (key.includes("ROULETTE")) return "roulette";
-		if (key.includes("CUMULATIVE")) return "cumulative";
-		return "survival";
-	})() as "survival" | "last_man_standing" | "roulette" | "cumulative";
 
 	// Local UI state
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
@@ -161,6 +153,25 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						playerCount: lives.length,
 						leadersRaw: lives.filter(l => l.lives === max),
 						lowRaw: lives.filter(l => l.lives === min)
+					};
+				}
+				if (livePlayers.length > 0) {
+					const leaderboard = [...livePlayers]
+						.map((p: any) => {
+							const workouts = Number(p.totalWorkouts ?? 0);
+							const streak = Number(p.currentStreak ?? 0);
+							return {
+								name: p.name ?? "Athlete",
+								workouts,
+								streak,
+								points: calculatePoints({ workouts, streak })
+							};
+						})
+						.sort(compareByPointsDesc)
+						.slice(0, 3);
+					data.points = {
+						formula: POINTS_FORMULA_TEXT,
+						leaderboard
 					};
 				}
 
@@ -300,15 +311,21 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	// Build standings data from live players
 	const standingsData: Standing[] = players
 		.filter(p => (p.livesRemaining ?? 1) > 0)
-		.sort((a, b) => (b.totalWorkouts ?? 0) - (a.totalWorkouts ?? 0))
-		.map((p, i) => ({
-			rank: i + 1,
-			athleteName: p.name,
-			workouts: p.totalWorkouts ?? 0,
-			streak: p.currentStreak ?? 0,
-			penalties: 0, // TODO(INTEGRATION): wire to penalty count
-			points: (p.totalWorkouts ?? 0) + (p.currentStreak ?? 0),
-		}));
+		.map((p) => {
+			const workouts = p.totalWorkouts ?? 0;
+			const streak = p.currentStreak ?? 0;
+			const penalties = 0;
+			return {
+				athleteName: p.name,
+				avatarUrl: p.avatarUrl || null,
+				workouts,
+				streak,
+				penalties,
+				points: calculatePoints({ workouts, streak, penalties }),
+			};
+		})
+		.sort(compareByPointsDesc)
+		.map((standing, i) => ({ ...standing, rank: i + 1 }));
 
 	// Calculate week info for cycle indicator
 	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
@@ -332,6 +349,9 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					gameMode={modeLabel}
 					hostName={ownerName}
 					athleteCount={players.length}
+					currentPot={potAmount}
+					weeklyAnte={weeklyAnte}
+					showMoneyInfo={isMoneyMode && stage !== "COMPLETED"}
 				/>
 
 				{/* Weekly Cycle Indicator */}
@@ -375,6 +395,41 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 							Edit Lobby
 						</Button>
 					)}
+					{isOwner && isMoneyMode && stage !== "COMPLETED" && (
+						<Button
+							variant="arenaPrimary"
+							size="sm"
+							onClick={async () => {
+								if (!isOwner || !user?.id) return;
+								const input = window.prompt("Set pot amount", String(potAmount));
+								if (input === null) return;
+								const target = Number(input);
+								if (!Number.isFinite(target) || target < 0) {
+									toast.push("Enter a valid non-negative number.");
+									return;
+								}
+								try {
+									const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/pot`, {
+										method: "POST",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({ targetPot: target }),
+									});
+									const data = await res.json().catch(() => ({}));
+									if (!res.ok) {
+										toast.push(data.error || "Failed to update pot");
+										return;
+									}
+									setPotAmount(target);
+									toast.push("Pot updated");
+									onRefresh?.();
+								} catch {
+									toast.push("Failed to update pot");
+								}
+							}}
+						>
+							Update Pot
+						</Button>
+					)}
 				</div>
 
 				{isChallengeMode && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
@@ -396,9 +451,6 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 							{/* Hearts & Status Board - Arena-style */}
 							<HeartsStatusBoard athletes={heartsData} />
 
-							{/* Live Feed */}
-							<LiveFeed lobbyId={lobbyData.id} />
-
 							{/* Player Cards Grid */}
 							{!(isChallengeMode && weekStatus === "PENDING_CONFIRMATION") && (
 								<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
@@ -414,50 +466,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 									))}
 								</div>
 							)}
+
+							{/* Live Feed */}
+							<LiveFeed lobbyId={lobbyData.id} />
 						</div>
 						<div className="space-y-6">
-							{/* Pot & Stakes Panel */}
-							{stage !== "COMPLETED" && isMoneyMode && (
-								<div className="space-y-3">
-									<PotStakesPanel currentPot={potAmount} weeklyAnte={weeklyAnte} gameMode={potGameMode} />
-									{isOwner && (
-										<Button
-											variant="arenaPrimary"
-											size="sm"
-											onClick={async () => {
-												if (!isOwner || !user?.id) return;
-												const input = window.prompt("Set pot amount", String(potAmount));
-												if (input === null) return;
-												const target = Number(input);
-												if (!Number.isFinite(target) || target < 0) {
-													toast.push("Enter a valid non-negative number.");
-													return;
-												}
-												try {
-													const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/pot`, {
-														method: "POST",
-														headers: { "Content-Type": "application/json" },
-														body: JSON.stringify({ targetPot: target }),
-													});
-													const data = await res.json().catch(() => ({}));
-													if (!res.ok) {
-														toast.push(data.error || "Failed to update pot");
-														return;
-													}
-													setPotAmount(target);
-													toast.push("Pot updated");
-													onRefresh?.();
-												} catch {
-													toast.push("Failed to update pot");
-												}
-											}}
-										>
-											Update Pot
-										</Button>
-									)}
-								</div>
-							)}
-
 							{/* Standings Panel */}
 							{standingsData.length > 0 && (
 								<Standings standings={standingsData} />

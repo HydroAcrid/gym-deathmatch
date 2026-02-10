@@ -28,6 +28,10 @@ type SummaryData = {
 		lowRaw: Array<{ name: string; lives: number }>;
 	};
 	quips?: Array<{ text: string; created_at: string }>;
+	points?: {
+		formula?: string;
+		leaderboard?: Array<{ name: string; points: number; workouts: number; streak: number }>;
+	};
 };
 
 export function PeriodSummaryOverlay({
@@ -63,6 +67,8 @@ period: "daily" | "weekly";
 	const heartsValue = heartsLeadersArr.length ? heartsLeaders : "No data";
 	const heartsDebug = data.heartsDebug;
 	const spotlight = (data.quips || []).find(q => q.text.toLowerCase().includes("photo of the day"));
+	const pointsLeaders = data.points?.leaderboard ?? [];
+	const topPoints = pointsLeaders[0];
 
 	const containerVariants = {
 		hidden: { opacity: 0, scale: 0.96, y: 24 },
@@ -120,11 +126,12 @@ period: "daily" | "weekly";
 					<motion.div
 						initial="hidden"
 						animate="show"
-						className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3"
+						className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mb-3"
 					>
 						<StatPill icon="🏋️" label="WORKOUTS" value={`${pData?.totalWorkouts ?? 0}`} />
 						<StatPill icon="💰" label="POT" value={`$${data.pot ?? 0}`} />
 						<StatPill icon="❤️" label="HEARTS" value={heartsValue} />
+						<StatPill icon="🏆" label="POINTS LEADER" value={topPoints ? `${topPoints.name} ${topPoints.points}` : "—"} />
 						<StatPill icon="⚔️" label="ARENA EVENTS" value={`${eventsCount}`} />
 					</motion.div>
 
@@ -194,11 +201,39 @@ period: "daily" | "weekly";
 							)}
 						</motion.div>
 
+						{pointsLeaders.length > 0 && (
+							<motion.div
+								variants={cardVariants}
+								initial="hidden"
+								animate="show"
+								custom={3}
+								className="rounded-xl border border-border bg-card text-foreground p-4 lg:col-span-2"
+							>
+								<div className="flex items-center gap-2 mb-2">
+									<span className="text-lg">🏆</span>
+									<div className="font-display text-lg tracking-[0.12em] text-primary">Points Board</div>
+								</div>
+								<div className="text-xs text-muted-foreground mb-2">
+									{data.points?.formula ?? "Points = workouts + streak - penalties"}
+								</div>
+								<div className="space-y-1 text-sm text-muted-foreground">
+									{pointsLeaders.map((row, idx) => (
+										<div key={`${row.name}-${idx}`} className="flex items-center justify-between gap-3">
+											<span className="truncate">{row.name}</span>
+											<span className="font-display text-foreground">
+												{row.points} pts ({row.workouts}W/{row.streak}S)
+											</span>
+										</div>
+									))}
+								</div>
+							</motion.div>
+						)}
+
 						<motion.div
 							variants={cardVariants}
 							initial="hidden"
 							animate="show"
-							custom={3}
+							custom={4}
 							className="rounded-xl border border-border bg-card text-foreground p-4 lg:col-span-2"
 						>
 							<div className="flex items-center gap-2 mb-2">

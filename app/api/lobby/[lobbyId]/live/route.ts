@@ -11,6 +11,7 @@ import { getDailyTaunts } from "@/lib/funFacts";
 import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 import { logError } from "@/lib/logger";
+import { calculatePoints } from "@/lib/points";
 
 // Generate season summary when season completes
 function generateSeasonSummary(
@@ -19,6 +20,16 @@ function generateSeasonSummary(
 	finalPot: number,
 	seasonNumber: number
 ): SeasonSummary {
+	const toSummaryPlayer = (p: Player) => ({
+		id: p.id,
+		name: p.name,
+		avatarUrl: p.avatarUrl,
+		hearts: p.livesRemaining,
+		totalWorkouts: p.totalWorkouts,
+		currentStreak: p.currentStreak,
+		points: calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak })
+	});
+
 	// Determine winners and losers based on mode
 	let winners: SeasonSummary["winners"] = [];
 	let losers: SeasonSummary["losers"] = [];
@@ -26,24 +37,8 @@ function generateSeasonSummary(
 	if (mode === "MONEY_SURVIVAL") {
 		// Winners: all players with hearts > 0
 		// Losers: players with 0 hearts
-		winners = players
-			.filter(p => p.livesRemaining > 0)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
-		losers = players
-			.filter(p => p.livesRemaining === 0)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
+		winners = players.filter(p => p.livesRemaining > 0).map(toSummaryPlayer);
+		losers = players.filter(p => p.livesRemaining === 0).map(toSummaryPlayer);
 	} else if (mode === "MONEY_LAST_MAN") {
 		// Winner: player with most hearts (or highest totalWorkouts if tie)
 		const sorted = [...players].sort((a, b) => {
@@ -52,23 +47,11 @@ function generateSeasonSummary(
 		});
 		const winner = sorted[0];
 		if (winner && winner.livesRemaining > 0) {
-			winners = [{
-				id: winner.id,
-				name: winner.name,
-				avatarUrl: winner.avatarUrl,
-				hearts: winner.livesRemaining,
-				totalWorkouts: winner.totalWorkouts
-			}];
+			winners = [toSummaryPlayer(winner)];
 		}
 		losers = players
 			.filter(p => p.id !== winner?.id || p.livesRemaining === 0)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
+			.map(toSummaryPlayer);
 	} else {
 		// Challenge modes: winners = most hearts, losers = least hearts
 		const sorted = [...players].sort((a, b) => {
@@ -78,22 +61,10 @@ function generateSeasonSummary(
 		const maxHearts = sorted[0]?.livesRemaining ?? 0;
 		winners = sorted
 			.filter(p => p.livesRemaining === maxHearts)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
+			.map(toSummaryPlayer);
 		losers = sorted
 			.filter(p => p.livesRemaining < maxHearts)
-			.map(p => ({
-				id: p.id,
-				name: p.name,
-				avatarUrl: p.avatarUrl,
-				hearts: p.livesRemaining,
-				totalWorkouts: p.totalWorkouts
-			}));
+			.map(toSummaryPlayer);
 	}
 	
 	// Calculate highlights (only if we have players with valid stats)
@@ -381,6 +352,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 				let currentStreak = 0;
 				let longestStreak = 0;
 				let avg = 0;
+				let seasonCombined: any[] = [];
 				
 				if (!seasonStart || currentStage === "PRE_STAGE") {
 					// PRE_STAGE: Use initial hearts, no activity-based calculation
@@ -389,28 +361,42 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						weeksEvaluated: 0,
 						events: []
 					};
-					total = (combined as any[]).length;
-					currentStreak = calculateStreakFromActivities(combined as any[]);
-					longestStreak = calculateLongestStreak(combined as any[]);
-					avg = 0; // No average until season starts
+					total = 0;
+					currentStreak = 0;
+					longestStreak = 0;
+					avg = 0;
 				} else {
 					// ACTIVE or COMPLETED: Calculate hearts from activities
+					const seasonCalcEndIso =
+						currentStage === "COMPLETED"
+							? seasonEnd
+							: new Date().toISOString();
+					const seasonCalcEndDate = new Date(seasonCalcEndIso);
+					seasonCombined = (combined as any[]).filter((a) => {
+						const raw = a.start_date ?? a.start_date_local ?? null;
+						if (!raw) return false;
+						const date = new Date(raw);
+						if (Number.isNaN(date.getTime())) return false;
+						return date >= new Date(seasonStart) && date <= seasonCalcEndDate;
+					});
+
 					// Prevent day-1 KO: if no activity yet and seasonStart is far in past, soft-clamp calculation start to "now"
-					const hasAny = (combined as any[]).length > 0;
+					const hasAny = seasonCombined.length > 0;
 					const seasonStartDate = new Date(seasonStart);
 					const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
 					const startForCalc = (!hasAny && (Date.now() - seasonStartDate.getTime() > twoDaysMs))
 						? new Date()
 						: seasonStartDate;
 
-					// Be robust: count all combined entries as total workouts (season bounds rarely matter for "now" views)
-					total = (combined as any[]).length;
-					// For streaks, be forgiving and consider all combined activities (season-bound streaks are often confusing around start/end)
-					currentStreak = calculateStreakFromActivities(combined as any[]);
-					longestStreak = calculateLongestStreak(combined as any[]);
-					avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc.toISOString(), seasonEnd);
-					// Evaluate hearts up to "now" (not full season) so players aren't penalized for future weeks
-					weekly = computeWeeklyHearts(combined as any[], startForCalc, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+					total = calculateTotalWorkouts(combined as any[], seasonStart, seasonCalcEndIso);
+					currentStreak = calculateStreakFromActivities(combined as any[], seasonStart, seasonCalcEndIso);
+					longestStreak = calculateLongestStreak(combined as any[], seasonStart, seasonCalcEndIso);
+					avg = calculateAverageWorkoutsPerWeek(combined as any[], seasonStart, seasonCalcEndIso);
+					weekly = computeWeeklyHearts(combined as any[], startForCalc, {
+						weeklyTarget,
+						maxHearts: 3,
+						seasonEnd: seasonCalcEndDate
+					});
 				}
 				// Back-compat feed events (met/count) derived from weekly events
 				const nowTs = Date.now();
@@ -424,11 +410,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					}))
 					.slice(-4); // keep recent few weeks to avoid noisy long histories
 					// Skip logging weekly target met/missed into history to avoid feed spam
-				const recentActivities = (combined as any[]).slice(0, 5).map(a => {
+				const seasonActivityList = seasonCombined.length ? seasonCombined : [];
+				const recentActivities = seasonActivityList.slice(0, 5).map(a => {
 					const s = toActivitySummary(a);
 					return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
 				});
-				const lastStart = (combined as any[])[0]?.start_date || (combined as any[])[0]?.start_date_local || null;
+				const lastStart = seasonActivityList[0]?.start_date || seasonActivityList[0]?.start_date_local || null;
+				const seasonStravaCount = seasonActivityList.filter((a) => a.__source !== "manual").length;
+				const seasonManualCount = seasonActivityList.filter((a) => a.__source === "manual").length;
 				const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
 				let result = {
 					...p,
@@ -443,9 +432,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					weeklyTarget,
 					recentActivities,
 					activityCounts: {
-						total: combined.length,
-						strava: (activities as any[]).length,
-						manual: manual.length
+						total: seasonActivityList.length,
+						strava: seasonStravaCount,
+						manual: seasonManualCount
 					},
 					taunt,
 					inSuddenDeath: p.inSuddenDeath
@@ -492,6 +481,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						let currentStreak = 0;
 						let longestStreak = 0;
 						let avg = 0;
+						let seasonCombined: any[] = [];
 						
 						if (!seasonStart || currentStage === "PRE_STAGE") {
 							weekly = {
@@ -499,21 +489,37 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								weeksEvaluated: 0,
 								events: []
 							};
-							total = (combined as any[]).length;
-							currentStreak = calculateStreakFromActivities(combined as any[]);
-							longestStreak = calculateLongestStreak(combined as any[]);
+							total = 0;
+							currentStreak = 0;
+							longestStreak = 0;
 							avg = 0;
 						} else {
+							const seasonCalcEndIso =
+								currentStage === "COMPLETED"
+									? seasonEnd
+									: new Date().toISOString();
+							const seasonCalcEndDate = new Date(seasonCalcEndIso);
+							seasonCombined = (combined as any[]).filter((a) => {
+								const raw = a.start_date ?? a.start_date_local ?? null;
+								if (!raw) return false;
+								const date = new Date(raw);
+								if (Number.isNaN(date.getTime())) return false;
+								return date >= new Date(seasonStart) && date <= seasonCalcEndDate;
+							});
 							const seasonStartDate2 = new Date(seasonStart);
 							const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-							const startForCalc2 = ((combined as any[]).length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
+							const startForCalc2 = (seasonCombined.length === 0 && (Date.now() - seasonStartDate2.getTime() > twoDaysMs))
 								? new Date()
 								: seasonStartDate2;
-							total = (combined as any[]).length;
-							currentStreak = calculateStreakFromActivities(combined as any[]);
-							longestStreak = calculateLongestStreak(combined as any[]);
-							avg = calculateAverageWorkoutsPerWeek(combined as any[], startForCalc2.toISOString(), seasonEnd);
-							weekly = computeWeeklyHearts(combined as any[], startForCalc2, { weeklyTarget, maxHearts: 3, seasonEnd: new Date() });
+							total = calculateTotalWorkouts(combined as any[], seasonStart, seasonCalcEndIso);
+							currentStreak = calculateStreakFromActivities(combined as any[], seasonStart, seasonCalcEndIso);
+							longestStreak = calculateLongestStreak(combined as any[], seasonStart, seasonCalcEndIso);
+							avg = calculateAverageWorkoutsPerWeek(combined as any[], seasonStart, seasonCalcEndIso);
+							weekly = computeWeeklyHearts(combined as any[], startForCalc2, {
+								weeklyTarget,
+								maxHearts: 3,
+								seasonEnd: seasonCalcEndDate
+							});
 						}
 						const nowTs2 = Date.now();
 						const events = (weekly.events || [])
@@ -524,11 +530,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								count: e.workouts
 							}))
 							.slice(-4);
-						const recentActivities = (combined as any[]).slice(0, 5).map(a => {
+						const seasonActivityList = seasonCombined.length ? seasonCombined : [];
+						const recentActivities = seasonActivityList.slice(0, 5).map(a => {
 							const s = toActivitySummary(a);
 							return { ...s, source: (a.__source === "manual" ? "manual" : "strava") as any };
 						});
-						const lastStart = (combined as any[])[0]?.start_date || (combined as any[])[0]?.start_date_local || null;
+						const lastStart = seasonActivityList[0]?.start_date || seasonActivityList[0]?.start_date_local || null;
+						const seasonStravaCount = seasonActivityList.filter((a) => a.__source !== "manual").length;
+						const seasonManualCount = seasonActivityList.filter((a) => a.__source === "manual").length;
 						const taunt = getDailyTaunts(lastStart ? new Date(lastStart) : null, currentStreak);
 						let result2 = {
 							...p,
@@ -543,9 +552,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 							weeklyTarget,
 							recentActivities,
 							activityCounts: {
-								total: combined.length,
-								strava: (activities as any[]).length,
-								manual: manual.length
+								total: seasonActivityList.length,
+								strava: seasonStravaCount,
+								manual: seasonManualCount
 							},
 							taunt
 						};
