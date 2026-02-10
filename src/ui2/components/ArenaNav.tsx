@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { History, BookOpen, Home, Trophy } from "lucide-react";
+import { History, BookOpen, Home, Trophy, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { CreateLobby } from "@/components/CreateLobby";
 import { IntroGuide } from "@/components/IntroGuide";
@@ -15,6 +15,7 @@ const baseTabs = [
 	{ href: "/lobbies", label: "LOBBIES", icon: Trophy },
 	{ href: "/stats", label: "STATS", icon: History },
 	{ href: "/records", label: "RECORDS", icon: Trophy },
+	{ href: "/profile", label: "PROFILE", icon: User },
 	{ href: "/history", label: "HISTORY", icon: History },
 	{ href: "/rules", label: "RULES", icon: BookOpen },
 ];
@@ -58,7 +59,10 @@ export function ArenaNav() {
 	}
 
 	return (
-		<nav className="border-b-2 border-border bg-card text-foreground sticky top-0 z-40 safe-area-pt">
+		<nav
+			className="sticky top-0 z-[90] safe-area-pt border-b-2 border-border text-foreground shadow-[0_10px_24px_-16px_hsl(0_0%_0%/0.95)]"
+			style={{ backgroundColor: "hsl(var(--background))" }}
+		>
 			<div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-6 lg:gap-8">
@@ -75,13 +79,14 @@ export function ArenaNav() {
 								<Link
 									key={link.href}
 									href={link.href}
-									className={`font-display text-xs tracking-widest px-3 py-2 transition-colors border-b-2 ${
+									className={`group relative font-display text-xs tracking-widest px-3 py-2 transition-all duration-200 border-b-2 ${
 										isActive(link.href)
 											? "text-primary border-primary"
-											: "text-muted-foreground hover:text-foreground border-transparent hover:border-border"
+											: "text-muted-foreground hover:text-[hsl(var(--arena-gold))] border-transparent hover:border-[hsl(var(--arena-gold)/0.65)] hover:shadow-[inset_0_-1px_0_hsl(var(--arena-gold)/0.55),0_0_14px_hsl(var(--arena-gold)/0.22)]"
 									}`}
 								>
 									{link.label}
+									<span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 bg-[radial-gradient(circle_at_50%_120%,hsl(var(--arena-gold)/0.18),transparent_62%)]" />
 								</Link>
 							))}
 						</div>
@@ -111,7 +116,7 @@ export function ArenaNav() {
 							{user ? "SIGN OUT" : "SIGN IN"}
 						</Button>
 
-						{user && <ProfileAvatar />}
+						{user && <ProfileAvatar variant="arena" />}
 					</div>
 				</div>
 			</div>

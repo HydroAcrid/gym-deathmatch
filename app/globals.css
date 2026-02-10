@@ -1,8 +1,8 @@
-@import '@fontsource/oswald/400.css';
-@import '@fontsource/oswald/500.css';
-@import '@fontsource/oswald/700.css';
-@import '@fontsource/space-mono/400.css';
-@import '@fontsource/space-mono/700.css';
+@import '../node_modules/@fontsource/oswald/400.css';
+@import '../node_modules/@fontsource/oswald/500.css';
+@import '../node_modules/@fontsource/oswald/700.css';
+@import '../node_modules/@fontsource/space-mono/400.css';
+@import '../node_modules/@fontsource/space-mono/700.css';
 @import "tailwindcss";
 
 /*
@@ -477,6 +477,33 @@ select option {
   overflow-wrap: anywhere;
   word-break: break-word;
   hyphens: auto;
+}
+
+/* Consistent modal scrollbars (desktop/tablet) */
+.arena-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.arena-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.arena-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.arena-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.arena-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.7);
+  background-clip: padding-box;
 }
 
 /* Legacy — hidden elements */

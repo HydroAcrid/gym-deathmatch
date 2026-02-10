@@ -32,7 +32,10 @@ export function Navbar() {
 		return tab;
 	});
 	return (
-		<div className="sticky top-0 z-50 bg-background text-foreground">
+		<div
+			className="sticky top-0 z-[90] text-foreground shadow-[0_10px_24px_-16px_hsl(0_0%_0%/0.95)]"
+			style={{ backgroundColor: "hsl(var(--background))" }}
+		>
 			<div className="mx-auto max-w-6xl">
 				<div className="flex items-center justify-between py-1.5 sm:py-2 px-2 sm:px-3 border-b border-border">
 					<div className="font-display text-xl sm:text-2xl text-primary">GYM DEATHMATCH</div>

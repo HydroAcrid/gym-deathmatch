@@ -71,7 +71,10 @@ export function MobileBottomNav() {
 		return (
 			<>
 				<div className="mobile-bottom-nav lg:hidden h-[calc(76px+env(safe-area-inset-bottom))]" />
-				<nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t-2 border-border safe-area-inset-bottom">
+				<nav
+					className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-[90] border-t-2 border-border safe-area-inset-bottom shadow-[0_-10px_24px_-14px_hsl(0_0%_0%/0.95)]"
+					style={{ backgroundColor: "hsl(var(--background))" }}
+				>
 					<div className="h-16 safe-area-pb" />
 				</nav>
 			</>
@@ -81,7 +84,10 @@ export function MobileBottomNav() {
 	return (
 		<>
 			<div className="mobile-bottom-nav lg:hidden h-[calc(76px+env(safe-area-inset-bottom))]" />
-			<nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t-2 border-border safe-area-inset-bottom">
+			<nav
+				className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-[90] border-t-2 border-border safe-area-inset-bottom shadow-[0_-10px_24px_-14px_hsl(0_0%_0%/0.95)]"
+				style={{ backgroundColor: "hsl(var(--background))" }}
+			>
 				<div className="flex items-stretch justify-around h-16 safe-area-pb">
 					{navItems.map((item) => {
 						if (item.isLog) {

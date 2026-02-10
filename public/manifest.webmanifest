@@ -1,6 +1,6 @@
 {
-  "name": "Arena",
-  "short_name": "Arena",
+  "name": "Gym Deathmatch",
+  "short_name": "Gym DM",
   "start_url": "/",
   "display": "standalone",
   "scope": "/",
@@ -23,4 +23,3 @@
     }
   ]
 }
-

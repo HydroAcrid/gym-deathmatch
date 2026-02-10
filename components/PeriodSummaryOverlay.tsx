@@ -28,6 +28,8 @@ type SummaryData = {
 		lowRaw: Array<{ name: string; lives: number }>;
 	};
 	quips?: Array<{ text: string; created_at: string }>;
+	quipsDaily?: Array<{ text: string; created_at: string }>;
+	quipsWeekly?: Array<{ text: string; created_at: string }>;
 	points?: {
 		formula?: string;
 		leaderboard?: Array<{ name: string; points: number; workouts: number; streak: number }>;
@@ -59,14 +61,17 @@ period: "daily" | "weekly";
 	const heading = isWeekly ? "WEEKLY WRAP" : "DAILY WRAP";
 	const sub = isWeekly ? "One week in the arena" : "Today in the arena";
 	const pData = isWeekly ? data.weekly : data.daily;
-	const eventsCount = data.quips?.length ?? 0;
+	const periodQuips = isWeekly
+		? (data.quipsWeekly ?? data.quips ?? [])
+		: (data.quipsDaily ?? data.quips ?? []);
+	const eventsCount = periodQuips.length;
 	const heartsLeadersArr = data.hearts?.leaders && data.hearts.leaders.length ? data.hearts.leaders : [];
 	const heartsLowArr = data.hearts?.low && data.hearts.low.length ? data.hearts.low : [];
 	const heartsLeaders = heartsLeadersArr.length ? heartsLeadersArr.slice(0, 3).join(" • ") + (heartsLeadersArr.length > 3 ? ` +${heartsLeadersArr.length - 3}` : "") : "—";
 	const heartsLow = heartsLowArr.length ? heartsLowArr.slice(0, 3).join(" • ") + (heartsLowArr.length > 3 ? ` +${heartsLowArr.length - 3}` : "") : "—";
 	const heartsValue = heartsLeadersArr.length ? heartsLeaders : "No data";
 	const heartsDebug = data.heartsDebug;
-	const spotlight = (data.quips || []).find(q => q.text.toLowerCase().includes("photo of the day"));
+	const spotlight = periodQuips.find(q => q.text.toLowerCase().includes("photo of the day"));
 	const pointsLeaders = data.points?.leaderboard ?? [];
 	const topPoints = pointsLeaders[0];
 
@@ -105,7 +110,7 @@ period: "daily" | "weekly";
 				initial={{ opacity: 0, scale: 1.02 }}
 				animate={{ opacity: 1, scale: 1 }}
 				exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.25, ease: "easeIn" } }}
-				className="fixed inset-0 z-[160] flex items-start justify-center p-0 sm:p-4 sm:pt-24 bg-black/85 backdrop-blur-sm"
+				className="fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top,0px)+var(--nav-height))] z-[160] flex items-start justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm"
 				onClick={onClose}
 			>
 				<motion.div
@@ -113,7 +118,7 @@ period: "daily" | "weekly";
 					initial="hidden"
 					animate="show"
 					exit="exit"
-					className="scoreboard-panel w-full sm:max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-7rem)] overflow-y-auto overflow-x-hidden [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full p-3 sm:p-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8 border-2 relative"
+					className="scoreboard-panel w-full sm:max-w-4xl h-full overflow-y-auto overflow-x-hidden [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full p-3 sm:p-6 pt-4 sm:pt-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8 border-2 relative"
 					onClick={(e) => e.stopPropagation()}
 				>
 					<div className="absolute inset-0 pointer-events-none mix-blend-screen opacity-[0.08] bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)),transparent_40%)]" />
@@ -241,8 +246,8 @@ period: "daily" | "weekly";
 								<div className="font-display text-lg tracking-[0.12em] text-primary">Battle Log</div>
 							</div>
 							<div className="space-y-1 text-sm text-muted-foreground">
-								{data.quips && data.quips.length
-									? data.quips.slice(0, 5).map((q, i) => (
+								{periodQuips.length
+									? periodQuips.slice(0, 5).map((q, i) => (
 										<div key={i} className="flex items-start gap-2">
 											<span className="text-muted-foreground">⚔️</span>
 											<span className="leading-relaxed">{q.text}</span>

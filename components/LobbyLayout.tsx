@@ -144,9 +144,9 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				const data = j.summary;
 				if (!data) return;
 
-				// Fallback: if hearts missing, derive from current live data
+				// Keep hearts summary aligned with the latest live player projection.
 				const livePlayers = ((liveData as any)?.players ?? liveData?.lobby?.players ?? lobbyData.players ?? []) as any[];
-				if ((!data.hearts || (data.heartsDebug?.playerCount ?? 0) === 0) && livePlayers.length > 0) {
+				if (livePlayers.length > 0) {
 					const lives = livePlayers.map((p: any) => ({
 						name: p.name ?? "Athlete",
 						lives: p.livesRemaining ?? p.lives_remaining ?? 0
@@ -177,7 +177,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						.sort(compareByPointsDesc)
 						.slice(0, 3);
 					data.points = {
-						formula: POINTS_FORMULA_TEXT,
+						formula: `Season ${POINTS_FORMULA_TEXT.toLowerCase()}`,
 						leaderboard
 					};
 				}

@@ -145,7 +145,7 @@ export function ManualActivityModal({
 						</Button>
 					</div>
 
-					<div className="flex-1 min-h-0 p-4 sm:p-6 space-y-5 overflow-y-auto pb-6">
+					<div className="flex-1 min-h-0 p-4 sm:p-6 space-y-5 overflow-y-auto arena-scrollbar pb-6">
 						<div className="space-y-2">
 							<Label className="text-xs uppercase tracking-wider">Photo (required)</Label>
 							{previewUrl ? (
@@ -195,7 +195,7 @@ export function ManualActivityModal({
 									<SelectTrigger className="bg-input border-border">
 										<SelectValue placeholder="Select type" />
 									</SelectTrigger>
-									<SelectContent>
+									<SelectContent className="z-[140] border-border bg-card">
 										<SelectItem value="run">Run</SelectItem>
 										<SelectItem value="ride">Ride</SelectItem>
 										<SelectItem value="gym">Gym</SelectItem>
