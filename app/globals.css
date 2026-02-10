@@ -467,6 +467,12 @@ html {
 }
 
 /* Select options */
+select {
+  background: hsl(var(--input)) !important;
+  color: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+}
+
 select option {
   background: hsl(var(--card));
   color: hsl(var(--foreground));
