@@ -562,7 +562,10 @@ const [potInput, setPotInput] = useState<string>("");
 										className="absolute top-2 right-2 text-[12px] text-muted-foreground hover:text-destructive"
 										onClick={async () => {
 											try {
-												const res = await authFetch(`/api/history-events/${encodeURIComponent(ev.id)}`, {
+												const endpoint = ev.type === "COMMENT"
+													? `/api/comments/${encodeURIComponent(ev.id)}`
+													: `/api/history-events/${encodeURIComponent(ev.id)}`;
+												const res = await authFetch(endpoint, {
 													method: "DELETE",
 												});
 												if (!res.ok) {

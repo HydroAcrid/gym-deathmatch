@@ -120,14 +120,15 @@ export function ManualActivityModal({
 	return createPortal(
 		<AnimatePresence>
 			<motion.div
-				className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
+				className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center bg-black/70 p-2 sm:p-4 overflow-y-auto pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
 				exit={{ opacity: 0 }}
+				onClick={onClose}
 			>
 				<motion.div
-					className="scoreboard-panel bg-card text-foreground w-full max-w-2xl mx-auto overflow-hidden"
-					style={{ maxHeight: "calc(100vh - 2rem)" }}
+					className="scoreboard-panel bg-card text-foreground w-full max-w-2xl mx-auto overflow-hidden flex flex-col"
+					style={{ maxHeight: "calc(100dvh - 1rem)" }}
 					initial={{ y: 20, opacity: 0 }}
 					animate={{ y: 0, opacity: 1 }}
 					exit={{ y: 20, opacity: 0 }}
@@ -144,7 +145,7 @@ export function ManualActivityModal({
 						</Button>
 					</div>
 
-					<div className="p-4 sm:p-6 space-y-5 overflow-y-auto">
+					<div className="flex-1 min-h-0 p-4 sm:p-6 space-y-5 overflow-y-auto pb-6">
 						<div className="space-y-2">
 							<Label className="text-xs uppercase tracking-wider">Photo (required)</Label>
 							{previewUrl ? (
@@ -252,6 +253,8 @@ export function ManualActivityModal({
 							/>
 						</div>
 
+					</div>
+					<div className="border-t-2 border-border p-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] bg-card/95">
 						<div className="flex flex-col sm:flex-row gap-2">
 							<Button variant="secondary" onClick={onClose} disabled={busy}>
 								Cancel

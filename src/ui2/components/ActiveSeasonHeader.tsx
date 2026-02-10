@@ -17,6 +17,12 @@ interface ActiveSeasonHeaderProps {
 	showCountdown?: boolean;
 }
 
+function formatMoney(amount: number): string {
+	return new Intl.NumberFormat("en-US", {
+		maximumFractionDigits: 0,
+	}).format(Math.max(0, amount));
+}
+
 function pad2(value: number): string {
 	return String(Math.max(0, value)).padStart(2, "0");
 }
@@ -135,15 +141,21 @@ export function ActiveSeasonHeader({
 					<div className="mt-5 sm:mt-6 mx-auto max-w-3xl border border-border/80 bg-card/50 px-4 sm:px-6 py-4">
 						<div className="grid gap-4 sm:grid-cols-3 sm:items-stretch">
 							{showMoneyInfo && (
-								<div className="sm:col-span-1 flex items-center gap-2 text-left">
-									<Coins className="w-4 h-4 text-arena-gold" />
-									<div>
-										<div className="text-[10px] sm:text-xs text-muted-foreground font-display tracking-widest">POT</div>
-										<div className="font-display text-2xl sm:text-3xl font-bold text-arena-gold">
-											${currentPot}
+								<div className="sm:col-span-1 border border-arena-gold/40 bg-[radial-gradient(circle_at_20%_15%,hsl(var(--arena-gold)/0.16),transparent_60%)] px-3 py-3 text-left relative overflow-hidden">
+									<div className="absolute inset-0 pointer-events-none opacity-50" style={{ boxShadow: "inset 0 0 40px hsl(var(--arena-gold) / 0.12)" }} />
+									<div className="relative z-10">
+										<div className="flex items-center gap-2 mb-1">
+											<Coins className="w-4 h-4 text-arena-gold" />
+											<div className="text-[10px] sm:text-xs text-muted-foreground font-display tracking-widest">PRIZE POT</div>
 										</div>
-										<div className="text-[10px] sm:text-xs text-muted-foreground font-display tracking-widest">
-											ANTE ${weeklyAnte}/WK
+										<div
+											className="font-display text-4xl sm:text-5xl leading-none font-bold text-arena-gold tracking-wide animate-[pulse_3.6s_ease-in-out_infinite]"
+											style={{ textShadow: "0 0 18px hsl(var(--arena-gold) / 0.4)" }}
+										>
+											${formatMoney(currentPot)}
+										</div>
+										<div className="mt-2 text-[10px] sm:text-xs text-muted-foreground font-display tracking-widest">
+											WEEKLY ANTE ${weeklyAnte}/WK
 										</div>
 									</div>
 								</div>
@@ -163,11 +175,21 @@ export function ActiveSeasonHeader({
 									<div className="font-display text-2xl sm:text-4xl tracking-[0.14em] text-foreground text-left">
 										{countdown.value}
 									</div>
-									<div className="mt-3 h-2 border border-border bg-muted/40 overflow-hidden">
+									<div className="mt-3 h-2.5 border border-[hsl(var(--arena-gold)/0.35)] bg-[hsl(var(--arena-gold)/0.08)] overflow-hidden">
 										<div
-											className={`h-full transition-all duration-1000 ${countdown.ended ? "bg-destructive" : "bg-primary"}`}
-											style={{ width: `${countdown.progress}%` }}
-										/>
+											className="h-full transition-all duration-1000 relative"
+											style={{
+												width: `${countdown.progress}%`,
+												background: countdown.ended
+													? "linear-gradient(90deg, hsl(var(--destructive) / 0.8), hsl(var(--destructive)))"
+													: "linear-gradient(90deg, hsl(var(--arena-gold) / 0.85), hsl(var(--arena-gold)))",
+												boxShadow: countdown.ended
+													? "0 0 10px hsl(var(--destructive) / 0.5)"
+													: "0 0 12px hsl(var(--arena-gold) / 0.6)",
+											}}
+										>
+											<div className={`absolute inset-y-0 right-0 w-8 ${countdown.ended ? "bg-gradient-to-r from-transparent to-destructive/70" : "bg-gradient-to-r from-transparent to-[hsl(var(--arena-gold)/0.75)]"}`} />
+										</div>
 									</div>
 								</div>
 							)}

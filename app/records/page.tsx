@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import Link from "next/link";
+import Image from "next/image";
 import { authFetch } from "@/lib/clientAuth";
 import {
   Trophy,
@@ -33,6 +34,7 @@ type LobbyRow = {
 type EnrichedPlayer = {
   id: string;
   name: string;
+  avatarUrl?: string;
   userId?: string;
   totalWorkouts: number;
   currentStreak: number;
@@ -52,7 +54,7 @@ type LiveLobby = {
     players: EnrichedPlayer[];
     seasonSummary?: {
       seasonNumber?: number;
-      winners?: Array<{ id: string; name: string; totalWorkouts: number; hearts: number; currentStreak?: number; points?: number }>;
+      winners?: Array<{ id: string; name: string; avatarUrl?: string; totalWorkouts: number; hearts: number; currentStreak?: number; points?: number }>;
       losers?: Array<{ id: string; name: string; totalWorkouts: number; hearts?: number; currentStreak?: number; points?: number }>;
       finalPot?: number;
       highlights?: {
@@ -64,7 +66,7 @@ type LiveLobby = {
   };
 };
 
-type Champion = { name: string; titles: number; seasons: string[] };
+type Champion = { name: string; titles: number; seasons: string[]; avatarUrl?: string | null };
 type AllTimeRecord = { record: string; holder: string; value: string; lobby: string };
 type PastSeason = {
   lobbyId: string;
@@ -132,7 +134,7 @@ export default function RecordsPage() {
 
   // Compute champions, records, past seasons, active seasons
   const { champions, records, pastSeasons, activeSeasons } = useMemo(() => {
-    const champMap = new Map<string, { titles: number; seasons: string[] }>();
+    const champMap = new Map<string, { titles: number; seasons: string[]; avatarUrl?: string | null }>();
     const pastList: PastSeason[] = [];
     const activeList: ActiveSeason[] = [];
     const recordCandidates = {
@@ -215,9 +217,13 @@ export default function RecordsPage() {
 
         // Track champions
         for (const w of winners) {
-          const existing = champMap.get(w.name) ?? { titles: 0, seasons: [] };
+          const fallbackAvatar = players.find((p) => p.name === w.name && p.avatarUrl)?.avatarUrl ?? null;
+          const existing = champMap.get(w.name) ?? { titles: 0, seasons: [], avatarUrl: w.avatarUrl ?? fallbackAvatar };
           existing.titles++;
           existing.seasons.push(`${lobby.name} S${summary.seasonNumber ?? live.lobby.seasonNumber}`);
+          if (!existing.avatarUrl) {
+            existing.avatarUrl = w.avatarUrl ?? fallbackAvatar;
+          }
           champMap.set(w.name, existing);
         }
 
@@ -309,7 +315,7 @@ export default function RecordsPage() {
 
     // Build champions list sorted by titles
     const championsList: Champion[] = Array.from(champMap.entries())
-      .map(([name, data]) => ({ name, titles: data.titles, seasons: data.seasons }))
+      .map(([name, data]) => ({ name, titles: data.titles, seasons: data.seasons, avatarUrl: data.avatarUrl ?? null }))
       .sort((a, b) => b.titles - a.titles);
 
     // Sort past seasons newest first
@@ -390,9 +396,19 @@ export default function RecordsPage() {
                       }`}
                     >
                       <div className="w-14 sm:w-20 h-14 sm:h-20 mx-auto mb-3 sm:mb-4 bg-muted border-2 border-arena-gold/30 flex items-center justify-center">
-                        <span className="text-xl sm:text-3xl font-display font-bold text-arena-gold">
-                          {champ.name.charAt(0)}
-                        </span>
+                        {champ.avatarUrl ? (
+                          <Image
+                            src={champ.avatarUrl}
+                            alt={`${champ.name} avatar`}
+                            width={80}
+                            height={80}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xl sm:text-3xl font-display font-bold text-arena-gold">
+                            {champ.name.charAt(0)}
+                          </span>
+                        )}
                       </div>
                       <h3 className="font-display text-sm sm:text-xl font-bold text-foreground tracking-wide mb-2">
                         {champ.name}

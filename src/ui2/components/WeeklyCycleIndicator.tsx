@@ -10,6 +10,17 @@ interface WeeklyCycleIndicatorProps {
   resetDay: string;
 }
 
+function computeOverallProgressPercent(currentWeek: number, totalWeeks: number, weekEndDate: Date): number {
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  const weekEndMs = weekEndDate.getTime();
+  const weekStartMs = weekEndMs - weekMs;
+  const weekElapsed = Math.min(weekMs, Math.max(0, nowMs - weekStartMs));
+  const weekFraction = weekElapsed / weekMs;
+  const completedWeeks = Math.max(0, currentWeek - 1);
+  return Math.min(100, Math.max(0, ((completedWeeks + weekFraction) / Math.max(1, totalWeeks)) * 100));
+}
+
 function formatTimeRemaining(targetDate: Date): string {
   const now = new Date();
   const diff = targetDate.getTime() - now.getTime();
@@ -32,15 +43,17 @@ export function WeeklyCycleIndicator({
   resetDay
 }: WeeklyCycleIndicatorProps) {
   const [timeRemaining, setTimeRemaining] = useState(formatTimeRemaining(weekEndDate));
+  const [overallProgress, setOverallProgress] = useState(
+    computeOverallProgressPercent(currentWeek, totalWeeks, weekEndDate)
+  );
 
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeRemaining(formatTimeRemaining(weekEndDate));
-    }, 60000);
+      setOverallProgress(computeOverallProgressPercent(currentWeek, totalWeeks, weekEndDate));
+    }, 10000);
     return () => clearInterval(timer);
-  }, [weekEndDate]);
-
-  const weekProgress = (currentWeek / totalWeeks) * 100;
+  }, [weekEndDate, currentWeek, totalWeeks]);
 
   return (
     <div className="scoreboard-panel p-4">
@@ -57,14 +70,17 @@ export function WeeklyCycleIndicator({
         </div>
 
         {/* Progress Bar - Industrial style */}
-        <div className="flex-1 min-w-[100px] h-3 bg-muted border-2 border-border overflow-hidden">
+        <div className="flex-1 min-w-[100px] h-3.5 bg-[hsl(var(--arena-gold)/0.08)] border-2 border-[hsl(var(--arena-gold)/0.35)] overflow-hidden">
           <div 
-            className="h-full bg-primary transition-all"
+            className="h-full transition-all duration-700 relative"
             style={{ 
-              width: `${weekProgress}%`,
-              boxShadow: '0 0 8px hsl(var(--primary) / 0.5)'
+              width: `${overallProgress}%`,
+              background: "linear-gradient(90deg, hsl(var(--arena-gold) / 0.85), hsl(var(--arena-gold)))",
+              boxShadow: "0 0 10px hsl(var(--arena-gold) / 0.6)"
             }}
-          />
+          >
+            <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-r from-transparent to-[hsl(var(--arena-gold)/0.75)]" />
+          </div>
         </div>
 
         {/* Time Remaining */}

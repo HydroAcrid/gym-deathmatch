@@ -24,6 +24,7 @@ import { Button } from "@/src/ui2/ui/button";
 import { authFetch } from "@/lib/clientAuth";
 import { calculatePoints, compareByPointsDesc, POINTS_FORMULA_TEXT } from "@/lib/points";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/ui2/ui/dialog";
+import { ManualActivityModal } from "./ManualActivityModal";
 
 type LobbyLayoutProps = {
 	lobby: Lobby;
@@ -68,6 +69,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const [summarySeenKey, setSummarySeenKey] = useState<string | null>(null);
 	const [potAmount, setPotAmount] = useState<number>(currentPot);
 	const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+	const [openManual, setOpenManual] = useState(false);
 
 	// Determine owner
 	const myPlayerId = useMemo(() => {
@@ -381,6 +383,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				)}
 
 				<div className="flex flex-wrap items-center gap-2">
+					{myPlayerId && stage !== "COMPLETED" && (
+						<Button variant="arenaPrimary" size="sm" onClick={() => setOpenManual(true)}>
+							Log Workout
+						</Button>
+					)}
 					<Button
 						variant="outline"
 						size="sm"
@@ -539,6 +546,17 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					)}
 				</DialogContent>
 			</Dialog>
+			{myPlayerId && (
+				<ManualActivityModal
+					open={openManual}
+					onClose={() => setOpenManual(false)}
+					lobbyId={lobbyData.id}
+					onSaved={() => {
+						setOpenManual(false);
+						onRefresh?.();
+					}}
+				/>
+			)}
 			{/* Strava reconnect banner removed – Strava is optional now */}
 			<KoOverlay
 				open={seasonStatus === "completed" && !!koEvent && showKo}

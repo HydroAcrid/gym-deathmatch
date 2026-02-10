@@ -1,6 +1,8 @@
+import { useState } from "react";
 import Image from "next/image";
-import { CircleHelp, Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { POINTS_FORMULA_TEXT } from "@/lib/points";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/ui2/ui/dialog";
 
 export interface Standing {
   rank: number;
@@ -25,15 +27,27 @@ function getRankChange(current: number, previous?: number) {
 }
 
 export function Standings({ standings }: StandingsProps) {
+  const [helpOpen, setHelpOpen] = useState(false);
   return (
     <div className="scoreboard-panel">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b-2 border-border">
-        <Trophy className="w-5 h-5 text-arena-gold" 
-                style={{ filter: 'drop-shadow(0 0 4px hsl(var(--arena-gold) / 0.5))' }} />
-        <h2 className="font-display text-base sm:text-lg font-bold tracking-widest">
-          STANDINGS
-        </h2>
+      <div className="flex items-center justify-between gap-3 p-4 border-b-2 border-border">
+        <div className="flex items-center gap-3">
+          <Trophy className="w-5 h-5 text-arena-gold" 
+                  style={{ filter: 'drop-shadow(0 0 4px hsl(var(--arena-gold) / 0.5))' }} />
+          <h2 className="font-display text-base sm:text-lg font-bold tracking-widest">
+            STANDINGS
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          aria-label="How points are calculated"
+          title="How points are calculated"
+          className="arena-badge px-2 py-1 text-xs min-h-[32px] sm:min-h-[36px]"
+        >
+          <span className="flex items-center justify-center w-full h-full">?</span>
+        </button>
       </div>
 
       {/* Table Header - Hidden on mobile */}
@@ -42,16 +56,7 @@ export function Standings({ standings }: StandingsProps) {
         <div className="col-span-5">ATHLETE</div>
         <div className="col-span-2 text-center">WKT</div>
         <div className="col-span-2 text-center">STK</div>
-        <div className="col-span-2 flex items-center justify-end gap-1">
-          <span>PTS</span>
-          <span
-            title={POINTS_FORMULA_TEXT}
-            aria-label={POINTS_FORMULA_TEXT}
-            className="inline-flex text-muted-foreground/80"
-          >
-            <CircleHelp className="w-3.5 h-3.5" />
-          </span>
-        </div>
+        <div className="col-span-2 text-right">PTS</div>
       </div>
 
       {/* Rows */}
@@ -202,6 +207,30 @@ export function Standings({ standings }: StandingsProps) {
           );
         })}
       </div>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="w-[95vw] max-w-md border-2 p-5">
+          <DialogHeader>
+            <DialogTitle className="font-display tracking-widest text-primary text-lg">
+              STANDINGS POINTS
+            </DialogTitle>
+            <DialogDescription>
+              {POINTS_FORMULA_TEXT}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              `WKT` = workouts this season.
+            </p>
+            <p>
+              `STK` = current streak.
+            </p>
+            <p>
+              Penalties subtract from total when enabled.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
