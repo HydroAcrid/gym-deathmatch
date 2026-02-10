@@ -1,20 +1,44 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
+import { IntroGuide } from "@/components/IntroGuide";
 import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 
 export default function HomePage() {
 	const router = useRouter();
+	const { user, isHydrated, signInWithGoogle } = useAuth();
 	const lastLobby = useLastLobbySnapshot();
+	const [isSigningIn, setIsSigningIn] = useState(false);
 
 	useEffect(() => {
-		if (!lastLobby?.id) return;
+		if (!isHydrated || !user || !lastLobby?.id) return;
 		router.replace(`/lobby/${encodeURIComponent(lastLobby.id)}`);
-	}, [lastLobby?.id, router]);
+	}, [isHydrated, user, lastLobby?.id, router]);
 
-	if (lastLobby?.id) {
+	async function handleGoogleSignIn() {
+		if (isSigningIn) return;
+		setIsSigningIn(true);
+		try {
+			await signInWithGoogle();
+		} finally {
+			setIsSigningIn(false);
+		}
+	}
+
+	if (!isHydrated) {
+		return (
+			<div className="min-h-screen">
+				<div className="container mx-auto max-w-3xl py-10 px-4">
+					<div className="scoreboard-panel p-6 text-sm text-muted-foreground">Loading your arena...</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (user && lastLobby?.id) {
 		return (
 			<div className="min-h-screen">
 				<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
@@ -30,6 +54,44 @@ export default function HomePage() {
 							</Link>
 							<Link href="/lobbies" className="arena-badge px-4 py-2">
 								CHOOSE ANOTHER
+							</Link>
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (!user) {
+		return (
+			<div className="min-h-screen">
+				<div className="container mx-auto max-w-3xl py-6 px-4 sm:py-10 space-y-6">
+					<div className="scoreboard-panel p-5 sm:p-6 space-y-4">
+						<div className="font-display text-2xl sm:text-3xl tracking-widest text-primary">WELCOME TO THE ARENA</div>
+						<p className="text-sm text-muted-foreground">
+							Start here on mobile: sign in, run the quick tutorial, then jump into your lobbies.
+						</p>
+						<div className="grid gap-3 sm:grid-cols-2">
+							<button
+								type="button"
+								onClick={handleGoogleSignIn}
+								disabled={isSigningIn}
+								className="arena-badge arena-badge-primary px-4 py-3 text-center text-sm min-h-[48px] disabled:opacity-70"
+							>
+								{isSigningIn ? "CONNECTING..." : "CONTINUE WITH GOOGLE"}
+							</button>
+							<IntroGuide>
+								<button
+									type="button"
+									className="arena-badge px-4 py-3 text-center text-sm min-h-[48px] w-full"
+								>
+									VIEW TUTORIAL
+								</button>
+							</IntroGuide>
+						</div>
+						<div className="flex gap-3 flex-wrap pt-1">
+							<Link href="/rules" className="arena-badge px-4 py-2">
+								READ RULES
 							</Link>
 						</div>
 					</div>

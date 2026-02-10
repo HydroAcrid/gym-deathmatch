@@ -6,14 +6,15 @@ import { useAuth } from "@/components/AuthProvider";
 
 export default function RootPage() {
 	const router = useRouter();
-	const { user, isHydrated } = useAuth();
+	const { isHydrated } = useAuth();
 
 	useEffect(() => {
 		// Wait for auth to hydrate before making routing decisions
 		if (!isHydrated) return;
 
-		router.replace(user ? "/home" : "/lobbies");
-	}, [user, isHydrated, router]);
+		// Always land on home first so first-open onboarding/sign-in CTA is obvious on mobile.
+		router.replace("/home");
+	}, [isHydrated, router]);
 
 	// Show loading while waiting for auth to hydrate
 	return (
