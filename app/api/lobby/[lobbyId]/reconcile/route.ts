@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { runWeeklyRouletteJob } from "@/lib/rouletteJobs";
 
 type PlayerLite = {
 	id: string;
@@ -74,6 +75,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					status = "active";
 					stage = "ACTIVE";
 				}
+			}
+		}
+
+		// Hobby-safe fallback: run roulette auto-spin checks opportunistically on reconcile.
+		// This keeps weekly roulette progression responsive even when cron runs only once/day.
+		if (String((lobby as any).mode || "") === "CHALLENGE_ROULETTE" && (status === "active" || status === "transition_spin")) {
+			try {
+				const roulette = await runWeeklyRouletteJob({ lobbyId });
+				if ((roulette?.transitioned ?? 0) > 0 || (roulette?.spun ?? 0) > 0) {
+					actions.push(`ROULETTE_AUTO:transitioned=${roulette.transitioned},spun=${roulette.spun}`);
+				}
+			} catch (e) {
+				logError({ route: "POST /api/lobby/[id]/reconcile", code: "ROULETTE_AUTO_RECONCILE_FAILED", err: e, lobbyId });
 			}
 		}
 
