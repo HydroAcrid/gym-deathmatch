@@ -112,17 +112,39 @@ export function MobileBottomNav() {
 								<Sheet key="more" open={moreOpen} onOpenChange={setMoreOpen}>
 									<SheetTrigger asChild>
 										<button
-											className={`flex flex-col items-center justify-center flex-1 gap-1 transition-colors border-t-2 -mt-0.5 touch-target ${
+											aria-expanded={moreOpen}
+											className={`relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors border-t-2 -mt-0.5 touch-target ${
 												item.active
 													? "text-primary border-primary"
 													: "text-muted-foreground border-transparent"
 											}`}
 										>
-											<Menu className="w-5 h-5" />
-											<span className="text-[10px] font-display tracking-widest font-bold">MORE</span>
+											<span
+												aria-hidden="true"
+												className={`pointer-events-none absolute top-0 left-1/2 h-[2px] w-10 -translate-x-1/2 bg-primary transition-all duration-300 ${
+													moreOpen ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+												}`}
+											/>
+											<span
+												aria-hidden="true"
+												className={`pointer-events-none absolute inset-x-2 inset-y-2 rounded-md bg-primary/10 blur-md transition-opacity duration-300 ${
+													moreOpen ? "opacity-100" : "opacity-0"
+												}`}
+											/>
+											<Menu className={`w-5 h-5 transition-transform duration-300 ${moreOpen ? "rotate-90 scale-110" : "rotate-0 scale-100"}`} />
+											<span
+												className={`text-[10px] font-display tracking-widest font-bold transition-all duration-300 ${
+													moreOpen ? "-translate-y-0.5 text-primary" : "translate-y-0"
+												}`}
+											>
+												MORE
+											</span>
 										</button>
 									</SheetTrigger>
-									<SheetContent side="bottom" className="bg-card border-t-2 border-border p-0 max-h-[70vh] safe-area-pb">
+									<SheetContent
+										side="bottom"
+										className="bg-card border-t-2 border-border p-0 max-h-[70vh] safe-area-pb data-[state=open]:duration-300 data-[state=closed]:duration-200 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:slide-out-to-bottom-4"
+									>
 										<SheetHeader className="p-4 border-b-2 border-border">
 											<SheetTitle className="font-display text-base tracking-widest text-primary text-left font-bold">
 												MORE OPTIONS
