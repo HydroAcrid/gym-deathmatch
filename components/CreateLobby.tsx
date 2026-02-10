@@ -9,6 +9,7 @@ import { ChallengeSettingsCard, resetChallengeDefaults } from "./ChallengeSettin
 import type { ChallengeSettings } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
 import { authFetch } from "@/lib/clientAuth";
+import { toIsoFromLocalDateTimeInput, toLocalDateTimeInputValue } from "@/lib/datetime";
 
 type CreateLobbyProps = {
 	children?: React.ReactNode;
@@ -18,8 +19,8 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 	const [open, setOpen] = useState(false);
 	const [mounted, setMounted] = useState(false);
 	const [lobbyName, setLobbyName] = useState("");
-	const [seasonStart, setSeasonStart] = useState<string>(new Date().toISOString().slice(0, 16));
-	const [seasonEnd, setSeasonEnd] = useState<string>(new Date(new Date().getFullYear(), 11, 31).toISOString().slice(0, 16));
+	const [seasonStart, setSeasonStart] = useState<string>(toLocalDateTimeInputValue(new Date()));
+	const [seasonEnd, setSeasonEnd] = useState<string>(toLocalDateTimeInputValue(new Date(new Date().getFullYear(), 11, 31, 23, 59, 0, 0)));
 	const [weekly, setWeekly] = useState<number>(3);
 	const [lives, setLives] = useState<number>(3);
 	const [mode, setMode] = useState<"MONEY_SURVIVAL"|"MONEY_LAST_MAN"|"CHALLENGE_ROULETTE"|"CHALLENGE_CUMULATIVE">("MONEY_SURVIVAL");
@@ -76,14 +77,20 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 			toast.push("Enter start and end dates");
 			return;
 		}
+		const seasonStartIso = toIsoFromLocalDateTimeInput(seasonStart);
+		const seasonEndIso = toIsoFromLocalDateTimeInput(seasonEnd);
+		if (!seasonStartIso || !seasonEndIso) {
+			toast.push("Invalid date/time");
+			return;
+		}
 		const res = await authFetch("/api/lobby/create", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				lobbyId,
 				name: lobbyName.trim(),
-				seasonStart: new Date(seasonStart).toISOString(),
-				seasonEnd: new Date(seasonEnd).toISOString(),
+				seasonStart: seasonStartIso,
+				seasonEnd: seasonEndIso,
 				weeklyTarget: Number(weekly),
 				initialLives: Number(lives),
 				ownerName: ownerName || undefined,

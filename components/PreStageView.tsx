@@ -10,6 +10,7 @@ import { Input } from "@/src/ui2/ui/input";
 import { CountdownTimer } from "@/src/ui2/components/CountdownTimer";
 import { AthleteCard } from "@/src/ui2/components/AthleteCard";
 import { authFetch } from "@/lib/clientAuth";
+import { toIsoFromLocalDateTimeInput, toLocalDateTimeInputValue } from "@/lib/datetime";
 
 export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const router = useRouter();
@@ -51,13 +52,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		})();
 	}, [lobby.ownerId]);
 
-	function isoToLocalInput(iso?: string | null) {
-		if (!iso) return "";
-		const d = new Date(iso);
-		const pad = (n: number) => String(n).padStart(2, "0");
-		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-	}
-	const [scheduleAt, setScheduleAt] = useState<string>(isoToLocalInput(lobby.scheduledStart ?? ""));
+	const [scheduleAt, setScheduleAt] = useState<string>(toLocalDateTimeInputValue(lobby.scheduledStart ?? ""));
 	const [lobbyStatus, setLobbyStatus] = useState<string | undefined>(lobby.status);
 	const [scheduledStart, setScheduledStart] = useState<string | null | undefined>(lobby.scheduledStart);
 	
@@ -74,16 +69,17 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	};
 
 	const schedule = async () => {
+		const scheduledStartIso = toIsoFromLocalDateTimeInput(scheduleAt);
 		await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/stage`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				status: "scheduled",
-				scheduledStart: scheduleAt ? new Date(scheduleAt).toISOString() : null
+				scheduledStart: scheduledStartIso
 			})
 		});
 		setLobbyStatus("scheduled");
-		setScheduledStart(scheduleAt ? new Date(scheduleAt).toISOString() : null);
+		setScheduledStart(scheduledStartIso);
 		await reloadLobby();
 	};
 	const startNow = async () => {

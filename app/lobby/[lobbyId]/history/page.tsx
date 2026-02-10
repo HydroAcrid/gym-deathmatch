@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PhotoLightbox } from "@/src/ui2/components/PhotoLightbox";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { authFetch } from "@/lib/clientAuth";
+import { formatLocalDateTime } from "@/lib/datetime";
 
 type PlayerLite = {
 	id: string;
@@ -556,7 +557,7 @@ const [potInput, setPotInput] = useState<string>("");
 								<div className="arena-badge arena-badge-primary text-[10px]">LOG</div>
 								<div className="flex-1 min-w-0">
 									<div className="text-[11px] sm:text-xs text-muted-foreground mb-1">
-										{new Date(ev.created_at).toLocaleString()}
+										{formatLocalDateTime(ev.created_at, true)}
 									</div>
 									<div className="text-sm sm:text-base leading-relaxed">{renderEventLine(ev, players)}</div>
 								</div>
@@ -628,7 +629,7 @@ const [potInput, setPotInput] = useState<string>("");
 										{(p?.name || "Unknown athlete").toUpperCase()}
 									</div>
 									<div className="text-[11px] text-muted-foreground">
-										{new Date(a.date).toLocaleString()}
+										{formatLocalDateTime(a.date, true)}
 									</div>
 								</div>
 								<div className={`px-2 py-1 text-[10px] font-display tracking-wider border ${statusInfo.className}`}>
@@ -927,7 +928,7 @@ const canComment = Boolean(user?.id && myPlayerId);
 					<div className="flex-1 min-w-0">
 						<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
 							<span className="font-display text-primary">{c.authorName || "Athlete"}</span>
-							<span className="text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</span>
+							<span className="text-muted-foreground">{formatLocalDateTime(c.createdAt, true)}</span>
 						</div>
 						<div className="text-sm text-foreground whitespace-pre-wrap">{c.body}</div>
 						<div className="flex items-center gap-3 mt-1 text-[12px] text-muted-foreground">

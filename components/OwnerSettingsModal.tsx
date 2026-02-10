@@ -8,6 +8,7 @@ import { ChallengeSettingsCard } from "./ChallengeSettingsCard";
 import type { ChallengeSettings } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
 import { authFetch } from "@/lib/clientAuth";
+import { toIsoFromLocalDateTimeInput, toLocalDateTimeInputValue } from "@/lib/datetime";
 
 export function OwnerSettingsModal({
 	lobbyId,
@@ -50,7 +51,7 @@ export function OwnerSettingsModal({
 	const [scalingEnabled, setScalingEnabled] = useState<boolean>(!!defaultScalingEnabled);
 	const [perPlayerBoost, setPerPlayerBoost] = useState<string>(String(defaultPerPlayerBoost ?? 0));
 	const [seasonStart, setSeasonStart] = useState<string>("");
-	const initialEnd = (defaultSeasonEnd || new Date().toISOString()).slice(0, 16).replace("Z", "");
+	const initialEnd = toLocalDateTimeInputValue(defaultSeasonEnd || new Date());
 	const [seasonEnd, setSeasonEnd] = useState<string>(initialEnd);
 	const [saving, setSaving] = useState(false);
 	const toast = useToast();
@@ -91,8 +92,7 @@ export function OwnerSettingsModal({
 			setScalingEnabled(!!defaultScalingEnabled);
 			setPerPlayerBoost(String(defaultPerPlayerBoost ?? 0));
 			if (defaultSeasonEnd) {
-				const initialEnd = defaultSeasonEnd.slice(0, 16).replace("Z", "");
-				setSeasonEnd(initialEnd);
+				setSeasonEnd(toLocalDateTimeInputValue(defaultSeasonEnd));
 			}
 		}
 	}, [open, defaultWeekly, defaultLives, defaultInitialPot, defaultWeeklyAnte, defaultScalingEnabled, defaultPerPlayerBoost, defaultSeasonEnd]);
@@ -119,8 +119,12 @@ export function OwnerSettingsModal({
 		try {
 			// If this is for next season, call the next season endpoint
 			if (isNextSeason) {
-				const newSeasonStart = seasonStart ? new Date(seasonStart).toISOString() : new Date().toISOString();
-				const newSeasonEnd = new Date(seasonEnd).toISOString();
+				const newSeasonStart = toIsoFromLocalDateTimeInput(seasonStart) || new Date().toISOString();
+				const newSeasonEnd = toIsoFromLocalDateTimeInput(seasonEnd);
+				if (!newSeasonEnd) {
+					toast.push("Invalid season end date");
+					return;
+				}
 				
 				// First update settings, then start next season
 				await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
@@ -163,14 +167,19 @@ export function OwnerSettingsModal({
 			}
 			
 			// Normal settings update
+			const seasonEndIso = toIsoFromLocalDateTimeInput(seasonEnd);
+			if (!seasonEndIso) {
+				toast.push("Invalid season end date");
+				return;
+			}
 			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/settings`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					weeklyTarget: Number(weekly),
 					initialLives: Number(lives),
-					seasonStart: seasonStart ? new Date(seasonStart).toISOString() : undefined,
-					seasonEnd: new Date(seasonEnd).toISOString(),
+					seasonStart: seasonStart ? (toIsoFromLocalDateTimeInput(seasonStart) || undefined) : undefined,
+					seasonEnd: seasonEndIso,
 					initialPot: Number(initialPot || 0),
 					weeklyAnte: Number(weeklyAnte || 0),
 					scalingEnabled: Boolean(scalingEnabled),
@@ -204,10 +213,7 @@ export function OwnerSettingsModal({
 				// Prefer scheduledStart for preview; otherwise use seasonStart
 				const iso: string | undefined = (data?.lobby?.scheduledStart || data?.lobby?.seasonStart);
 				if (iso) {
-					const d = new Date(iso);
-					const pad = (n: number) => String(n).padStart(2, "0");
-					const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-					setSeasonStart(local);
+					setSeasonStart(toLocalDateTimeInputValue(iso));
 				}
 			} catch { /* ignore */ }
 		})();

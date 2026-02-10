@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/src/ui2/ui/button";
 import { authFetch } from "@/lib/clientAuth";
+import { formatLocalDate, formatLocalDateTime } from "@/lib/datetime";
 
 type Contribution = { week_start: string; amount: number; player_count: number };
 type EventRow = { id: string; type: string; payload: any; created_at: string; target_player_id?: string | null };
@@ -67,7 +68,7 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 						<div className="space-y-2 text-sm">
 							{contribs.map(c => (
 								<div key={c.week_start} className="flex justify-between bg-muted/30 border border-border px-3 py-2">
-									<div>{new Date(c.week_start).toLocaleDateString()}</div>
+									<div>{formatLocalDate(c.week_start)}</div>
 									<div>${c.amount} · {c.player_count} players</div>
 								</div>
 							))}
@@ -88,7 +89,7 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 							<div className="text-sm">
 								<span className="font-display text-primary">{loserName}</span> was KO’d · Pot at KO: ${ko.payload?.currentPot ?? finalPot}
 							</div>
-							<div className="text-xs text-muted-foreground ml-auto">{new Date(ko.created_at).toLocaleString()}</div>
+							<div className="text-xs text-muted-foreground ml-auto">{formatLocalDateTime(ko.created_at, true)}</div>
 						</div>
 					) : (
 						<div className="text-muted-foreground text-sm">No KO recorded yet.</div>
@@ -145,4 +146,3 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 		</div>
 	);
 }
-
