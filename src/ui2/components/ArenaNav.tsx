@@ -14,6 +14,7 @@ const baseTabs = [
 	{ href: "/home", label: "HOME", icon: Home },
 	{ href: "/lobbies", label: "LOBBIES", icon: Trophy },
 	{ href: "/stats", label: "STATS", icon: History },
+	{ href: "/records", label: "RECORDS", icon: Trophy },
 	{ href: "/history", label: "HISTORY", icon: History },
 	{ href: "/rules", label: "RULES", icon: BookOpen },
 ];

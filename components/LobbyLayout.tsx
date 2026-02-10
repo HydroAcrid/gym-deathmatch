@@ -289,10 +289,12 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		const initials = (p.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 		const hearts = typeof p.livesRemaining === "number" ? p.livesRemaining : (lobbyData.initialLives ?? 3);
 		const maxHearts = lobbyData.initialLives ?? 3;
-		const weeklyProgress = p.totalWorkouts ?? 0; // TODO(INTEGRATION): wire to weekly workouts count
+		const weeklyProgress = p.heartsTimeline?.length
+			? (p.heartsTimeline[p.heartsTimeline.length - 1]?.workouts ?? 0)
+			: 0;
 		const weeklyTarget = lobbyData.weeklyTarget ?? 3;
 		const status: "safe" | "at_risk" | "eliminated" = hearts <= 0 ? "eliminated" : hearts === 1 ? "at_risk" : "safe";
-		return { name: p.name, initials, hearts, maxHearts, weeklyTarget, weeklyProgress, status };
+		return { name: p.name, initials, avatarUrl: p.avatarUrl || null, hearts, maxHearts, weeklyTarget, weeklyProgress, status };
 	});
 
 	// Build standings data from live players

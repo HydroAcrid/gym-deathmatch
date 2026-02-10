@@ -5,6 +5,7 @@ type AthleteStatus = "safe" | "at_risk" | "eliminated";
 export interface AthleteHeartStatus {
   name: string;
   initials: string;
+  avatarUrl?: string | null;
   hearts: number;
   maxHearts: number;
   weeklyTarget: number;
@@ -63,11 +64,19 @@ export function HeartsStatusBoard({ athletes }: HeartsStatusBoardProps) {
                 <div className={`w-10 h-10 sm:w-12 sm:h-12 border-2 flex items-center justify-center flex-shrink-0 ${
                   isEliminated ? "bg-muted border-border" : "bg-muted border-primary/40"
                 }`}>
-                  <span className={`font-display text-sm sm:text-base font-bold tracking-wider ${
-                    isEliminated ? "text-muted-foreground" : "text-primary"
-                  }`}>
-                    {athlete.initials}
-                  </span>
+                  {athlete.avatarUrl ? (
+                    <img
+                      src={athlete.avatarUrl}
+                      alt={`${athlete.name} avatar`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className={`font-display text-sm sm:text-base font-bold tracking-wider ${
+                      isEliminated ? "text-muted-foreground" : "text-primary"
+                    }`}>
+                      {athlete.initials}
+                    </span>
+                  )}
                 </div>
 
                 {/* Info */}
@@ -95,12 +104,15 @@ export function HeartsStatusBoard({ athletes }: HeartsStatusBoardProps) {
                           className={`w-4 h-4 sm:w-5 sm:h-5 ${
                             i < athlete.hearts 
                               ? "text-destructive fill-destructive" 
-                              : "text-muted-foreground/20"
+                              : "text-muted-foreground/40"
                           }`}
                           style={i < athlete.hearts ? { filter: 'drop-shadow(0 0 3px hsl(var(--destructive) / 0.5))' } : {}}
                         />
                       ))}
                     </div>
+                    <span className="text-[11px] sm:text-xs font-display tracking-wider text-foreground/90">
+                      {athlete.hearts}/{athlete.maxHearts}
+                    </span>
                     
                     <div className="w-px h-4 bg-border hidden sm:block" />
                     
