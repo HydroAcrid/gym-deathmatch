@@ -34,9 +34,9 @@ const eventColors = {
 
 function formatTime(date: Date): string {
 	return formatLocalTime(date, {
-		hour: "2-digit",
+		hour: "numeric",
 		minute: "2-digit",
-		hour12: false,
+		hour12: true,
 	});
 }
 
@@ -94,7 +94,7 @@ export function LiveFeed({ lobbyId }: LiveFeedProps) {
 				</div>
 			</Link>
 
-			<div className="max-h-[400px] overflow-y-auto">
+			<div className="max-h-[400px] overflow-y-auto arena-scrollbar">
 				{items.length === 0 ? (
 					<div className="p-8 text-center text-muted-foreground">
 						<Clock className="w-8 h-8 mx-auto mb-3 opacity-50" />
