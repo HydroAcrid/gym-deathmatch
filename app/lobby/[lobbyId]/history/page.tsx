@@ -42,6 +42,7 @@ type ActivityRow = {
 type EventRow = {
 	id: string;
 	lobby_id: string;
+	origin?: "history" | "comment";
 	actor_player_id: string | null;
 	target_player_id: string | null;
 	actor_snapshot?: PlayerLite | null;
@@ -137,6 +138,7 @@ const [potInput, setPotInput] = useState<string>("");
 				const commentEvents: EventRow[] = comments.map(c => ({
 					id: c.id,
 					lobby_id: lid,
+					origin: "comment",
 					actor_player_id: c.primary_player_id || null,
 					actor_name: c.primary_player_id ? normalizedPlayers.find(p => p.id === c.primary_player_id)?.name ?? null : null,
 					target_player_id: null,
@@ -148,6 +150,7 @@ const [potInput, setPotInput] = useState<string>("");
 					const evAny = ev as any;
 					return {
 						...ev,
+						origin: "history" as const,
 						actor_snapshot: ev.actor_snapshot ?? evAny.actorSnapshot ?? null,
 						target_snapshot: ev.target_snapshot ?? evAny.targetSnapshot ?? null,
 						actor_name: ev.actor_name ?? ev.actor_snapshot?.name ?? null,
@@ -562,7 +565,7 @@ const [potInput, setPotInput] = useState<string>("");
 										className="absolute top-2 right-2 text-[12px] text-muted-foreground hover:text-destructive"
 										onClick={async () => {
 											try {
-												const endpoint = ev.type === "COMMENT"
+												const endpoint = ev.origin === "comment" || ev.type === "COMMENT"
 													? `/api/comments/${encodeURIComponent(ev.id)}`
 													: `/api/history-events/${encodeURIComponent(ev.id)}`;
 												const res = await authFetch(endpoint, {
