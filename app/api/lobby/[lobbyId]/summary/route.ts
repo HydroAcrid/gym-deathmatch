@@ -25,6 +25,8 @@ type SummaryPayload = {
 		lowRaw: Array<{ name: string; lives: number }>;
 	};
 	quips?: Array<{ text: string; created_at: string }>;
+	quipsDaily?: Array<{ text: string; created_at: string }>;
+	quipsWeekly?: Array<{ text: string; created_at: string }>;
 };
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
@@ -36,32 +38,63 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 
 	const now = new Date();
 	const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	const startOfNextDay = new Date(startOfDay);
+	startOfNextDay.setDate(startOfDay.getDate() + 1);
 	const dayKey = `${startOfDay.getFullYear()}-${startOfDay.getMonth() + 1}-${startOfDay.getDate()}`;
 	const startOfWeek = new Date(startOfDay);
 	const day = startOfDay.getDay(); // 0 Sunday
 	const diff = startOfDay.getDate() - day + (day === 0 ? -6 : 1); // Monday as start
 	startOfWeek.setDate(diff);
+	const startOfNextWeek = new Date(startOfWeek);
+	startOfNextWeek.setDate(startOfWeek.getDate() + 7);
 	const weekKey = `${startOfWeek.getFullYear()}-${startOfWeek.getMonth() + 1}-${startOfWeek.getDate()}`;
 
-	const [actDay, actWeek, playersRes, quipsRes, lobbyRes] = await Promise.all([
+	const [manualDay, manualWeek, stravaDay, stravaWeek, playersRes, quipsDailyRes, quipsWeeklyRes, lobbyRes] = await Promise.all([
 		supabase
 			.from("manual_activities")
 			.select("player_id,date")
 			.eq("lobby_id", lobbyId)
-			.gte("date", startOfDay.toISOString()),
+			.in("status", ["approved", "pending"])
+			.gte("date", startOfDay.toISOString())
+			.lt("date", startOfNextDay.toISOString()),
 		supabase
 			.from("manual_activities")
 			.select("player_id,date")
 			.eq("lobby_id", lobbyId)
-			.gte("date", startOfWeek.toISOString()),
+			.in("status", ["approved", "pending"])
+			.gte("date", startOfWeek.toISOString())
+			.lt("date", startOfNextWeek.toISOString()),
+		supabase
+			.from("strava_activities")
+			.select("player_id,start_date")
+			.eq("lobby_id", lobbyId)
+			.gte("start_date", startOfDay.toISOString())
+			.lt("start_date", startOfNextDay.toISOString()),
+		supabase
+			.from("strava_activities")
+			.select("player_id,start_date")
+			.eq("lobby_id", lobbyId)
+			.gte("start_date", startOfWeek.toISOString())
+			.lt("start_date", startOfNextWeek.toISOString()),
 		supabase.from("player").select("id,name,lives_remaining,hearts").eq("lobby_id", lobbyId),
 		supabase
 			.from("comments")
 			.select("rendered,created_at,type")
 			.eq("lobby_id", lobbyId)
 			.in("type", ["SUMMARY", "HEARTS", "POT"])
+			.gte("created_at", startOfDay.toISOString())
+			.lt("created_at", startOfNextDay.toISOString())
 			.order("created_at", { ascending: false })
-			.limit(5),
+			.limit(25),
+		supabase
+			.from("comments")
+			.select("rendered,created_at,type")
+			.eq("lobby_id", lobbyId)
+			.in("type", ["SUMMARY", "HEARTS", "POT"])
+			.gte("created_at", startOfWeek.toISOString())
+			.lt("created_at", startOfNextWeek.toISOString())
+			.order("created_at", { ascending: false })
+			.limit(50),
 		supabase.from("lobby").select("cash_pool").eq("id", lobbyId).maybeSingle()
 	]);
 
@@ -89,8 +122,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		return m;
 	};
 
-	const dayCounts = countMap(actDay.data ?? []);
-	const weekCounts = countMap(actWeek.data ?? []);
+	const mergeCounts = (left: Map<string, number>, right: Map<string, number>) => {
+		const merged = new Map<string, number>(left);
+		for (const [pid, count] of right.entries()) {
+			merged.set(pid, (merged.get(pid) ?? 0) + count);
+		}
+		return merged;
+	};
+
+	const manualDayCounts = countMap(manualDay.data ?? []);
+	const manualWeekCounts = countMap(manualWeek.data ?? []);
+	const stravaDayCounts = countMap((stravaDay.data as Array<{ player_id: string }> | null) ?? []);
+	const stravaWeekCounts = countMap((stravaWeek.data as Array<{ player_id: string }> | null) ?? []);
+	const dayCounts = mergeCounts(manualDayCounts, stravaDayCounts);
+	const weekCounts = mergeCounts(manualWeekCounts, stravaWeekCounts);
 
 	const topFromMap = (m: Map<string, number>) => {
 		let best: { name: string; count: number } | null = null;
@@ -123,23 +168,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		};
 	})();
 
-	const quips = (quipsRes.data ?? []).map(q => ({ text: q.rendered as string, created_at: q.created_at as string }));
+	const quipsDaily = (quipsDailyRes.data ?? []).map(q => ({ text: q.rendered as string, created_at: q.created_at as string }));
+	const quipsWeekly = (quipsWeeklyRes.data ?? []).map(q => ({ text: q.rendered as string, created_at: q.created_at as string }));
 
 	const payload: SummaryPayload = {
 		daily: {
 			dateKey: dayKey,
-			totalWorkouts: actDay.data?.length ?? 0,
+			totalWorkouts: (manualDay.data?.length ?? 0) + (stravaDay.data?.length ?? 0),
 			topPerformer: topFromMap(dayCounts)
 		},
 		weekly: {
 			weekKey,
-			totalWorkouts: actWeek.data?.length ?? 0,
+			totalWorkouts: (manualWeek.data?.length ?? 0) + (stravaWeek.data?.length ?? 0),
 			topPerformer: topFromMap(weekCounts)
 		},
 		pot: Number(lobbyRes.data?.cash_pool ?? 0),
 		hearts,
 		heartsDebug,
-		quips
+		quips: quipsWeekly.slice(0, 5),
+		quipsDaily: quipsDaily.slice(0, 10),
+		quipsWeekly: quipsWeekly.slice(0, 20)
 	};
 
 	return NextResponse.json({ summary: payload });

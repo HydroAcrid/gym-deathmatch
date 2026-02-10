@@ -28,6 +28,8 @@ type SummaryData = {
 		lowRaw: Array<{ name: string; lives: number }>;
 	};
 	quips?: Array<{ text: string; created_at: string }>;
+	quipsDaily?: Array<{ text: string; created_at: string }>;
+	quipsWeekly?: Array<{ text: string; created_at: string }>;
 	points?: {
 		formula?: string;
 		leaderboard?: Array<{ name: string; points: number; workouts: number; streak: number }>;
@@ -59,14 +61,17 @@ period: "daily" | "weekly";
 	const heading = isWeekly ? "WEEKLY WRAP" : "DAILY WRAP";
 	const sub = isWeekly ? "One week in the arena" : "Today in the arena";
 	const pData = isWeekly ? data.weekly : data.daily;
-	const eventsCount = data.quips?.length ?? 0;
+	const periodQuips = isWeekly
+		? (data.quipsWeekly ?? data.quips ?? [])
+		: (data.quipsDaily ?? data.quips ?? []);
+	const eventsCount = periodQuips.length;
 	const heartsLeadersArr = data.hearts?.leaders && data.hearts.leaders.length ? data.hearts.leaders : [];
 	const heartsLowArr = data.hearts?.low && data.hearts.low.length ? data.hearts.low : [];
 	const heartsLeaders = heartsLeadersArr.length ? heartsLeadersArr.slice(0, 3).join(" • ") + (heartsLeadersArr.length > 3 ? ` +${heartsLeadersArr.length - 3}` : "") : "—";
 	const heartsLow = heartsLowArr.length ? heartsLowArr.slice(0, 3).join(" • ") + (heartsLowArr.length > 3 ? ` +${heartsLowArr.length - 3}` : "") : "—";
 	const heartsValue = heartsLeadersArr.length ? heartsLeaders : "No data";
 	const heartsDebug = data.heartsDebug;
-	const spotlight = (data.quips || []).find(q => q.text.toLowerCase().includes("photo of the day"));
+	const spotlight = periodQuips.find(q => q.text.toLowerCase().includes("photo of the day"));
 	const pointsLeaders = data.points?.leaderboard ?? [];
 	const topPoints = pointsLeaders[0];
 
@@ -241,8 +246,8 @@ period: "daily" | "weekly";
 								<div className="font-display text-lg tracking-[0.12em] text-primary">Battle Log</div>
 							</div>
 							<div className="space-y-1 text-sm text-muted-foreground">
-								{data.quips && data.quips.length
-									? data.quips.slice(0, 5).map((q, i) => (
+								{periodQuips.length
+									? periodQuips.slice(0, 5).map((q, i) => (
 										<div key={i} className="flex items-start gap-2">
 											<span className="text-muted-foreground">⚔️</span>
 											<span className="leading-relaxed">{q.text}</span>
