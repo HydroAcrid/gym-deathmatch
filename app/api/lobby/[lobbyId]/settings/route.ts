@@ -36,9 +36,38 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 		// Mode settings
 		if (typeof body.mode === "string") patch.mode = body.mode;
 		if (typeof body.suddenDeathEnabled === "boolean") patch.sudden_death_enabled = body.suddenDeathEnabled;
+		// Invite controls
+		if (typeof body.inviteEnabled === "boolean") patch.invite_enabled = body.inviteEnabled;
+		if (body.inviteExpiresAt === null) patch.invite_expires_at = null;
+		if (typeof body.inviteExpiresAt === "string") patch.invite_expires_at = body.inviteExpiresAt;
+		if (typeof body.inviteTokenRequired === "boolean") patch.invite_token_required = body.inviteTokenRequired;
+		if (body.rotateInviteToken === true) patch.invite_token = crypto.randomUUID().replace(/-/g, "");
+		if (body.inviteTokenRequired === true && patch.invite_token === undefined) {
+			// Ensure tokenized invites always have a token.
+			const { data: existing } = await supabase
+				.from("lobby")
+				.select("invite_token")
+				.eq("id", lobbyId)
+				.maybeSingle();
+			if (!existing || !(existing as any).invite_token) {
+				patch.invite_token = crypto.randomUUID().replace(/-/g, "");
+			}
+		}
 		if (Object.keys(patch).length === 0) return NextResponse.json({ error: "No changes" }, { status: 400 });
 		// Update only provided fields; avoid upsert so NOT NULL columns (e.g. name) aren't required
-		const { error } = await supabase.from("lobby").update(patch).eq("id", lobbyId);
+		let { error } = await supabase.from("lobby").update(patch).eq("id", lobbyId);
+		if (error && String((error as any)?.message || "").includes("invite_")) {
+			// Backward compatibility: ignore invite controls if DB schema is older.
+			delete patch.invite_enabled;
+			delete patch.invite_expires_at;
+			delete patch.invite_token_required;
+			delete patch.invite_token;
+			if (Object.keys(patch).length === 0) {
+				return NextResponse.json({ ok: true, inviteControlsSkipped: true });
+			}
+			const retry = await supabase.from("lobby").update(patch).eq("id", lobbyId);
+			error = retry.error;
+		}
 		if (error) throw error;
 		return NextResponse.json({ ok: true });
 	} catch (e) {

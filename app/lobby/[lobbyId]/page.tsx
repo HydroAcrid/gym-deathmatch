@@ -52,7 +52,10 @@ export default async function LobbyPage({
 			scheduledStart: lrow.scheduled_start ?? null,
 			mode: (lrow.mode as any) || "MONEY_SURVIVAL",
 			suddenDeathEnabled: !!lrow.sudden_death_enabled,
-			challengeSettings: (lrow.challenge_settings as any) ?? null
+			challengeSettings: (lrow.challenge_settings as any) ?? null,
+			inviteEnabled: (lrow as any).invite_enabled !== false,
+			inviteExpiresAt: ((lrow as any).invite_expires_at as string | null) ?? null,
+			inviteTokenRequired: (lrow as any).invite_token_required === true
 		};
 		return <LobbySwitcher lobby={lobby} />;
 	} catch {
@@ -100,4 +103,3 @@ export async function generateMetadata({ params }: { params: Promise<{ lobbyId: 
 		}
 	};
 }
-

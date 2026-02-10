@@ -417,7 +417,26 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						size="sm"
 						onClick={async () => {
 							if (typeof window === "undefined") return;
-							const shareUrl = `${window.location.origin}/onboard/${lobbyData.id}`;
+							if (lobbyData.inviteEnabled === false) {
+								toast.push("Invites are disabled. Enable them in Edit Lobby.");
+								return;
+							}
+							let inviteToken: string | null = null;
+							try {
+								const accessRes = await authFetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/access-state`, { cache: "no-store" });
+								if (accessRes.ok) {
+									const accessData = await accessRes.json();
+									inviteToken = typeof accessData?.inviteToken === "string" ? accessData.inviteToken : null;
+								}
+							} catch {
+								// fallback to non-token link below
+							}
+							if (lobbyData.inviteTokenRequired === true && !inviteToken) {
+								toast.push("Unable to generate secure invite link right now.");
+								return;
+							}
+							const tokenQuery = inviteToken ? `?t=${encodeURIComponent(inviteToken)}` : "";
+							const shareUrl = `${window.location.origin}/onboard/${lobbyData.id}${tokenQuery}`;
 							const text = `${ownerName} is inviting you to the Deathmatch — ${lobbyData.name}. Join now:`;
 							try {
 								if (navigator.share) {

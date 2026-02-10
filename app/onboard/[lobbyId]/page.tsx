@@ -1,19 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 import { Button } from "@/src/ui2/ui/button";
 import { Input } from "@/src/ui2/ui/input";
 import { Label } from "@/src/ui2/ui/label";
 import { authFetch } from "@/lib/clientAuth";
 
-function slugify(s: string) {
-	return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
-
 export default function OnboardPage({ params }: { params: { lobbyId: string } }) {
-	const lobbyId = params.lobbyId;
+	const routeParams = useParams<{ lobbyId?: string }>();
+	const lobbyId = useMemo(() => {
+		const fromRoute = typeof routeParams?.lobbyId === "string" ? routeParams.lobbyId : "";
+		const fromProps = typeof params?.lobbyId === "string" ? params.lobbyId : "";
+		return (fromRoute || fromProps || "").trim();
+	}, [routeParams?.lobbyId, params?.lobbyId]);
+	const searchParams = useSearchParams();
+	const toast = useToast();
 	const { user, isHydrated, signInWithGoogle } = useAuth();
 	const [displayName, setDisplayName] = useState("");
 	const [location, setLocation] = useState("");
@@ -25,7 +30,14 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 	const [existingPlayerId, setExistingPlayerId] = useState<string | null>(null);
 	const [membershipChecked, setMembershipChecked] = useState(false);
 	const [lobbyMissing, setLobbyMissing] = useState(false);
+	const [joinBlockedReason, setJoinBlockedReason] = useState<string | null>(null);
+	const [joinError, setJoinError] = useState<string | null>(null);
+	const [openingExisting, setOpeningExisting] = useState(false);
 	const emailName = useMemo(() => (user?.email || "").split("@")[0], [user?.email]);
+	const inviteToken = useMemo(() => {
+		const token = searchParams?.get("t");
+		return token && token.trim().length ? token.trim() : null;
+	}, [searchParams]);
 
 	// Prefill from profile when signed in
 	useEffect(() => {
@@ -51,39 +63,62 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 			if (!user?.id || !lobbyId) {
 				setExistingPlayerId(null);
 				setLobbyMissing(false);
+				setJoinBlockedReason(null);
 				setMembershipChecked(false);
+				setOpeningExisting(false);
 				return;
 			}
 			setExistingPlayerId(null);
 			setLobbyMissing(false);
+			setJoinBlockedReason(null);
 			setMembershipChecked(false);
+			setOpeningExisting(false);
+			const controller = new AbortController();
+			const requestTimeout = window.setTimeout(() => controller.abort(), 12000);
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+				const tokenQuery = inviteToken ? `?t=${encodeURIComponent(inviteToken)}` : "";
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/access-state${tokenQuery}`, {
+					cache: "no-store",
+					signal: controller.signal
+				});
 				if (res.status === 404) {
 					setLobbyMissing(true);
 					setMembershipChecked(true);
 					return;
 				}
 				if (!res.ok) {
+					setJoinBlockedReason("Unable to verify lobby access right now.");
 					setMembershipChecked(true);
 					return;
 				}
 				const data = await res.json();
-				const players = (data?.lobby?.players || []) as Array<{ id: string; userId?: string | null }>;
-				const mine = players.find((p) => p.userId === user.id);
-				setExistingPlayerId(mine ? mine.id : null);
+				if (data?.state === "member" && data?.memberPlayerId) {
+					setExistingPlayerId(data.memberPlayerId);
+					setOpeningExisting(true);
+					setMembershipChecked(true);
+					return;
+				}
+				if (data?.state === "not_member" && data?.canJoin === false) {
+					setJoinBlockedReason(data?.reasonMessage || "You cannot join this lobby with this link.");
+				}
 				setMembershipChecked(true);
 			} catch {
 				setExistingPlayerId(null);
+				setJoinBlockedReason("Unable to verify lobby access right now. Please refresh and try again.");
 				setMembershipChecked(true);
+			} finally {
+				window.clearTimeout(requestTimeout);
 			}
 		})();
-	}, [user?.id, lobbyId]);
+	}, [user?.id, lobbyId, inviteToken]);
 
 	useEffect(() => {
-		if (!user?.id || !existingPlayerId) return;
-		window.location.replace(`/lobby/${encodeURIComponent(lobbyId)}`);
-	}, [user?.id, existingPlayerId, lobbyId]);
+		if (!openingExisting) return;
+		const timer = window.setTimeout(() => {
+			window.location.replace(`/lobby/${encodeURIComponent(lobbyId)}`);
+		}, 450);
+		return () => window.clearTimeout(timer);
+	}, [openingExisting, lobbyId]);
 
 	const canSubmit = Boolean(user?.id && lobbyId);
 
@@ -152,7 +187,12 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 
 	async function joinLobby() {
 		if (!canSubmit) return;
+		if (joinBlockedReason) {
+			toast.push(joinBlockedReason);
+			return;
+		}
 		setSubmitting(true);
+		setJoinError(null);
 		try {
 			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/invite`, {
 				method: "POST",
@@ -161,18 +201,24 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 					name: displayName || emailName || "Me",
 					avatarUrl: avatarUrl || null,
 					location: location || null,
-					quip: quip || null
+					quip: quip || null,
+					inviteToken
 				})
 			});
 			const data = await res.json().catch(() => ({}));
 			if (!res.ok) {
-				throw new Error(data?.error || "Failed to join lobby");
+				const message = data?.error || "Failed to join lobby";
+				setJoinError(message);
+				toast.push(message);
+				return;
 			}
 			const resultingPlayerId = data?.playerId || crypto.randomUUID();
 			setExistingPlayerId(resultingPlayerId);
 			window.location.replace(`/lobby/${encodeURIComponent(lobbyId)}?joined=1`);
 		} catch (err) {
 			console.error("[onboard] join error", err);
+			setJoinError("Failed to join lobby. Please try again.");
+			toast.push("Failed to join lobby. Please try again.");
 		} finally {
 			setSubmitting(false);
 		}
@@ -213,6 +259,19 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 		);
 	}
 
+	if (!lobbyId) {
+		return (
+			<div className="min-h-screen">
+				<div className="container mx-auto max-w-2xl py-10 px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)]">
+					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
+						<div className="font-display text-xl tracking-widest text-primary">INVALID INVITE LINK</div>
+						<div className="text-sm text-muted-foreground">We could not read this lobby link. Please ask for a new invite.</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	if (!membershipChecked) {
 		return (
 			<div className="min-h-screen">
@@ -220,6 +279,32 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
 						<div className="font-display text-xl tracking-widest text-primary">CHECKING INVITE</div>
 						<div className="text-sm text-muted-foreground">Looking up your lobby access...</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (openingExisting) {
+		return (
+			<div className="min-h-screen">
+				<div className="container mx-auto max-w-2xl py-10 px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)]">
+					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
+						<div className="font-display text-xl tracking-widest text-primary">OPENING LOBBY</div>
+						<div className="text-sm text-muted-foreground">You are already in this lobby. Taking you there now...</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (joinBlockedReason) {
+		return (
+			<div className="min-h-screen">
+				<div className="container mx-auto max-w-2xl py-10 px-3 sm:px-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)]">
+					<div className="scoreboard-panel p-6 sm:p-8 space-y-3 text-center">
+						<div className="font-display text-xl tracking-widest text-primary">INVITE UNAVAILABLE</div>
+						<div className="text-sm text-muted-foreground">{joinBlockedReason}</div>
 					</div>
 				</div>
 			</div>
@@ -295,6 +380,7 @@ export default function OnboardPage({ params }: { params: { lobbyId: string } })
 								Join this lobby
 							</Button>
 						</div>
+						{joinError ? <div className="text-xs text-destructive">{joinError}</div> : null}
 					</div>
 				</div>
 				<div className="scoreboard-panel p-4 sm:p-6 space-y-3 overflow-hidden">

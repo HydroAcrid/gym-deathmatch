@@ -99,6 +99,10 @@ export interface Lobby {
 	suddenDeathEnabled?: boolean;
 	challengeSettings?: ChallengeSettings | null;
 	seasonSummary?: SeasonSummary | null; // Populated when stage === "COMPLETED"
+	inviteEnabled?: boolean;
+	inviteExpiresAt?: string | null;
+	inviteTokenRequired?: boolean;
+	inviteToken?: string | null;
 }
 
 export interface ActivitySummary {

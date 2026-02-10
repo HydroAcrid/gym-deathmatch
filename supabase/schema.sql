@@ -119,6 +119,21 @@ begin
   if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='sudden_death_enabled') then
     alter table lobby add column sudden_death_enabled boolean not null default false;
   end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='invite_enabled') then
+    alter table lobby add column invite_enabled boolean not null default true;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='invite_expires_at') then
+    alter table lobby add column invite_expires_at timestamptz null;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='invite_token_required') then
+    alter table lobby add column invite_token_required boolean not null default true;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='lobby' and column_name='invite_token') then
+    alter table lobby add column invite_token text null;
+  end if;
+  -- Ensure invite token behavior is usable for existing rows too.
+  update lobby set invite_token = replace(gen_random_uuid()::text, '-', '') where invite_token is null;
+  alter table lobby alter column invite_token set default replace(gen_random_uuid()::text, '-', '');
 end $$;
 
 -- Allow a new intermediate status for challenge roulette transition

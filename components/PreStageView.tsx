@@ -217,7 +217,26 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 							variant="outline"
 							size="sm"
 							onClick={async () => {
-								const shareUrl = `${window.location.origin}/onboard/${lobby.id}`;
+								if (lobby.inviteEnabled === false) {
+									alert("Invites are disabled. Enable them in Edit Lobby.");
+									return;
+								}
+								let inviteToken: string | null = null;
+								try {
+									const accessRes = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/access-state`, { cache: "no-store" });
+									if (accessRes.ok) {
+										const accessData = await accessRes.json();
+										inviteToken = typeof accessData?.inviteToken === "string" ? accessData.inviteToken : null;
+									}
+								} catch {
+									// fallback to non-token link below
+								}
+								if (lobby.inviteTokenRequired === true && !inviteToken) {
+									alert("Unable to generate secure invite link right now.");
+									return;
+								}
+								const tokenQuery = inviteToken ? `?t=${encodeURIComponent(inviteToken)}` : "";
+								const shareUrl = `${window.location.origin}/onboard/${lobby.id}${tokenQuery}`;
 								const ownerName = lobby.players.find(p => p.id === lobby.ownerId)?.name || "Your friend";
 								const text = `${ownerName} is inviting you to the Deathmatch — ${lobby.name}. Join now:`;
 								try {

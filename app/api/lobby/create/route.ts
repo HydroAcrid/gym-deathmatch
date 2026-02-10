@@ -69,9 +69,23 @@ export async function POST(req: NextRequest) {
 			challenge_allow_suggestions: body.challengeAllowSuggestions ?? true,
 			challenge_require_lock: body.challengeRequireLock ?? false,
 			challenge_auto_spin: body.challengeAutoSpin ?? false,
-			challenge_settings: challengeSettings
+			challenge_settings: challengeSettings,
+			invite_enabled: true,
+			invite_expires_at: null,
+			invite_token_required: true,
+			invite_token: crypto.randomUUID().replace(/-/g, "")
 		};
-		const { error: lerr } = await supabase.from("lobby").insert(lobby);
+		let { error: lerr } = await supabase.from("lobby").insert(lobby);
+		if (lerr && String((lerr as any)?.message || "").includes("invite_")) {
+			// Backward compatibility: some environments may not have invite columns yet.
+			const legacyLobby = { ...lobby } as any;
+			delete legacyLobby.invite_enabled;
+			delete legacyLobby.invite_expires_at;
+			delete legacyLobby.invite_token_required;
+			delete legacyLobby.invite_token;
+			const retry = await supabase.from("lobby").insert(legacyLobby);
+			lerr = retry.error;
+		}
 		if (lerr) {
 			console.error("create lobby error", lerr);
 			return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);

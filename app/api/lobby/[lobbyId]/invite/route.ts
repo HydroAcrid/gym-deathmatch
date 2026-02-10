@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import type { PlayerRow } from "@/types/db";
+import { evaluateInviteGate, inviteReasonMessage } from "@/lib/inviteAccess";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -12,6 +13,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		const body = await req.json();
 		// Owners can create unlinked guest players; everyone else self-joins as authenticated user.
 		const allowUnlinkedGuest = access.isOwner && !!access.memberPlayerId && !body.userId;
+
+		// Enforce invite controls for non-owner self-join flows.
+		if (!allowUnlinkedGuest) {
+			const { data: lobby } = await supabase
+				.from("lobby")
+				.select("*")
+				.eq("id", lobbyId)
+				.maybeSingle();
+			if (!lobby) return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
+			const gate = evaluateInviteGate({
+					isOwner: access.isOwner,
+					isMember: !!access.memberPlayerId,
+					inviteEnabled: (lobby as any).invite_enabled !== false,
+					inviteExpiresAt: ((lobby as any).invite_expires_at as string | null) ?? null,
+					inviteTokenRequired: (lobby as any).invite_token_required === true,
+					inviteToken: ((lobby as any).invite_token as string | null) ?? null,
+					providedToken: typeof body.inviteToken === "string" ? body.inviteToken : null,
+				});
+			if (!gate.canJoin) {
+				return NextResponse.json(
+					{ error: inviteReasonMessage(gate.reason), code: gate.reason },
+					{ status: 403 }
+				);
+			}
+		}
 
 		// Prevent duplicate player for this authenticated user in this lobby.
 		let playerId = typeof body.id === "string" && body.id.trim().length ? body.id.trim() : "";

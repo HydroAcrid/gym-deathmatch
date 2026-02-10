@@ -53,6 +53,10 @@ export function OwnerSettingsModal({
 	const [seasonStart, setSeasonStart] = useState<string>("");
 	const initialEnd = toLocalDateTimeInputValue(defaultSeasonEnd || new Date());
 	const [seasonEnd, setSeasonEnd] = useState<string>(initialEnd);
+	const [inviteEnabled, setInviteEnabled] = useState<boolean>(true);
+	const [inviteTokenRequired, setInviteTokenRequired] = useState<boolean>(true);
+	const [inviteExpiresAt, setInviteExpiresAt] = useState<string>("");
+	const [rotateInviteToken, setRotateInviteToken] = useState<boolean>(false);
 	const [saving, setSaving] = useState(false);
 	const toast = useToast();
 	const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
@@ -91,6 +95,10 @@ export function OwnerSettingsModal({
 			setWeeklyAnte(String(defaultWeeklyAnte ?? 10));
 			setScalingEnabled(!!defaultScalingEnabled);
 			setPerPlayerBoost(String(defaultPerPlayerBoost ?? 0));
+			setInviteEnabled(true);
+			setInviteTokenRequired(true);
+			setInviteExpiresAt("");
+			setRotateInviteToken(false);
 			if (defaultSeasonEnd) {
 				setSeasonEnd(toLocalDateTimeInputValue(defaultSeasonEnd));
 			}
@@ -140,7 +148,11 @@ export function OwnerSettingsModal({
 						perPlayerBoost: Number(perPlayerBoost || 0),
 						mode,
 						suddenDeathEnabled: suddenDeath,
-						challengeSettings: challengeSettings
+						challengeSettings: challengeSettings,
+						inviteEnabled: inviteEnabled,
+						inviteTokenRequired: inviteTokenRequired,
+						inviteExpiresAt: inviteExpiresAt ? (toIsoFromLocalDateTimeInput(inviteExpiresAt) || null) : null,
+						rotateInviteToken: rotateInviteToken
 					})
 				});
 				
@@ -161,6 +173,7 @@ export function OwnerSettingsModal({
 				}
 				
 				await onSaved(newSeasonEnd);
+				setRotateInviteToken(false);
 				setOpen(false);
 				if (onClose) onClose();
 				return;
@@ -185,12 +198,17 @@ export function OwnerSettingsModal({
 					scalingEnabled: Boolean(scalingEnabled),
 					perPlayerBoost: Number(perPlayerBoost || 0),
 					mode,
-					suddenDeathEnabled: suddenDeath
+					suddenDeathEnabled: suddenDeath,
+					inviteEnabled: inviteEnabled,
+					inviteTokenRequired: inviteTokenRequired,
+					inviteExpiresAt: inviteExpiresAt ? (toIsoFromLocalDateTimeInput(inviteExpiresAt) || null) : null,
+					rotateInviteToken: rotateInviteToken
 				})
 			});
 			if (res.ok) {
 				toast.push("Settings saved");
 				await onSaved();
+				setRotateInviteToken(false);
 				setOpen(false);
 				onClose?.();
 			} else {
@@ -215,6 +233,12 @@ export function OwnerSettingsModal({
 				if (iso) {
 					setSeasonStart(toLocalDateTimeInputValue(iso));
 				}
+					const inviteEnabledRaw = data?.lobby?.inviteEnabled;
+					setInviteEnabled(inviteEnabledRaw !== false);
+					const inviteRequiredRaw = data?.lobby?.inviteTokenRequired;
+					setInviteTokenRequired(inviteRequiredRaw === true);
+				const inviteExpiresRaw = data?.lobby?.inviteExpiresAt ?? null;
+				setInviteExpiresAt(inviteExpiresRaw ? toLocalDateTimeInputValue(inviteExpiresRaw) : "");
 			} catch { /* ignore */ }
 		})();
 	}, [open, lobbyId]);
@@ -403,6 +427,47 @@ export function OwnerSettingsModal({
 												<input inputMode="numeric" pattern="[0-9]*" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
 													disabled={!scalingEnabled || String(mode).startsWith("CHALLENGE_")}
 													value={perPlayerBoost} onChange={e => setPerPlayerBoost(e.target.value)} />
+											</label>
+										</div>
+									</div>
+									{/* Invite controls */}
+									<div className="mt-4">
+										<div className="font-display tracking-widest text-primary text-sm mb-2">INVITE CONTROLS</div>
+										<div className="grid gap-3">
+											<label className="text-xs flex items-center gap-2">
+												<input type="checkbox" checked={inviteEnabled} onChange={e => setInviteEnabled(e.target.checked)} />
+												<span>Enable invite links</span>
+											</label>
+											<label className={`text-xs flex items-center gap-2 ${inviteEnabled ? "" : "opacity-50"}`}>
+												<input
+													type="checkbox"
+													checked={inviteTokenRequired}
+													onChange={e => setInviteTokenRequired(e.target.checked)}
+													disabled={!inviteEnabled}
+												/>
+												<span>Require tokenized invite link</span>
+											</label>
+											<label className={`text-xs ${inviteEnabled ? "" : "opacity-50"}`}>
+												<span className="block mb-1">Invite expiry (local)</span>
+												<input
+													type="datetime-local"
+													className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													value={inviteExpiresAt}
+													onChange={e => setInviteExpiresAt(e.target.value)}
+													disabled={!inviteEnabled}
+												/>
+												<span className="block mt-1 text-[11px] text-muted-foreground">
+													Leave empty for no expiry.
+												</span>
+											</label>
+											<label className={`text-xs flex items-center gap-2 ${inviteEnabled ? "" : "opacity-50"}`}>
+												<input
+													type="checkbox"
+													checked={rotateInviteToken}
+													onChange={e => setRotateInviteToken(e.target.checked)}
+													disabled={!inviteEnabled || !inviteTokenRequired}
+												/>
+												<span>Rotate invite token on next save</span>
 											</label>
 										</div>
 									</div>

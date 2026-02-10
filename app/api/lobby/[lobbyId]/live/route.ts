@@ -204,6 +204,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					mode: (lrow.mode as any) || "MONEY_SURVIVAL",
 					suddenDeathEnabled: !!lrow.sudden_death_enabled,
 					challengeSettings: (lrow.challenge_settings as any) ?? null,
+					inviteEnabled: (lrow as any).invite_enabled !== false,
+					inviteExpiresAt: ((lrow as any).invite_expires_at as string | null) ?? null,
+					inviteTokenRequired: (lrow as any).invite_token_required === true,
 					stage: rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE"),
 					seasonSummary: lrow.season_summary ? (lrow.season_summary as any) : null
 				} as Lobby;
