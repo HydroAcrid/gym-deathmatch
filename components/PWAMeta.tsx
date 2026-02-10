@@ -29,7 +29,7 @@ export function PWAMeta() {
 		const metaTags = [
 			{ name: "apple-mobile-web-app-capable", content: "yes" },
 			{ name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-			{ name: "apple-mobile-web-app-title", content: "Arena" },
+			{ name: "apple-mobile-web-app-title", content: "Gym Deathmatch" },
 			{ name: "theme-color", content: "#140b07" },
 		];
 
@@ -53,4 +53,3 @@ export function PWAMeta() {
 
 	return null; // This component doesn't render anything
 }
-

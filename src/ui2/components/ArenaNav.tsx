@@ -111,7 +111,7 @@ export function ArenaNav() {
 							{user ? "SIGN OUT" : "SIGN IN"}
 						</Button>
 
-						{user && <ProfileAvatar />}
+						{user && <ProfileAvatar variant="arena" />}
 					</div>
 				</div>
 			</div>

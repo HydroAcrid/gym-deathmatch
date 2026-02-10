@@ -7,7 +7,11 @@ import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 import { PushToggle } from "./PushToggle";
 import { authFetch } from "@/lib/clientAuth";
 
-export function ProfileAvatar() {
+type ProfileAvatarProps = {
+	variant?: "default" | "arena";
+};
+
+export function ProfileAvatar({ variant = "default" }: ProfileAvatarProps) {
 	const { user } = useAuth();
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -39,6 +43,12 @@ export function ProfileAvatar() {
 	}, [user?.id]);
 
 	if (!user) return null;
+
+	const fallbackInitial = (displayName?.trim()?.[0] || user.email?.trim()?.[0] || "A").toUpperCase();
+	const isArena = variant === "arena";
+	const buttonClass = isArena
+		? "ml-2 relative h-10 w-10 rounded-sm border border-[hsl(var(--arena-gold)/0.45)] bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--card)/0.85))] text-foreground flex items-center justify-center overflow-hidden transition-all duration-200 hover:border-[hsl(var(--arena-gold))] hover:shadow-[0_0_18px_hsl(var(--arena-gold)/0.32)]"
+		: "ml-2 h-7 w-7 rounded-full bg-card text-foreground flex items-center justify-center border border-border overflow-hidden";
 
 	async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
@@ -124,15 +134,18 @@ export function ProfileAvatar() {
 
 	return (
 		<>
-			<button className="ml-2 h-7 w-7 rounded-full bg-card text-foreground flex items-center justify-center border border-border overflow-hidden"
+			<button className={buttonClass}
 				title="Edit profile picture"
 				onClick={() => setOpen(true)}
 			>
 				{current ? (
 					<img src={current} alt="me" className="h-full w-full object-cover" />
 				) : (
-					<span>👤</span>
+					<span className={isArena ? "font-display text-xs tracking-[0.2em] text-[hsl(var(--arena-gold))]" : ""}>{isArena ? fallbackInitial : "👤"}</span>
 				)}
+				{isArena ? (
+					<span className="pointer-events-none absolute inset-0 border border-[hsl(var(--arena-gold)/0.18)]" />
+				) : null}
 			</button>
 			<AnimatePresence>
 				{open && (
