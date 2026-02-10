@@ -1,8 +1,9 @@
-import { Heart, Target, CheckCircle2, AlertTriangle, Skull } from "lucide-react";
+import { Heart, Target, CheckCircle2, AlertTriangle, Skull, Flame, Trophy } from "lucide-react";
 
 type AthleteStatus = "safe" | "at_risk" | "eliminated";
 
 export interface AthleteHeartStatus {
+  id: string;
   name: string;
   initials: string;
   avatarUrl?: string | null;
@@ -11,10 +12,16 @@ export interface AthleteHeartStatus {
   weeklyTarget: number;
   weeklyProgress: number;
   status: AthleteStatus;
+  totalWorkouts: number;
+  currentStreak: number;
+  averageWorkoutsPerWeek: number;
+  longestStreak: number;
+  quip?: string | null;
 }
 
 interface HeartsStatusBoardProps {
   athletes: AthleteHeartStatus[];
+  onAthleteSelect?: (athleteId: string) => void;
 }
 
 const statusConfig: Record<AthleteStatus, { label: string; className: string; icon: typeof CheckCircle2 }> = {
@@ -35,15 +42,22 @@ const statusConfig: Record<AthleteStatus, { label: string; className: string; ic
   }
 };
 
-export function HeartsStatusBoard({ athletes }: HeartsStatusBoardProps) {
+export function HeartsStatusBoard({ athletes, onAthleteSelect }: HeartsStatusBoardProps) {
   return (
     <div className="scoreboard-panel">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b-2 border-border">
+      <div className="flex items-center justify-between gap-3 p-4 border-b-2 border-border">
+        <div className="flex items-center gap-3">
         <Heart className="w-5 h-5 text-destructive" />
         <h2 className="font-display text-base sm:text-lg font-bold tracking-widest">
           HEARTS & STATUS
         </h2>
+        </div>
+        {onAthleteSelect && (
+          <span className="text-[10px] sm:text-xs text-muted-foreground font-display tracking-widest">
+            TAP ATHLETE FOR DETAILS
+          </span>
+        )}
       </div>
 
       {/* Athletes Grid */}
@@ -54,12 +68,9 @@ export function HeartsStatusBoard({ athletes }: HeartsStatusBoardProps) {
           const progressPercent = Math.min((athlete.weeklyProgress / athlete.weeklyTarget) * 100, 100);
           const isEliminated = athlete.status === "eliminated";
 
-          return (
-            <div 
-              key={athlete.name}
-              className={`p-4 transition-colors hover:bg-muted/20 ${isEliminated ? "opacity-50" : ""}`}
-            >
-              <div className="flex items-center gap-3 sm:gap-4">
+          const content = (
+              <div className={`p-4 transition-colors ${onAthleteSelect ? "hover:bg-muted/20 active:bg-muted/30" : ""} ${isEliminated ? "opacity-50" : ""}`}>
+              <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center">
                 {/* Avatar - Industrial badge */}
                 <div className={`w-10 h-10 sm:w-12 sm:h-12 border-2 flex items-center justify-center flex-shrink-0 ${
                   isEliminated ? "bg-muted border-border" : "bg-muted border-primary/40"
@@ -143,8 +154,58 @@ export function HeartsStatusBoard({ athletes }: HeartsStatusBoardProps) {
                       </div>
                     </div>
                   </div>
+
+                  <div className="mt-2 text-xs text-muted-foreground truncate font-display tracking-wider">
+                    {athlete.quip?.trim() ? athlete.quip : "No quip yet."}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 sm:min-w-[280px]">
+                  <div className="stat-block">
+                    <div className="stat-value text-base sm:text-lg">{athlete.totalWorkouts}</div>
+                    <div className="stat-label text-[8px] sm:text-[10px]">WORKOUTS</div>
+                  </div>
+                  <div className="stat-block">
+                    <div className="stat-value text-base sm:text-lg flex items-center justify-center gap-1">
+                      {athlete.currentStreak}
+                      <Flame className="w-3 h-3 text-primary" />
+                    </div>
+                    <div className="stat-label text-[8px] sm:text-[10px]">STREAK</div>
+                  </div>
+                  <div className="stat-block">
+                    <div className="stat-value text-base sm:text-lg">
+                      {athlete.averageWorkoutsPerWeek.toFixed(1)}
+                    </div>
+                    <div className="stat-label text-[8px] sm:text-[10px]">AVG/WK</div>
+                  </div>
+                  <div className="stat-block">
+                    <div className="stat-value text-base sm:text-lg flex items-center justify-center gap-1">
+                      {athlete.longestStreak}
+                      <Trophy className="w-3 h-3 text-arena-gold" />
+                    </div>
+                    <div className="stat-label text-[8px] sm:text-[10px]">BEST</div>
+                  </div>
                 </div>
               </div>
+            </div>
+          );
+
+          if (onAthleteSelect) {
+            return (
+              <button
+                key={athlete.id}
+                type="button"
+                onClick={() => onAthleteSelect(athlete.id)}
+                className="w-full text-left"
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <div key={athlete.id}>
+              {content}
             </div>
           );
         })}

@@ -3,7 +3,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import { Lobby } from "@/types/game";
 import { LiveLobbyResponse } from "@/types/api";
-import { motion } from "framer-motion";
 import { PlayerCard } from "./PlayerCard";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "./ToastProvider";
@@ -24,6 +23,7 @@ import { WeeklyCycleIndicator } from "@/src/ui2/components/WeeklyCycleIndicator"
 import { Button } from "@/src/ui2/ui/button";
 import { authFetch } from "@/lib/clientAuth";
 import { calculatePoints, compareByPointsDesc, POINTS_FORMULA_TEXT } from "@/lib/points";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/ui2/ui/dialog";
 
 type LobbyLayoutProps = {
 	lobby: Lobby;
@@ -67,6 +67,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const [summaryPeriod, setSummaryPeriod] = useState<"daily"|"weekly">("daily");
 	const [summarySeenKey, setSummarySeenKey] = useState<string | null>(null);
 	const [potAmount, setPotAmount] = useState<number>(currentPot);
+	const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
 	// Determine owner
 	const myPlayerId = useMemo(() => {
@@ -209,11 +210,6 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const stravaError = search.get("stravaError");
 	const joined = search.get("joined");
 
-	const item = {
-		hidden: { opacity: 0, y: 12, scale: 0.98 },
-		show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" } }
-	};
-
 	// Load week status and active punishment for challenge modes (still polling separately for now)
 	useEffect(() => {
 		if (!String(mode || "").startsWith("CHALLENGE_")) return;
@@ -305,7 +301,22 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			: 0;
 		const weeklyTarget = lobbyData.weeklyTarget ?? 3;
 		const status: "safe" | "at_risk" | "eliminated" = hearts <= 0 ? "eliminated" : hearts === 1 ? "at_risk" : "safe";
-		return { name: p.name, initials, avatarUrl: p.avatarUrl || null, hearts, maxHearts, weeklyTarget, weeklyProgress, status };
+		return {
+			id: p.id,
+			name: p.name,
+			initials,
+			avatarUrl: p.avatarUrl || null,
+			hearts,
+			maxHearts,
+			weeklyTarget,
+			weeklyProgress,
+			status,
+			totalWorkouts: p.totalWorkouts ?? 0,
+			currentStreak: p.currentStreak ?? 0,
+			averageWorkoutsPerWeek: p.averageWorkoutsPerWeek ?? 0,
+			longestStreak: p.longestStreak ?? 0,
+			quip: p.quip ?? "",
+		};
 	});
 
 	// Build standings data from live players
@@ -326,6 +337,8 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		})
 		.sort(compareByPointsDesc)
 		.map((standing, i) => ({ ...standing, rank: i + 1 }));
+
+	const selectedPlayer = selectedPlayerId ? players.find((p) => p.id === selectedPlayerId) ?? null : null;
 
 	// Calculate week info for cycle indicator
 	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
@@ -352,6 +365,9 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					currentPot={potAmount}
 					weeklyAnte={weeklyAnte}
 					showMoneyInfo={isMoneyMode && stage !== "COMPLETED"}
+					seasonStart={lobbyData.seasonStart}
+					seasonEnd={lobbyData.seasonEnd}
+					showCountdown={stage !== "COMPLETED"}
 				/>
 
 				{/* Weekly Cycle Indicator */}
@@ -446,29 +462,16 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						<LiveFeed lobbyId={lobbyData.id} />
 					</div>
 				) : (
-					<div className="grid lg:grid-cols-3 gap-6">
+					<div className="space-y-6">
+						<LiveFeed lobbyId={lobbyData.id} />
+
+						<div className="grid lg:grid-cols-3 gap-6">
 						<div className="lg:col-span-2 space-y-6">
 							{/* Hearts & Status Board - Arena-style */}
-							<HeartsStatusBoard athletes={heartsData} />
-
-							{/* Player Cards Grid */}
-							{!(isChallengeMode && weekStatus === "PENDING_CONFIRMATION") && (
-								<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-stretch">
-									{players.map((p) => (
-										<motion.div key={p.id} variants={item} className="h-full">
-											<PlayerCard
-												player={p}
-												lobbyId={lobbyData.id}
-												mePlayerId={myPlayerId || undefined}
-												showReady={false}
-											/>
-										</motion.div>
-									))}
-								</div>
-							)}
-
-							{/* Live Feed */}
-							<LiveFeed lobbyId={lobbyData.id} />
+							<HeartsStatusBoard
+								athletes={heartsData}
+								onAthleteSelect={(athleteId) => setSelectedPlayerId(athleteId)}
+							/>
 						</div>
 						<div className="space-y-6">
 							{/* Standings Panel */}
@@ -515,8 +518,27 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 							)}
 						</div>
 					</div>
+					</div>
 				)}
 			</div>
+			<Dialog open={!!selectedPlayer} onOpenChange={(open) => { if (!open) setSelectedPlayerId(null); }}>
+				<DialogContent className="w-[95vw] max-w-3xl p-4 sm:p-6 border-2">
+					<DialogHeader className="sr-only">
+						<DialogTitle>
+							{selectedPlayer ? `${selectedPlayer.name} athlete details` : "Athlete details"}
+						</DialogTitle>
+						<DialogDescription>Full athlete card with workout logging and profile stats.</DialogDescription>
+					</DialogHeader>
+					{selectedPlayer && (
+						<PlayerCard
+							player={selectedPlayer}
+							lobbyId={lobbyData.id}
+							mePlayerId={myPlayerId || undefined}
+							showReady={false}
+						/>
+					)}
+				</DialogContent>
+			</Dialog>
 			{/* Strava reconnect banner removed – Strava is optional now */}
 			<KoOverlay
 				open={seasonStatus === "completed" && !!koEvent && showKo}
