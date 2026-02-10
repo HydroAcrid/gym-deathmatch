@@ -94,12 +94,14 @@ period: "daily" | "weekly";
 		<motion.div
 			custom={0}
 			variants={cardVariants}
-			className="flex items-center gap-3 px-3 py-2 rounded-full border border-primary/40 bg-muted/30 text-foreground"
+			className="scoreboard-panel border-2 border-border px-3 py-3 text-foreground min-h-[88px] flex flex-col justify-between"
 		>
-			<span className="text-lg">{icon}</span>
-			<div className="text-left">
+			<div className="flex items-center gap-2">
+				<span className="text-base">{icon}</span>
 				<div className="uppercase tracking-[0.14em] text-[10px] text-muted-foreground">{label}</div>
-				<div className="text-base font-semibold">{value}</div>
+			</div>
+			<div className="text-left">
+				<div className="font-display text-2xl sm:text-3xl leading-none text-primary">{value}</div>
 			</div>
 		</motion.div>
 	);
@@ -118,20 +120,19 @@ period: "daily" | "weekly";
 					initial="hidden"
 					animate="show"
 					exit="exit"
-					className="scoreboard-panel w-full sm:max-w-4xl h-full overflow-y-auto overflow-x-hidden [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full p-3 sm:p-6 pt-4 sm:pt-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8 border-2 relative"
+					className="scoreboard-panel w-full sm:max-w-4xl h-full overflow-y-auto overflow-x-hidden [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-none p-3 sm:p-6 pt-4 sm:pt-6 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8 border-2 relative"
 					onClick={(e) => e.stopPropagation()}
 				>
-					<div className="absolute inset-0 pointer-events-none mix-blend-screen opacity-[0.08] bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)),transparent_40%)]" />
 					<div className="text-center mb-4 space-y-1 relative">
 						<div className="font-display text-2xl sm:text-4xl tracking-[0.2em] text-primary">{heading}</div>
 						<div className="text-muted-foreground text-xs sm:text-sm uppercase tracking-[0.16em]">{sub}</div>
-						<div className="mx-auto w-16 h-[2px] bg-gradient-to-r from-primary/0 via-primary to-primary/0" />
+						<div className="mx-auto w-24 h-[2px] bg-primary/60" />
 					</div>
 
 					<motion.div
 						initial="hidden"
 						animate="show"
-						className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mb-3"
+						className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mb-4"
 					>
 						<StatPill icon="🏋️" label="WORKOUTS" value={`${pData?.totalWorkouts ?? 0}`} />
 						<StatPill icon="💰" label="POT" value={`$${data.pot ?? 0}`} />
@@ -146,7 +147,7 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={0}
-							className="mb-4 rounded-xl border border-primary/40 bg-muted/30 text-foreground p-4"
+							className="scoreboard-panel border-2 border-primary/40 text-foreground p-4 mb-4"
 						>
 							<div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.14em] text-muted-foreground">
 								<span>🔥 Spotlight</span>
@@ -162,7 +163,7 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={1}
-							className="rounded-xl border border-border bg-card text-foreground p-4"
+							className="scoreboard-panel border-2 border-border bg-card text-foreground p-4"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">💰</span>
@@ -177,7 +178,7 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={2}
-							className="rounded-xl border border-border bg-card text-foreground p-4"
+							className="scoreboard-panel border-2 border-border bg-card text-foreground p-4"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">❤️</span>
@@ -212,7 +213,7 @@ period: "daily" | "weekly";
 								initial="hidden"
 								animate="show"
 								custom={3}
-								className="rounded-xl border border-border bg-card text-foreground p-4 lg:col-span-2"
+								className="scoreboard-panel border-2 border-border bg-card text-foreground p-4 lg:col-span-2"
 							>
 								<div className="flex items-center gap-2 mb-2">
 									<span className="text-lg">🏆</span>
@@ -239,7 +240,7 @@ period: "daily" | "weekly";
 							initial="hidden"
 							animate="show"
 							custom={4}
-							className="rounded-xl border border-border bg-card text-foreground p-4 lg:col-span-2"
+							className="scoreboard-panel border-2 border-border bg-card text-foreground p-4 lg:col-span-2"
 						>
 							<div className="flex items-center gap-2 mb-2">
 								<span className="text-lg">⚔️</span>
@@ -259,7 +260,7 @@ period: "daily" | "weekly";
 					</div>
 
 					<div className="flex justify-center mt-6">
-						<Button variant="default" onClick={onClose} className="px-6 py-3 text-sm uppercase tracking-[0.16em] shadow-[0_0_24px_hsl(var(--primary)/0.4)]">
+						<Button variant="arenaPrimary" onClick={onClose} className="px-6 py-3 text-sm uppercase tracking-[0.16em]">
 							Return
 						</Button>
 					</div>

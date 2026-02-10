@@ -192,10 +192,13 @@ export function ManualActivityModal({
 							<div className="space-y-2">
 								<Label className="text-xs uppercase tracking-wider">Type</Label>
 								<Select value={type} onValueChange={setType}>
-									<SelectTrigger className="bg-input border-border">
+									<SelectTrigger className="bg-[hsl(var(--input))] border-border !opacity-100">
 										<SelectValue placeholder="Select type" />
 									</SelectTrigger>
-									<SelectContent className="z-[140] border-border bg-card">
+									<SelectContent
+										position="item-aligned"
+										className="z-[220] border-2 border-border !bg-[hsl(var(--card))] !opacity-100 shadow-[0_24px_48px_hsl(0_0%_0%/0.85)]"
+									>
 										<SelectItem value="run">Run</SelectItem>
 										<SelectItem value="ride">Ride</SelectItem>
 										<SelectItem value="gym">Gym</SelectItem>

@@ -309,14 +309,26 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		const weeklyTarget = lobbyData.weeklyTarget ?? 3;
 		const weeklyProgress = (() => {
 			const timeline = Array.isArray(p.heartsTimeline) ? p.heartsTimeline : [];
-			if (!timeline.length) return 0;
+			const timelineCurrent = (() => {
+				if (!timeline.length) return 0;
+				const now = Date.now();
+				const currentEvent = timeline.find((evt) => {
+					const start = new Date(evt.weekStart).getTime();
+					if (!Number.isFinite(start)) return false;
+					const end = start + 7 * 24 * 60 * 60 * 1000;
+					return now >= start && now < end;
+				});
+				if (currentEvent) return currentEvent.workouts ?? 0;
+				return timeline[timeline.length - 1]?.workouts ?? 0;
+			})();
+
 			const seasonStartRaw = lobbyData.seasonStart;
 			if (!seasonStartRaw) {
-				return timeline[timeline.length - 1]?.workouts ?? 0;
+				return Math.max(0, timelineCurrent);
 			}
 			const seasonStart = new Date(seasonStartRaw);
 			if (Number.isNaN(seasonStart.getTime())) {
-				return timeline[timeline.length - 1]?.workouts ?? 0;
+				return Math.max(0, timelineCurrent);
 			}
 			const msPerDay = 24 * 60 * 60 * 1000;
 			const msPerWeek = 7 * msPerDay;
@@ -324,8 +336,21 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const now = new Date();
 			const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 			const weekIndex = Math.max(0, Math.floor((nowMidnight - seasonStartMidnight) / msPerWeek));
-			const event = timeline[weekIndex] ?? timeline[timeline.length - 1];
-			return event?.workouts ?? 0;
+			const indexedEvent = timeline[weekIndex];
+			const indexedWorkouts = indexedEvent?.workouts ?? timelineCurrent;
+
+			const currentWeekStartMs = seasonStartMidnight + weekIndex * msPerWeek;
+			const currentWeekEndMs = currentWeekStartMs + msPerWeek;
+			const recentActivities = Array.isArray((p as any).recentActivities) ? (p as any).recentActivities : [];
+			const recentThisWeek = recentActivities.filter((a: any) => {
+				const raw = a?.startDate ?? a?.date ?? null;
+				if (!raw) return false;
+				const ts = new Date(raw).getTime();
+				if (!Number.isFinite(ts)) return false;
+				return ts >= currentWeekStartMs && ts < currentWeekEndMs;
+			}).length;
+
+			return Math.max(0, indexedWorkouts, recentThisWeek);
 		})();
 		const status: "safe" | "at_risk" | "eliminated" = hearts <= 0 ? "eliminated" : hearts === 1 ? "at_risk" : "safe";
 		return {
