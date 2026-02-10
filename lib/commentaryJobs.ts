@@ -51,6 +51,14 @@ function dayKeyUTC(d: Date): string {
 	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
+function weekStartMondayUTC(d: Date): Date {
+	const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+	const dow = start.getUTCDay(); // 0=Sun..6=Sat
+	const diffToMonday = (dow + 6) % 7; // Mon->0, Tue->1, Sun->6
+	start.setUTCDate(start.getUTCDate() - diffToMonday);
+	return start;
+}
+
 async function fetchStravaActivitiesForPlayer(player: PlayerRow): Promise<ActivityLike[]> {
 	let tokens: { accessToken: string } | null = null;
 	if (player.user_id) {
@@ -266,8 +274,9 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 				}
 			}
 
-			if (now.getUTCDay() === 0 && now.getUTCHours() === 0 && now.getUTCMinutes() < 15) {
-				const ws = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString();
+			// Weekly reset announcement + ready reset (job runs daily; reset itself is Monday-gated).
+			if (now.getUTCDay() === 1) {
+				const ws = weekStartMondayUTC(now).toISOString();
 				await onWeeklyReset(lobby.id, ws);
 				await supabase.from("user_ready_states").update({ ready: false }).eq("lobby_id", lobby.id);
 				resets += 1;

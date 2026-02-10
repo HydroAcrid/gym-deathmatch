@@ -41,7 +41,7 @@ Vercel schedule:
 
 - `vercel.json` includes:
   - `roulette weekly` daily at 19:00 UTC (`0 19 * * *`)
-  - `weekly` commentary Mondays at 20:30 UTC (`30 20 * * 1`)
+  - `weekly` commentary job daily at 20:30 UTC (`30 20 * * *`) with internal weekday gating
   - `daily` job at 20:00 UTC (`0 20 * * *`)
 
 Manual run examples:
