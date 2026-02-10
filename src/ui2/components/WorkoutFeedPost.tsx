@@ -6,6 +6,7 @@ import {
   MessageSquare, ChevronDown, ChevronUp, Send, Trash2, Shield, Timer, Route, X
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { formatLocalDate } from "@/lib/datetime";
 
 interface Comment {
   id: string;
@@ -70,7 +71,7 @@ function formatTimestamp(date: Date): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatLocalDate(date, { month: "short", day: "numeric" });
 }
 
 function formatDuration(minutes: number): string {

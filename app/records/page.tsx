@@ -16,6 +16,7 @@ import {
   Dumbbell,
 } from "lucide-react";
 import { calculatePoints } from "@/lib/points";
+import { formatLocalDate } from "@/lib/datetime";
 
 /* ---------- Types ---------- */
 
@@ -94,7 +95,7 @@ type ActiveSeason = {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
+  return formatLocalDate(iso, { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
 }
 
 /* ---------- Component ---------- */

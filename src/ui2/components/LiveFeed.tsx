@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Activity, Zap, AlertTriangle, Trophy, Play, Clock, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/clientAuth";
+import { formatLocalDate, formatLocalTime } from "@/lib/datetime";
 
 type FeedItem = {
 	id?: string;
@@ -32,7 +33,7 @@ const eventColors = {
 };
 
 function formatTime(date: Date): string {
-	return date.toLocaleTimeString("en-US", {
+	return formatLocalTime(date, {
 		hour: "2-digit",
 		minute: "2-digit",
 		hour12: false,
@@ -46,9 +47,7 @@ function formatDate(date: Date): string {
 	const yesterday = new Date(now);
 	yesterday.setDate(yesterday.getDate() - 1);
 	if (date.toDateString() === yesterday.toDateString()) return "YESTERDAY";
-	return date
-		.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-		.toUpperCase();
+	return formatLocalDate(date, { month: "short", day: "numeric" }).toUpperCase();
 }
 
 export function LiveFeed({ lobbyId }: LiveFeedProps) {

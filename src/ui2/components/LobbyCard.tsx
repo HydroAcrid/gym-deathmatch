@@ -3,6 +3,7 @@ import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { DollarSign, Heart, Target, Users, Settings, LogOut, Play } from "lucide-react";
+import { formatLocalDate } from "@/lib/datetime";
 
 export interface LobbyCardData {
 	id: string;
@@ -102,8 +103,8 @@ export function LobbyCard({ lobby, onLeave, onEdit, showLeave }: LobbyCardProps)
 					</Badge>
 					{lobby.seasonStart && lobby.seasonEnd && (
 						<span className="text-xs text-muted-foreground break-anywhere">
-							{new Date(lobby.seasonStart).toLocaleDateString()} →{" "}
-							{new Date(lobby.seasonEnd).toLocaleDateString()}
+							{formatLocalDate(lobby.seasonStart)} →{" "}
+							{formatLocalDate(lobby.seasonEnd)}
 						</span>
 					)}
 				</div>

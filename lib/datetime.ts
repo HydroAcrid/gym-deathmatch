@@ -22,21 +22,35 @@ export function toIsoFromLocalDateTimeInput(value: string | null | undefined): s
 	return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-export function formatLocalDateTime(value: DateInput, withZone = false): string {
+export function formatLocalDateTime(
+	value: DateInput,
+	withZone = false,
+	options?: Intl.DateTimeFormatOptions
+): string {
 	const d = asDate(value);
 	if (!d) return "—";
-	return d.toLocaleString(undefined, {
+	const defaultOptions: Intl.DateTimeFormatOptions = {
 		year: "numeric",
 		month: "numeric",
 		day: "numeric",
 		hour: "numeric",
 		minute: "2-digit",
-		...(withZone ? { timeZoneName: "short" } : {})
+	};
+	return d.toLocaleString(undefined, {
+		...defaultOptions,
+		...(withZone ? { timeZoneName: "short" } : {}),
+		...(options || {})
 	});
 }
 
-export function formatLocalDate(value: DateInput): string {
+export function formatLocalDate(value: DateInput, options?: Intl.DateTimeFormatOptions): string {
 	const d = asDate(value);
 	if (!d) return "—";
-	return d.toLocaleDateString();
+	return d.toLocaleDateString(undefined, options);
+}
+
+export function formatLocalTime(value: DateInput, options?: Intl.DateTimeFormatOptions): string {
+	const d = asDate(value);
+	if (!d) return "—";
+	return d.toLocaleTimeString(undefined, options);
 }

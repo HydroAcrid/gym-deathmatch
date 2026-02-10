@@ -2,6 +2,7 @@ import {
   Radio, Trophy, AlertTriangle, Coins, Flag, CheckCircle2,
   XCircle, Swords, Calendar, Heart, Skull
 } from "lucide-react";
+import { formatLocalDate } from "@/lib/datetime";
 
 type SystemEventType = 
   | "arena_open" | "season_start" | "season_end" | "week_end"
@@ -46,7 +47,7 @@ function formatTimestamp(date: Date): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatLocalDate(date, { month: "short", day: "numeric" });
 }
 
 export function FeedSystemEvent({ type, message, timestamp, details }: FeedSystemEventProps) {
