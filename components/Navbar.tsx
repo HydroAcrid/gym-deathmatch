@@ -64,11 +64,15 @@ export function Navbar() {
 							active = true;
 						}
 						return (
-							<Link key={t.href} href={t.href} className="relative min-h-[44px] flex items-center">
+							<Link key={t.href} href={t.href} className="group relative min-h-[44px] flex items-center">
 								<motion.span className="font-display text-[11px] sm:text-sm tracking-wide relative block px-0.5 text-foreground"
-									whileHover={{ y: -1, filter: "brightness(1.1)" }}
+									whileHover={{ y: -1 }}
 								>
-									<span className="px-1">{t.label.toUpperCase()}</span>
+									<span className="px-1.5 py-1 rounded-sm transition-colors duration-200 group-hover:text-[hsl(var(--arena-gold))]">
+										{t.label.toUpperCase()}
+									</span>
+									<span className="pointer-events-none absolute inset-0 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-[radial-gradient(circle_at_center,hsl(var(--arena-gold)/0.18),transparent_70%)]" />
+									<span className="pointer-events-none absolute left-0 right-0 -bottom-0.5 h-[2px] rounded-full bg-[hsl(var(--arena-gold))] opacity-0 group-hover:opacity-90 transition-opacity duration-200" />
 									{active && (
 										<motion.span
 											layoutId={`nav-underline`}
