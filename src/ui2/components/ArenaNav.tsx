@@ -63,7 +63,7 @@ export function ArenaNav() {
 			className="sticky top-0 z-[90] safe-area-pt border-b-2 border-border text-foreground shadow-[0_10px_24px_-16px_hsl(0_0%_0%/0.95)]"
 			style={{ backgroundColor: "hsl(var(--background))" }}
 		>
-			<div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
+			<div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-6 lg:gap-8">
 						<Link

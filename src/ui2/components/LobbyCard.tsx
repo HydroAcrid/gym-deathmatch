@@ -50,14 +50,14 @@ export function LobbyCard({ lobby, onLeave, onEdit, showLeave }: LobbyCardProps)
 	const isMoney = lobby.mode.startsWith("MONEY_");
 
 	return (
-		<Card className="arena-panel hover:border-primary/50 transition-colors">
+		<Card className="arena-panel hover:border-primary/50 transition-colors min-w-0">
 			<CardContent className="p-4 space-y-4">
 				<div className="flex items-start justify-between gap-2">
 					<div className="min-w-0">
 						<h3 className="font-display text-xl uppercase tracking-wide truncate">{lobby.name}</h3>
 						<p className="font-mono text-xs text-muted-foreground">Season {lobby.seasonNumber}</p>
 					</div>
-					<div className="flex items-center gap-1 shrink-0">
+					<div className="flex items-center gap-1 shrink-0 flex-wrap justify-end max-w-[55%]">
 						<Badge variant={stageInfo.variant} className="font-display text-xs">
 							{stageInfo.label}
 						</Badge>

@@ -177,12 +177,12 @@ export default function LobbiesPage() {
 						<p className="font-mono text-sm text-muted-foreground">
 							{filteredAndSortedLobbies.length} of {allLobbies.length} lobbies
 						</p>
-						<div className="text-xs text-muted-foreground">
+						<div className="text-xs text-muted-foreground break-all">
 							{user?.email ? `Signed in as ${user.email}` : "Sign in to manage your lobbies"}
 						</div>
 					</div>
 					<CreateLobby>
-						<Button variant="arenaPrimary">
+						<Button variant="arenaPrimary" className="w-full sm:w-auto justify-center">
 							Create Lobby
 						</Button>
 					</CreateLobby>
