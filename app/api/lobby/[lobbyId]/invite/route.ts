@@ -39,26 +39,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			}
 		}
 
-		// Prevent duplicate player for this authenticated user in this lobby.
-		let playerId = typeof body.id === "string" && body.id.trim().length ? body.id.trim() : "";
-		if (!playerId) {
-			if (body.name) {
-				const base = String(body.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-				playerId = base || crypto.randomUUID();
-			} else {
-				playerId = crypto.randomUUID();
+		async function allocatePlayerId(preferred?: string): Promise<string> {
+			const base = (preferred || "").trim();
+			if (base) {
+				for (let i = 0; i < 5; i++) {
+					const candidate = i === 0 ? base : `${base}-${Math.random().toString(36).slice(2, 6)}`;
+					const { data: exists } = await supabase.from("player").select("id").eq("id", candidate).maybeSingle();
+					if (!exists) return candidate;
+				}
 			}
+			return crypto.randomUUID();
 		}
+
+		// Prevent duplicate player for this authenticated user in this lobby.
 		if (!allowUnlinkedGuest) {
 			const { data: existing } = await supabase
 				.from("player")
 				.select("id")
-				.eq("lobby_id", lobbyId)
-				.eq("user_id", authUserId)
-				.maybeSingle();
+			.eq("lobby_id", lobbyId)
+			.eq("user_id", authUserId)
+			.maybeSingle();
 			if (existing?.id) {
-				// User already has a player - use the existing player ID
-				playerId = existing.id;
 				// Update the existing player with any new profile data
 				const updateData: any = {};
 				if (body.name) updateData.name = body.name;
@@ -66,11 +67,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				if (body.location !== undefined) updateData.location = body.location;
 				if (body.quip !== undefined) updateData.quip = body.quip;
 				if (Object.keys(updateData).length > 0) {
-					await supabase.from("player").update(updateData).eq("id", playerId);
+					await supabase.from("player").update(updateData).eq("id", existing.id);
 				}
-				return NextResponse.json({ ok: true, alreadyJoined: true, playerId });
+				return NextResponse.json({ ok: true, alreadyJoined: true, playerId: existing.id });
 			}
 		}
+		const requestedId = typeof body.id === "string" && body.id.trim().length
+			? body.id.trim()
+			: (body.name ? String(body.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") : "");
+		const playerId = await allocatePlayerId(allowUnlinkedGuest ? requestedId : undefined);
 		let name = body.name as string;
 		let avatarUrl = (body.avatarUrl ?? null) as string | null;
 		let location = (body.location ?? null) as string | null;
@@ -95,8 +100,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		};
 		// Attach authenticated user for self-joins; guest invites stay unlinked.
 		if (!allowUnlinkedGuest) (p as any).user_id = authUserId;
-		// Use upsert by primary key (id) to attach the user_id if the player row already exists
-		const { error } = await supabase.from("player").upsert(p as any, { onConflict: "id" });
+		// Never upsert on `id` because player ids are global across lobbies.
+		const { error } = await supabase.from("player").insert(p as any);
 		if (error) {
 			console.error("invite insert error", error);
 			return NextResponse.json({ error: "Failed to insert" }, { status: 500 });

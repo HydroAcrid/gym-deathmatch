@@ -18,7 +18,7 @@ export function useLobbyLive(lobbyId: string) {
 			} catch {
 				// best-effort reconcile; live read still proceeds
 			}
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 			if (!res.ok) throw new Error("Failed to fetch lobby data");
 			const json = await res.json();
 			setData(json);

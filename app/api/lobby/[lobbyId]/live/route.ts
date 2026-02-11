@@ -13,6 +13,16 @@ import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 import { logError } from "@/lib/logger";
 import { calculatePoints } from "@/lib/points";
 
+function readRequestTimezoneOffsetMinutes(req: Request): number | undefined {
+	const raw = req.headers.get("x-timezone-offset-minutes");
+	if (!raw) return undefined;
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed)) return undefined;
+	const rounded = Math.round(parsed);
+	if (rounded < -840 || rounded > 840) return undefined;
+	return rounded;
+}
+
 // Generate season summary when season completes
 function generateSeasonSummary(
 	players: Player[],
@@ -126,6 +136,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		} catch { return false; }
 	})();
 	const { lobbyId } = await params;
+	const requestTimezoneOffsetMinutes = readRequestTimezoneOffsetMinutes(_req);
 	let lobby: Lobby | null = null;
 	let rawStatus: "pending" | "scheduled" | "transition_spin" | "active" | "completed" | undefined;
 	let rawStage: LobbyStage | null = null;
@@ -395,8 +406,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 						: seasonStartDate;
 
 					total = calculateTotalWorkouts(combined as any[], seasonStart, seasonCalcEndIso);
-					currentStreak = calculateStreakFromActivities(combined as any[], seasonStart, seasonCalcEndIso);
-					longestStreak = calculateLongestStreak(combined as any[], seasonStart, seasonCalcEndIso);
+					currentStreak = calculateStreakFromActivities(combined as any[], seasonStart, seasonCalcEndIso, {
+						timezoneOffsetMinutes: requestTimezoneOffsetMinutes
+					});
+					longestStreak = calculateLongestStreak(combined as any[], seasonStart, seasonCalcEndIso, {
+						timezoneOffsetMinutes: requestTimezoneOffsetMinutes
+					});
 					avg = calculateAverageWorkoutsPerWeek(combined as any[], seasonStart, seasonCalcEndIso);
 					weekly = computeWeeklyHearts(combined as any[], startForCalc, {
 						weeklyTarget,
@@ -518,8 +533,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 								? new Date()
 								: seasonStartDate2;
 							total = calculateTotalWorkouts(combined as any[], seasonStart, seasonCalcEndIso);
-							currentStreak = calculateStreakFromActivities(combined as any[], seasonStart, seasonCalcEndIso);
-							longestStreak = calculateLongestStreak(combined as any[], seasonStart, seasonCalcEndIso);
+							currentStreak = calculateStreakFromActivities(combined as any[], seasonStart, seasonCalcEndIso, {
+								timezoneOffsetMinutes: requestTimezoneOffsetMinutes
+							});
+							longestStreak = calculateLongestStreak(combined as any[], seasonStart, seasonCalcEndIso, {
+								timezoneOffsetMinutes: requestTimezoneOffsetMinutes
+							});
 							avg = calculateAverageWorkoutsPerWeek(combined as any[], seasonStart, seasonCalcEndIso);
 							weekly = computeWeeklyHearts(combined as any[], startForCalc2, {
 								weeklyTarget,

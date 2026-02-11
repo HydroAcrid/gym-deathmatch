@@ -17,6 +17,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a player in lobby" }, { status: 403 });
 	const supabase = access.supabase;
 	try {
+		const requestTimezoneOffsetMinutes = (() => {
+			const raw = req.headers.get("x-timezone-offset-minutes");
+			if (!raw) return undefined;
+			const parsed = Number(raw);
+			if (!Number.isFinite(parsed)) return undefined;
+			const rounded = Math.round(parsed);
+			if (rounded < -840 || rounded > 840) return undefined;
+			return rounded;
+		})();
 		const body = await req.json();
 		const playerId = access.memberPlayerId;
 		// Always use current time when submitting - prevents date manipulation and timezone issues
@@ -80,7 +89,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					.order("date", { ascending: false })
 					.limit(500);
 				const currentStreak = calculateStreakFromActivities(
-					((streakRows ?? []) as ActivityDateRow[]).map((r) => ({ start_date_local: r.date }))
+					((streakRows ?? []) as ActivityDateRow[]).map((r) => ({ start_date_local: r.date })),
+					undefined,
+					undefined,
+					{ timezoneOffsetMinutes: requestTimezoneOffsetMinutes }
 				);
 				const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
 				if ([3, 5, 7, 10].includes(currentStreak)) {

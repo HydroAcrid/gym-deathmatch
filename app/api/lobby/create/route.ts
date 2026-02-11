@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 			};
 		}
 
-		const ownerId = userId;
+		let ownerId: string | null = null;
 
 		const lobby = {
 			id: lobbyId,
@@ -90,8 +90,9 @@ export async function POST(req: NextRequest) {
 			console.error("create lobby error", lerr);
 			return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);
 		}
-		// Ensure owner player created/updated from user profile
-		if (ownerId) {
+		// Ensure owner player is created with a lobby-scoped unique player id.
+		// Never upsert on `player.id` here because id is global across all lobbies.
+		if (userId) {
 			let ownerName = body.ownerName || null;
 			let ownerAvatarUrl = body.ownerAvatarUrl || null;
 			try {
@@ -99,17 +100,27 @@ export async function POST(req: NextRequest) {
 				if (!ownerName) ownerName = prof?.display_name ?? null;
 				if (!ownerAvatarUrl) ownerAvatarUrl = prof?.avatar_url ?? null;
 			} catch { /* ignore */ }
-			const { error: playerErr } = await supabase.from("player").upsert({
-				id: ownerId,
-				lobby_id: lobbyId,
-				name: ownerName ?? "Owner",
-				avatar_url: ownerAvatarUrl ?? null,
-				location: body.ownerLocation ?? null,
-				quip: body.ownerQuip ?? null,
-				user_id: userId
-			});
-			if (playerErr) {
-				console.error("owner player upsert error", playerErr);
+			let playerErr: any = null;
+			for (let attempt = 0; attempt < 3; attempt++) {
+				ownerId = crypto.randomUUID();
+				const { error } = await supabase.from("player").insert({
+					id: ownerId,
+					lobby_id: lobbyId,
+					name: ownerName ?? "Owner",
+					avatar_url: ownerAvatarUrl ?? null,
+					location: body.ownerLocation ?? null,
+					quip: body.ownerQuip ?? null,
+					user_id: userId
+				});
+				if (!error) {
+					playerErr = null;
+					break;
+				}
+				playerErr = error;
+				if ((error as any)?.code !== "23505") break;
+			}
+			if (playerErr || !ownerId) {
+				console.error("owner player insert error", playerErr);
 				return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);
 			}
 			const { error: ownerUpdateErr } = await supabase.from("lobby").update({

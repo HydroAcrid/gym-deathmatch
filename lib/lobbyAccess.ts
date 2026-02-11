@@ -54,7 +54,7 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 		.eq("lobby_id", lobbyId)
 		.eq("user_id", userId)
 		.maybeSingle();
-	const memberPlayerId = (member?.id as string | undefined) ?? null;
+	let memberPlayerId = (member?.id as string | undefined) ?? null;
 
 	let ownerUserId = l.owner_user_id ?? null;
 	if (!ownerUserId && l.owner_id) {
@@ -67,6 +67,51 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 	}
 	const isOwner = !!ownerUserId && ownerUserId === userId;
 
+	// Self-heal: if lobby owner has no member player row in this lobby, re-create/link one.
+	// This recovers from historical global-id upsert collisions that could move player rows
+	// between lobbies.
+	if (isOwner && !memberPlayerId) {
+		try {
+			if (l.owner_id) {
+				const { data: ownerRow } = await supabase
+					.from("player")
+					.select("id,lobby_id,user_id")
+					.eq("id", l.owner_id)
+					.maybeSingle();
+				if ((ownerRow as any)?.id && (ownerRow as any)?.lobby_id === lobbyId) {
+					memberPlayerId = (ownerRow as any).id as string;
+					if (!(ownerRow as any).user_id) {
+						await supabase.from("player").update({ user_id: userId }).eq("id", memberPlayerId);
+					}
+				}
+			}
+
+			if (!memberPlayerId) {
+				const { data: profile } = await supabase
+					.from("user_profile")
+					.select("display_name,avatar_url,location,quip")
+					.eq("user_id", userId)
+					.maybeSingle();
+				const repairedOwnerId = crypto.randomUUID();
+				const { error: insertErr } = await supabase.from("player").insert({
+					id: repairedOwnerId,
+					lobby_id: lobbyId,
+					name: (profile as any)?.display_name || "Owner",
+					avatar_url: (profile as any)?.avatar_url ?? null,
+					location: (profile as any)?.location ?? null,
+					quip: (profile as any)?.quip ?? null,
+					user_id: userId
+				});
+				if (!insertErr) {
+					memberPlayerId = repairedOwnerId;
+					await supabase.from("lobby").update({ owner_id: repairedOwnerId, owner_user_id: userId }).eq("id", lobbyId);
+				}
+			}
+		} catch {
+			// keep access resolution best-effort even if repair fails
+		}
+	}
+
 	return {
 		ok: true,
 		supabase,
@@ -76,4 +121,3 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 		ownerPlayerId: l.owner_id ?? null
 	};
 }
-
