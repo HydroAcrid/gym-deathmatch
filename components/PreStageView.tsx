@@ -55,6 +55,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const [scheduleAt, setScheduleAt] = useState<string>(toLocalDateTimeInputValue(lobby.scheduledStart ?? ""));
 	const [lobbyStatus, setLobbyStatus] = useState<string | undefined>(lobby.status);
 	const [scheduledStart, setScheduledStart] = useState<string | null | undefined>(lobby.scheduledStart);
+	const [readySaving, setReadySaving] = useState(false);
 	
 	const reloadLobby = async () => {
 		try {
@@ -103,6 +104,21 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		setLobbyStatus("pending");
 		setScheduledStart(null);
 		await reloadLobby();
+	};
+
+	const setMyReadyState = async (nextReady: boolean) => {
+		if (!me || readySaving) return;
+		setReadySaving(true);
+		try {
+			await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/ready`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ ready: nextReady }),
+			});
+			await reloadLobby();
+		} finally {
+			setReadySaving(false);
+		}
 	};
 
 	// Load profile basics for quick-join
@@ -200,6 +216,9 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 			document.removeEventListener("visibilitychange", handleVisibilityChange);
 		};
 	}, [lobby.id]);
+
+	const readyCount = players.filter((p) => !!p.ready).length;
+	const allReady = players.length > 0 && readyCount === players.length;
 
 	return (
 		<div className="min-h-screen">
@@ -325,7 +344,12 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				)}
 
 				<section>
-					<h2 className="font-display text-xl uppercase tracking-wider mb-4">Athletes on Deck</h2>
+					<div className="mb-4 flex items-center justify-between gap-3">
+						<h2 className="font-display text-xl uppercase tracking-wider">Athletes on Deck</h2>
+						<div className={`arena-badge text-[10px] ${allReady ? "arena-badge-primary" : ""}`}>
+							{readyCount}/{players.length} READY
+						</div>
+					</div>
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
 						{players.map((p) => (
 							<AthleteCard
@@ -333,8 +357,11 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 								name={p.name}
 								location={p.location}
 								avatarUrl={p.avatarUrl}
-								status={p.isStravaConnected ? "online" : "offline"}
-								streak={p.currentStreak}
+								ready={!!p.ready}
+								isMe={me === p.id}
+								readyBusy={readySaving && me === p.id}
+								onToggleReady={me === p.id ? () => setMyReadyState(!p.ready) : undefined}
+								stravaConnected={!!p.isStravaConnected}
 								quip={p.quip}
 								actionLabel={
 									!p.isStravaConnected && me === p.id ? "Connect Strava" : undefined

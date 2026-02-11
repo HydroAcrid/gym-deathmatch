@@ -1,11 +1,14 @@
-import { MapPin } from "lucide-react";
+import { MapPin, CheckCircle2, Circle } from "lucide-react";
 
 interface AthleteCardProps {
 	name: string;
 	location?: string;
 	avatarUrl?: string;
-	status: "online" | "offline" | "active";
-	streak: number;
+	ready?: boolean;
+	isMe?: boolean;
+	onToggleReady?: () => void;
+	readyBusy?: boolean;
+	stravaConnected?: boolean;
 	quip?: string;
 	actionLabel?: string;
 	actionHref?: string;
@@ -15,23 +18,20 @@ export function AthleteCard({
 	name,
 	location,
 	avatarUrl,
-	status,
-	streak,
+	ready = false,
+	isMe = false,
+	onToggleReady,
+	readyBusy = false,
+	stravaConnected = false,
 	quip,
 	actionLabel,
 	actionHref,
 }: AthleteCardProps) {
-	const statusDotClass = {
-		online: "status-dot-online",
-		offline: "status-dot-offline",
-		active: "status-dot-active",
-	}[status];
-
-	const statusLabel = {
-		online: "ONLINE",
-		offline: "OFFLINE",
-		active: "ACTIVE",
-	}[status];
+	const readyTone = ready
+		? "text-[hsl(var(--status-online))] border-[hsl(var(--status-online))/0.4] bg-[hsl(var(--status-online))/0.12]"
+		: "text-muted-foreground border-border bg-muted/20";
+	const readyLabel = ready ? "READY" : "NOT READY";
+	const stravaLabel = stravaConnected ? "CONNECTED" : "OPTIONAL";
 
 	return (
 		<div className="athlete-card p-4 sm:p-5">
@@ -60,10 +60,10 @@ export function AthleteCard({
 				</div>
 
 				<div className="flex items-center gap-2">
-					<div className={`status-dot ${statusDotClass}`} />
-					<span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-widest font-display">
-						{statusLabel}
-					</span>
+					<div className={`arena-badge text-[10px] ${readyTone}`}>
+						{ready ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <Circle className="w-3 h-3 mr-1" />}
+						{readyLabel}
+					</div>
 				</div>
 			</div>
 
@@ -71,12 +71,12 @@ export function AthleteCard({
 
 			<div className="grid grid-cols-2 gap-2">
 				<div className="stat-block">
-					<div className="stat-value">{streak}</div>
-					<div className="stat-label">STREAK</div>
+					<div className="stat-value text-base sm:text-lg">{readyLabel}</div>
+					<div className="stat-label">STATUS</div>
 				</div>
 				<div className="stat-block">
-					<div className="stat-value">{streak > 0 ? "🔥" : "—"}</div>
-					<div className="stat-label">STATUS</div>
+					<div className="stat-value text-base sm:text-lg">{stravaLabel}</div>
+					<div className="stat-label">STRAVA</div>
 				</div>
 			</div>
 
@@ -84,11 +84,23 @@ export function AthleteCard({
 				<div className="mt-3 text-xs text-muted-foreground italic truncate">“{quip}”</div>
 			) : null}
 
-			{actionLabel && actionHref ? (
-				<a href={actionHref} className="mt-3 inline-flex text-xs text-primary underline">
-					{actionLabel}
-				</a>
-			) : null}
+			<div className="mt-3 flex flex-wrap items-center gap-2">
+				{actionLabel && actionHref ? (
+					<a href={actionHref} className="inline-flex text-xs text-primary underline">
+						{actionLabel}
+					</a>
+				) : null}
+				{isMe && onToggleReady ? (
+					<button
+						type="button"
+						onClick={onToggleReady}
+						disabled={readyBusy}
+						className="arena-badge arena-badge-primary px-2.5 py-1.5 text-[10px] disabled:opacity-60"
+					>
+						{readyBusy ? "Saving..." : ready ? "Mark not ready" : "I'm ready"}
+					</button>
+				) : null}
+			</div>
 		</div>
 	);
 }
