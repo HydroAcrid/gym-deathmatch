@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
 	if (!access.ok) return NextResponse.json({ error: access.message, items: [] }, { status: access.status });
-	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a lobby member", items: [] }, { status: 403 });
+	if (!access.memberPlayerId && !access.isOwner) return NextResponse.json({ error: "Not a lobby member", items: [] }, { status: 403 });
 
 	const supabase = access.supabase;
 
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 				.from("comments")
 				.select("id,type,rendered,created_at,primary_player_id,player:primary_player_id(id,name,avatar_url)")
 				.eq("lobby_id", lobbyId)
-				.in("visibility", ["history", "both"] as any)
+				.in("visibility", ["feed", "both"] as any)
 				.order("created_at", { ascending: false })
 				.limit(limit),
 		]);

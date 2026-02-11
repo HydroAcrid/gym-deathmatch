@@ -6,7 +6,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
 	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
-	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a lobby member" }, { status: 403 });
 	if (!access.isOwner) return NextResponse.json({ error: "Not allowed" }, { status: 403 });
 	const supabase = access.supabase;
 

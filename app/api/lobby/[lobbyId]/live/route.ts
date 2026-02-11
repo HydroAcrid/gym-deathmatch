@@ -12,6 +12,7 @@ import type { ManualActivityRow } from "@/types/db";
 import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 import { logError } from "@/lib/logger";
 import { calculatePoints } from "@/lib/points";
+import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
 function readRequestTimezoneOffsetMinutes(req: Request): number | undefined {
 	const raw = req.headers.get("x-timezone-offset-minutes");
@@ -136,8 +137,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 		} catch { return false; }
 	})();
 	const { lobbyId } = await params;
+	const access = await resolveLobbyAccess(_req, lobbyId);
+	if (!access.ok) {
+		return NextResponse.json({ error: access.message }, { status: access.status });
+	}
+	if (!access.memberPlayerId && !access.isOwner) {
+		return NextResponse.json({ error: "Not a lobby member" }, { status: 403 });
+	}
+	const supabase = access.supabase;
 	const requestTimezoneOffsetMinutes = readRequestTimezoneOffsetMinutes(_req);
 	let lobby: Lobby | null = null;
+	let seasonStartRaw: string | null = null;
 	let rawStatus: "pending" | "scheduled" | "transition_spin" | "active" | "completed" | undefined;
 	let rawStage: LobbyStage | null = null;
 	let rawSeasonNumber = 1;
@@ -146,10 +156,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const userIdByPlayer: Record<string, string | null> = {};
 	const debugRecords: any[] = [];
 	try {
-		const supabase = getServerSupabase();
 		if (supabase) {
 			const { data: lrow } = await supabase.from("lobby").select("*").eq("id", lobbyId).single();
 			if (lrow) {
+				seasonStartRaw = (lrow.season_start as string | null) ?? null;
 				rawStatus = lrow.status ?? "active";
 				rawStage = (lrow.stage as LobbyStage) || null;
 				rawSeasonNumber = lrow.season_number ?? 1;
@@ -185,18 +195,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					inSuddenDeath: !!p.sudden_death,
 					ready: p.user_id ? !!readyByUser[p.user_id] : false
 				}));
-				// Season start fallback: if missing, assume 14 days ago so fresh manual posts are counted
-				const seasonStartFallback = (() => {
-					const d = new Date();
-					d.setDate(d.getDate() - 14);
-					return d.toISOString();
-				})();
+				const displaySeasonStart =
+					(lrow.season_start as string | null) ??
+					(lrow.scheduled_start as string | null) ??
+					new Date().toISOString();
 					lobby = {
 						id: lobbyId,
 						name: lrow.name,
 					players,
 					seasonNumber: rawSeasonNumber,
-					seasonStart: lrow.season_start ?? seasonStartFallback,
+					seasonStart: displaySeasonStart,
 					seasonEnd: (() => {
 						// Sensible fallback if not configured: two weeks after season start or now+14d
 						if (lrow.season_end) return lrow.season_end as string;
@@ -267,7 +275,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	}
 
 	const errors: NonNullable<LiveLobbyResponse["errors"]> = [];
-	const seasonStart = lobby.seasonStart;
+	const seasonStart = seasonStartRaw ?? undefined;
 	const seasonEnd = lobby.seasonEnd;
 	const weeklyTarget = lobby.weeklyTarget ?? 3;
 	const initialLives = lobby.initialLives ?? 3;

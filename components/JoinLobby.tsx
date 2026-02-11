@@ -45,7 +45,7 @@ export function JoinLobby({ lobbyId }: { lobbyId: string }) {
 				return;
 			}
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				const players = (data?.lobby?.players || []) as Array<{ id: string; userId?: string | null }>;

@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { OwnerSettingsModal } from "@/components/OwnerSettingsModal";
 import { useAuth } from "@/components/AuthProvider";
+import { authFetch } from "@/lib/clientAuth";
 
 export default function RulesPage() {
 	const searchParams = useSearchParams();
@@ -16,7 +17,7 @@ export default function RulesPage() {
 			return;
 		}
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 			const data = await res.json();
 			setInfo(data?.lobby ?? null);
 		} catch {

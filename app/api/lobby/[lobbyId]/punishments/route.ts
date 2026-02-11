@@ -7,7 +7,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(_req, lobbyId);
 	if (!access.ok) return jsonError(access.code, access.message, access.status);
-	if (!access.memberPlayerId) return jsonError("FORBIDDEN", "Not a lobby member", 403);
+	if (!access.memberPlayerId && !access.isOwner) return jsonError("FORBIDDEN", "Not a lobby member", 403);
 	const supabase = access.supabase;
 	const { data: lobby } = await supabase.from("lobby").select("season_start,status,mode").eq("id", lobbyId).maybeSingle();
 	if (!lobby) return jsonError("NOT_FOUND", "Lobby not found", 404);
@@ -50,9 +50,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
 	if (!access.ok) return jsonError(access.code, access.message, access.status);
-	if (!access.memberPlayerId) return jsonError("FORBIDDEN", "Not a lobby member", 403);
+	if (!access.memberPlayerId && !access.isOwner) return jsonError("FORBIDDEN", "Not a lobby member", 403);
 	const supabase = access.supabase;
-	const actorPlayerId = access.memberPlayerId;
+	const actorPlayerId = access.memberPlayerId || access.ownerPlayerId;
+	if (!actorPlayerId) return jsonError("OWNER_PLAYER_MISSING", "Owner player record missing", 409);
 	try {
 		const body = await req.json();
 		const { text } = body || {};

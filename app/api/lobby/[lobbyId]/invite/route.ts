@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	try {
 		const body = await req.json();
 		// Owners can create unlinked guest players; everyone else self-joins as authenticated user.
-		const allowUnlinkedGuest = access.isOwner && !!access.memberPlayerId && !body.userId;
+		const allowUnlinkedGuest = access.isOwner && body?.guest === true && !body.userId;
 
 		// Enforce invite controls for non-owner self-join flows.
 		if (!allowUnlinkedGuest) {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			if (!lobby) return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
 			const gate = evaluateInviteGate({
 					isOwner: access.isOwner,
-					isMember: !!access.memberPlayerId,
+					isMember: !!access.memberPlayerId || access.isOwner,
 					inviteEnabled: (lobby as any).invite_enabled !== false,
 					inviteExpiresAt: ((lobby as any).invite_expires_at as string | null) ?? null,
 					inviteTokenRequired: (lobby as any).invite_token_required === true,

@@ -281,6 +281,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const wheelEntries: PunishmentEntry[] = useMemo(() => {
 		return computeEntries(items, players);
 	}, [items, players]);
+	const canSpin = wheelEntries.length > 0 && !(locked === false && requiresLock(lobby)) && !spinning && !spinRequesting;
 
 	async function submitSuggestion() {
 		// ... (submission logic same as before)
@@ -450,7 +451,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 								<button
 									className="arena-badge arena-badge-primary px-3 py-2 text-xs"
 									onClick={spin}
-									disabled={spinning || spinRequesting || wheelEntries.length === 0 || (locked === false && requiresLock(lobby))}
+									disabled={!canSpin}
 								>
 									{spinning || spinRequesting ? "Spinning…" : "Spin wheel"}
 								</button>
@@ -460,6 +461,9 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 							{spinning ? "Wheel is spinning…" : "Waiting for host to spin…"}
 						</div>
 					)}
+					<div className="text-xs text-muted-foreground">
+						{submissionLabel(wheelEntries.length, players.length)}
+					</div>
 				</div>
 				{chosen && (
 					<motion.div
@@ -507,4 +511,13 @@ function requiresLock(lobby: Lobby) {
 		return cs.requireLockBeforeSpin ?? true;
 	}
 	return !!cs.requireLockBeforeSpin;
+}
+
+function submissionLabel(submitted: number, totalPlayers: number) {
+	if (submitted <= 0) return "No punishments submitted yet.";
+	if (submitted === 1) return `1 punishment loaded (${Math.max(totalPlayers - 1, 0)} missing).`;
+	if (totalPlayers > 0 && submitted < totalPlayers) {
+		return `${submitted}/${totalPlayers} punishments submitted.`;
+	}
+	return `${submitted} punishments loaded.`;
 }

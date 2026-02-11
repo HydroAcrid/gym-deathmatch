@@ -18,8 +18,10 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const { user } = useAuth();
 	
 	// Realtime & Live Data Hooks
-	const { data: liveData, reload, loading } = useLobbyLive(initialLobby.id);
+	const { data: liveData, reload, loading, error } = useLobbyLive(initialLobby.id);
 	useLobbyRealtime(initialLobby.id, { onChange: reload });
+	const liveErrorStatus = Number((error as any)?.status || 0);
+	const showRejoinCta = !liveData && (liveErrorStatus === 401 || liveErrorStatus === 403);
 
 	// Merge live data with initial data
 	const lobby = liveData?.lobby || initialLobby;
@@ -103,7 +105,30 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 						<div className="text-[11px] text-muted-foreground">Pulling live arena data…</div>
 					</div>
 				)}
+				{showRejoinCta && !loading && (
+					<div className="mx-auto my-8 max-w-xl scoreboard-panel p-6 sm:p-8 text-center">
+						<div className="font-display text-xl tracking-widest text-primary">LOBBY ACCESS REQUIRED</div>
+						<div className="mt-2 text-sm text-muted-foreground">
+							Your membership link needs to be refreshed before this lobby can load.
+						</div>
+						<div className="mt-4 flex items-center justify-center gap-2">
+							<button
+								className="arena-badge arena-badge-primary px-4 py-2 text-xs"
+								onClick={() => {
+									const qs = typeof window !== "undefined" ? window.location.search : "";
+									window.location.href = `/onboard/${encodeURIComponent(initialLobby.id)}${qs || ""}`;
+								}}
+							>
+								Rejoin Lobby
+							</button>
+							<button className="arena-badge px-4 py-2 text-xs" onClick={() => reload()}>
+								Retry
+							</button>
+						</div>
+					</div>
+				)}
 				{
+					showRejoinCta ? null :
 					shouldShowTransitionPanel ? (
 						<RouletteTransitionPanel lobby={lobby} />
 					) : shouldShowPre ? (

@@ -13,13 +13,19 @@ export function useLobbyLive(lobbyId: string) {
 	const reload = useCallback(async () => {
 		if (!lobbyId) return;
 		try {
-			try {
-				await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/reconcile`, { method: "POST" });
-			} catch {
-				// best-effort reconcile; live read still proceeds
-			}
 			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
-			if (!res.ok) throw new Error("Failed to fetch lobby data");
+			if (!res.ok) {
+				let message = "Failed to fetch lobby data";
+				try {
+					const body = await res.json();
+					if (body?.error) message = String(body.error);
+				} catch {
+					// ignore parse failures
+				}
+				const err = new Error(message) as Error & { status?: number };
+				err.status = res.status;
+				throw err;
+			}
 			const json = await res.json();
 			setData(json);
 			setError(null);

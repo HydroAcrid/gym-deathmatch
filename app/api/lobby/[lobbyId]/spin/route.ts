@@ -8,7 +8,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
 	if (!access.ok) return jsonError(access.code, access.message, access.status);
-	if (!access.memberPlayerId) return jsonError("FORBIDDEN", "Not a lobby member", 403);
 	if (!access.isOwner) return jsonError("FORBIDDEN", "Owner only", 403);
 	const supabase = access.supabase;
 
@@ -18,6 +17,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		.eq("id", lobbyId)
 		.maybeSingle();
 	if (!lobby) return jsonError("NOT_FOUND", "Lobby not found", 404);
+	if (String((lobby as any).mode || "") !== "CHALLENGE_ROULETTE") {
+		return jsonError("INVALID_MODE", "Spin is only available in challenge roulette mode", 409);
+	}
+	const actorPlayerId = access.memberPlayerId || access.ownerPlayerId;
+	if (!actorPlayerId) return jsonError("OWNER_PLAYER_MISSING", "Owner player record missing", 409);
+	if (String((lobby as any).status || "") !== "transition_spin") {
+		return jsonError("INVALID_PHASE", "Spin is only allowed during transition spin phase", 409);
+	}
 	const week = await resolvePunishmentWeek(supabase, lobbyId, {
 		mode: (lobby as any).mode,
 		status: (lobby as any).status,
@@ -51,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					week,
 					winner_item_id: candidateWinner.id,
 					started_at: startedAt,
-					created_by: access.memberPlayerId
+					created_by: actorPlayerId
 				})
 				.select("id,started_at,winner_item_id")
 				.single();

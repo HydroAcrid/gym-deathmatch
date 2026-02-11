@@ -9,12 +9,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ lobbyId
 	try {
 		const userId = await getRequestUserId(req);
 		if (!userId) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+		const { data: lobby } = await supabase.from("lobby").select("owner_id, owner_user_id").eq("id", lobbyId).maybeSingle();
+		if (lobby?.owner_user_id && lobby.owner_user_id === userId) {
+			return NextResponse.json({ ok: false, error: "Lobby owner cannot leave. Transfer ownership first using the settings menu." }, { status: 403 });
+		}
 		// Find the player's row in this lobby
 		const { data: me } = await supabase.from("player").select("id").eq("lobby_id", lobbyId).eq("user_id", userId).maybeSingle();
 		if (!me?.id) return NextResponse.json({ ok: false, error: "Not in lobby" }, { status: 404 });
 		// If this player is the owner, prevent them from leaving
 		// Owner can only leave if they transfer ownership first (via /owner endpoint)
-		const { data: lobby } = await supabase.from("lobby").select("owner_id, owner_user_id").eq("id", lobbyId).maybeSingle();
 		if (lobby?.owner_id === me.id) {
 			return NextResponse.json({ ok: false, error: "Lobby owner cannot leave. Transfer ownership first using the settings menu." }, { status: 403 });
 		}
@@ -28,4 +31,3 @@ export async function POST(req: Request, { params }: { params: Promise<{ lobbyId
 		return NextResponse.json({ ok: false, error: "bad request" }, { status: 400 });
 	}
 }
-

@@ -78,7 +78,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     async function poll() {
       if (cancelled || document.hidden) return;
       try {
-        const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+        const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
         if (res.ok) {
           const j = await res.json();
           const players = (j?.lobby?.players || []) as Array<{ id: string; ready?: boolean; userId?: string | null }>;

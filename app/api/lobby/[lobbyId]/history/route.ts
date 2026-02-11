@@ -11,9 +11,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
 	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
-	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
+	if (!access.memberPlayerId && !access.isOwner) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
 	const supabase = access.supabase;
-	const member = { id: access.memberPlayerId };
+	const member = { id: access.memberPlayerId || access.ownerPlayerId };
 
 	try {
 		const limitParam = Number(new URL(req.url).searchParams.get("limit") || "50");

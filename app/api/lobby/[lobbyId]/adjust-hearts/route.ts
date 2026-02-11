@@ -5,7 +5,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
 	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
-	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a lobby member" }, { status: 403 });
 	if (!access.isOwner) return NextResponse.json({ error: "Not owner" }, { status: 403 });
 	const supabase = access.supabase;
 	try {
@@ -18,6 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		const { data: t } = await supabase.from("player").select("id").eq("id", targetPlayerId).eq("lobby_id", lobbyId).maybeSingle();
 		if (!t) return NextResponse.json({ error: "Target not in lobby" }, { status: 400 });
 		const actorPlayerId = access.ownerPlayerId || access.memberPlayerId;
+		if (!actorPlayerId) return NextResponse.json({ error: "Owner player record missing" }, { status: 409 });
 		await supabase.from("heart_adjustments").insert({ lobby_id: lobbyId, target_player_id: targetPlayerId, delta });
 		await supabase.from("history_events").insert({
 			lobby_id: lobbyId,
@@ -32,4 +32,3 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }
-

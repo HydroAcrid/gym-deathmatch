@@ -58,11 +58,15 @@ export function LiveFeed({ lobbyId }: LiveFeedProps) {
 		async function refresh() {
 			try {
 				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/feed`, { cache: "no-store" });
-				if (!res.ok || ignore) return;
+				if (ignore) return;
+				if (!res.ok) {
+					setItems([]);
+					return;
+				}
 				const data = await res.json();
 				setItems(data.items ?? []);
 			} catch {
-				// ignore
+				if (!ignore) setItems([]);
 			}
 		}
 		refresh();

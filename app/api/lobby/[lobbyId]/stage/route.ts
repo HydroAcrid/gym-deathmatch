@@ -9,7 +9,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 		const decoded = decodeURIComponent(lobbyId);
 		const access = await resolveLobbyAccess(req, decoded);
 		if (!access.ok) return jsonError(access.code, access.message, access.status);
-		if (!access.memberPlayerId) return jsonError("FORBIDDEN", "Not a lobby member", 403);
 		if (!access.isOwner) return jsonError("FORBIDDEN", "Owner only", 403);
 		const body = await req.json();
 		const payload: any = {};

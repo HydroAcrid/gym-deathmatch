@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	const inviteToken = ((lobby as any).invite_token as string | null) ?? null;
 	const gate = evaluateInviteGate({
 		isOwner: access.isOwner,
-		isMember: !!access.memberPlayerId,
+		isMember: !!access.memberPlayerId || access.isOwner,
 		inviteEnabled,
 		inviteExpiresAt,
 		inviteTokenRequired,
@@ -38,8 +38,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	});
 
 	return NextResponse.json({
-		state: access.memberPlayerId ? "member" : "not_member",
-		memberPlayerId: access.memberPlayerId,
+		state: access.memberPlayerId || access.isOwner ? "member" : "not_member",
+		memberPlayerId: access.memberPlayerId || (access.isOwner ? access.ownerPlayerId : null),
 		lobbyId: lobbyId,
 		lobbyName: (lobby as any).name ?? null,
 		canJoin: gate.canJoin,

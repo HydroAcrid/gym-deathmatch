@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { summarizeTypesThisWeek } from "@/lib/messages";
+import { authFetch } from "@/lib/clientAuth";
 
 type Player = {
 	name: string;
@@ -27,7 +28,7 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 			if (ignore) return;
 			setLobbyId(lobbyId);
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 				const data = await res.json();
 				if (ignore || !data?.lobby) return;
 				setSeasonNumber(data.lobby.seasonNumber ?? 1);
@@ -150,5 +151,4 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 
 function toHour(iso: string) { return new Date(iso).getHours(); }
 function titleCase(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
-
 

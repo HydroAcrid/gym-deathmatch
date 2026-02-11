@@ -59,7 +59,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	
 	const reloadLobby = async () => {
 		try {
-			const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 			if (!res.ok) return;
 			const data = await res.json();
 			if (data?.lobby) {
@@ -194,7 +194,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		async function refresh() {
 			if (cancelled || document.hidden) return;
 			try {
-				const res = await fetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 				if (!res.ok) return;
 				const data = await res.json();
 				if (!cancelled && data?.lobby?.players) {

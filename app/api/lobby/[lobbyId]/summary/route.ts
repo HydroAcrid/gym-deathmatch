@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
 	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
-	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
+	if (!access.memberPlayerId && !access.isOwner) return NextResponse.json({ error: "Not a member of lobby" }, { status: 403 });
 	const supabase = access.supabase;
 
 	const now = new Date();

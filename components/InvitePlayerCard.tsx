@@ -41,13 +41,14 @@ export function InvitePlayerCard({ onAdd, onReplace, lobbyId }: Props) {
 				name: newPlayer.name,
 				avatarUrl: newPlayer.avatarUrl,
 				location: null,
-				quip: newPlayer.quip
+				quip: newPlayer.quip,
+				guest: true
 			})
 		})
 			.then(async () => {
 				// re-fetch live lobby to sync from server and replace list if provided
 				try {
-					const res = await fetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+					const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 					if (res.ok) {
 						const data = await res.json();
 						if (data?.lobby?.players && onReplace) onReplace(data.lobby.players);
@@ -105,4 +106,3 @@ export function InvitePlayerCard({ onAdd, onReplace, lobbyId }: Props) {
 		</div>
 	);
 }
-

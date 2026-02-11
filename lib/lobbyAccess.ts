@@ -11,6 +11,11 @@ type PlayerRow = {
 	user_id: string | null;
 };
 
+type UserProfileRow = {
+	display_name: string | null;
+	avatar_url: string | null;
+};
+
 export type LobbyAccessResult =
 	| {
 			ok: true;
@@ -56,6 +61,18 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 		.maybeSingle();
 	let memberPlayerId = (member?.id as string | undefined) ?? null;
 
+	let profile: UserProfileRow | null = null;
+	try {
+		const { data } = await supabase
+			.from("user_profile")
+			.select("display_name,avatar_url")
+			.eq("user_id", userId)
+			.maybeSingle();
+		profile = (data as UserProfileRow | null) ?? null;
+	} catch {
+		profile = null;
+	}
+
 	let ownerUserId = l.owner_user_id ?? null;
 	if (!ownerUserId && l.owner_id) {
 		const { data: ownerPlayer } = await supabase
@@ -64,6 +81,15 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 			.eq("id", l.owner_id)
 			.maybeSingle();
 		ownerUserId = ((ownerPlayer as PlayerRow | null)?.user_id ?? null);
+	}
+	if (!ownerUserId && l.owner_id && memberPlayerId === l.owner_id) {
+		ownerUserId = userId;
+		try {
+			await supabase.from("player").update({ user_id: userId }).eq("id", l.owner_id).is("user_id", null);
+			await supabase.from("lobby").update({ owner_user_id: userId }).eq("id", lobbyId).is("owner_user_id", null);
+		} catch {
+			// best-effort self-heal only
+		}
 	}
 	const isOwner = !!ownerUserId && ownerUserId === userId;
 
@@ -87,7 +113,7 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 			}
 
 			if (!memberPlayerId) {
-				const { data: profile } = await supabase
+				const { data: profileFull } = await supabase
 					.from("user_profile")
 					.select("display_name,avatar_url,location,quip")
 					.eq("user_id", userId)
@@ -96,15 +122,61 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 				const { error: insertErr } = await supabase.from("player").insert({
 					id: repairedOwnerId,
 					lobby_id: lobbyId,
-					name: (profile as any)?.display_name || "Owner",
-					avatar_url: (profile as any)?.avatar_url ?? null,
-					location: (profile as any)?.location ?? null,
-					quip: (profile as any)?.quip ?? null,
+					name: (profileFull as any)?.display_name || "Owner",
+					avatar_url: (profileFull as any)?.avatar_url ?? null,
+					location: (profileFull as any)?.location ?? null,
+					quip: (profileFull as any)?.quip ?? null,
 					user_id: userId
 				});
 				if (!insertErr) {
 					memberPlayerId = repairedOwnerId;
 					await supabase.from("lobby").update({ owner_id: repairedOwnerId, owner_user_id: userId }).eq("id", lobbyId);
+				}
+			}
+		} catch {
+			// keep access resolution best-effort even if repair fails
+		}
+	}
+
+	// Self-heal for non-owner users:
+	// reclaim a single unlinked player row in this lobby when it uniquely matches profile.
+	if (!memberPlayerId) {
+		try {
+			const profileName = (profile?.display_name || "").trim();
+			const profileAvatar = (profile?.avatar_url || "").trim();
+			let candidateRows: Array<{ id: string }> = [];
+
+			if (profileName) {
+				const { data } = await supabase
+					.from("player")
+					.select("id")
+					.eq("lobby_id", lobbyId)
+					.is("user_id", null)
+					.ilike("name", profileName)
+					.limit(2);
+				candidateRows = (data ?? []) as Array<{ id: string }>;
+			}
+
+			if (candidateRows.length !== 1 && profileAvatar) {
+				const { data } = await supabase
+					.from("player")
+					.select("id")
+					.eq("lobby_id", lobbyId)
+					.is("user_id", null)
+					.eq("avatar_url", profileAvatar)
+					.limit(2);
+				candidateRows = (data ?? []) as Array<{ id: string }>;
+			}
+
+			if (candidateRows.length === 1) {
+				const claimedId = candidateRows[0].id;
+				const { error: claimErr } = await supabase
+					.from("player")
+					.update({ user_id: userId })
+					.eq("id", claimedId)
+					.is("user_id", null);
+				if (!claimErr) {
+					memberPlayerId = claimedId;
 				}
 			}
 		} catch {
