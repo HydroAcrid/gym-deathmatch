@@ -37,40 +37,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 					const { data: lrow } = await supabase.from("lobby").select("mode,status").eq("id", decoded).maybeSingle();
 					const mode = (lrow?.mode as string) || "MONEY_SURVIVAL";
 					if (String(mode).startsWith("CHALLENGE_ROULETTE")) {
-						// If we're already in transition, starting now advances to ACTIVE
-						if (lrow?.status === "transition_spin") {
-							payload.status = "active";
-							payload.seasonStart = new Date().toISOString();
-							payload.scheduledStart = null;
-							// Announce start (same dedupe as money mode)
-							try {
-								const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-								const { data: exists } = await supabase
-									.from("comments")
-									.select("id")
-									.eq("lobby_id", decoded)
-									.eq("rendered", "The arena opens. Fight!")
-									.gte("created_at", since)
-									.limit(1);
-								if (!exists || !exists.length) {
-									await supabase.from("comments").insert({
-										lobby_id: decoded,
-										type: "SUMMARY",
-										rendered: "The arena opens. Fight!",
-										payload: { type: "START" },
-										visibility: "both" // Show in both feed and history
-									});
-								}
-							} catch (e) {
-								logError({ route: "PATCH /api/lobby/[id]/stage", code: "START_ANNOUNCE_FAILED", err: e, lobbyId: decoded });
-							}
-						} else {
-							// Enter transition spin; do not set seasonStart yet
-							payload.status = "transition_spin";
-							payload.scheduledStart = null;
-							// Set stage to ACTIVE since we're starting the season
-							payload.stage = "ACTIVE";
-						}
+						// For roulette, Start Now should always enter/keep transition spin.
+						// Advancing to ACTIVE is handled by week-start after wheel confirmation.
+						payload.status = "transition_spin";
+						payload.scheduledStart = null;
+						payload.stage = "ACTIVE";
 					} else {
 						// Money modes: go directly to active
 						payload.status = "active";
