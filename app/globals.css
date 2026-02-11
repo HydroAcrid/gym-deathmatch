@@ -503,6 +503,21 @@ select option {
   color: hsl(var(--foreground));
 }
 
+.arena-datetime-input {
+  color-scheme: dark;
+  padding-right: 2.25rem;
+}
+
+.arena-datetime-input::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  filter: brightness(0) saturate(100%) invert(63%) sepia(35%) saturate(1068%) hue-rotate(356deg) brightness(94%) contrast(90%);
+}
+
+.arena-datetime-input::-webkit-calendar-picker-indicator:hover {
+  filter: brightness(0) saturate(100%) invert(74%) sepia(67%) saturate(642%) hue-rotate(346deg) brightness(98%) contrast(92%);
+}
+
 /* Hard-wrap utility */
 .break-anywhere {
   overflow-wrap: anywhere;

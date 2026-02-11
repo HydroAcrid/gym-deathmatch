@@ -149,17 +149,17 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 				? createPortal(
 					<AnimatePresence>
 						{open && (
-							<motion.div
-								className="fixed inset-0 z-[130] flex items-center justify-center p-0 sm:p-6 bg-black/70"
+								<motion.div
+									className="fixed inset-0 z-[130] flex items-center justify-center p-0 sm:p-6 bg-black/85 sm:bg-black/70"
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 								exit={{ opacity: 0 }}
 								onClick={() => setOpen(false)}
 							>
-								<motion.div
-									role="dialog"
-									aria-modal="true"
-									className="bg-card relative w-full sm:max-w-5xl h-full sm:h-[85vh] shadow-2xl border-2 border-border flex flex-col box-border max-w-full overflow-hidden"
+									<motion.div
+										role="dialog"
+										aria-modal="true"
+										className="relative w-full sm:max-w-5xl h-[100dvh] sm:h-[85vh] shadow-2xl border-2 border-border bg-[hsl(var(--card))] flex flex-col box-border max-w-full overflow-hidden"
 									initial={{ scale: 0.96, opacity: 0 }}
 									animate={{ scale: 1, opacity: 1 }}
 									exit={{ scale: 0.96, opacity: 0 }}
@@ -168,7 +168,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 										if (e.key === "Escape") setOpen(false);
 									}}
 								>
-									<header className="sticky top-0 z-10 bg-card px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 border-b-2 border-border flex items-center justify-between gap-3">
+										<header className="sticky top-0 z-20 bg-[hsl(var(--card))] px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 border-b-2 border-border flex items-center justify-between gap-3">
 										<div className="min-w-0">
 											<h2 className="font-display text-lg sm:text-xl tracking-widest text-primary truncate">CREATE LOBBY</h2>
 											<p className="text-xs sm:text-sm text-muted-foreground truncate">Configure dates, mode, targets, and challenge options</p>
@@ -196,18 +196,23 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 												<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" placeholder="e.g., Winter Grind 2025"
 													value={lobbyName} maxLength={48} onChange={e => setLobbyName(e.target.value)} />
 											</label>
-											<div className="grid grid-cols-2 gap-2">
-												<label className="text-xs">
-													<span className="block mb-1">Start date (local)</span>
-													<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" type="datetime-local"
-														value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
-												</label>
-												<label className="text-xs">
-													<span className="block mb-1">End date (local)</span>
-													<input className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground" type="datetime-local"
-														value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
-												</label>
-											</div>
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+													<label className="text-xs">
+														<span className="block mb-1">Start date (local)</span>
+														<input className="arena-datetime-input w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
+															type="datetime-local"
+															value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
+													</label>
+													<label className="text-xs">
+														<span className="block mb-1">End date (local)</span>
+														<input className="arena-datetime-input w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
+															type="datetime-local"
+															value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
+													</label>
+												</div>
+												<div className="text-[10px] text-muted-foreground">
+													Season start is the schedule anchor while lobby is in pre-stage.
+												</div>
 										</div>
 										<div className="scoreboard-panel p-4 space-y-3">
 											<h3 className="font-display text-sm font-bold tracking-widest">HEARTS & TARGET</h3>

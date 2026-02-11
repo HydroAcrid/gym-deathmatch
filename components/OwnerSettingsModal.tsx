@@ -332,16 +332,16 @@ export function OwnerSettingsModal({
 									onClose?.();
 								}}
 							>
-								<motion.div
-									role="dialog"
-									aria-modal="true"
-									className="scoreboard-panel relative w-full sm:max-w-5xl h-[100dvh] sm:h-[85vh] rounded-none sm:rounded-2xl shadow-2xl border flex flex-col box-border max-w-full overflow-hidden"
+									<motion.div
+										role="dialog"
+										aria-modal="true"
+										className="scoreboard-panel relative w-full sm:max-w-5xl h-[100dvh] sm:h-[85vh] rounded-none sm:rounded-2xl shadow-2xl border bg-[hsl(var(--card))] flex flex-col box-border max-w-full overflow-hidden"
 									initial={{ scale: 0.96, opacity: 0 }}
 									animate={{ scale: 1, opacity: 1 }}
 									exit={{ scale: 0.96, opacity: 0 }}
 									onClick={(e) => e.stopPropagation()}
 								>
-									<header className="sticky top-0 z-10 bg-card border-2 border-border px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 border-b flex items-center justify-between gap-3">
+										<header className="sticky top-0 z-20 bg-[hsl(var(--card))] border-2 border-border px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 border-b flex items-center justify-between gap-3">
 								<div className="min-w-0">
 									<h2 className="font-display tracking-widest text-primary text-lg sm:text-xl tracking-wide truncate">Edit Lobby</h2>
 									<p className="text-muted-foreground text-xs sm:text-sm truncate">Adjust dates, mode, pot, and challenge options</p>
@@ -384,14 +384,21 @@ export function OwnerSettingsModal({
 										<div className="grid gap-3">
 											<label className="text-xs">
 												<span className="block mb-1">Season start (local)</span>
-												<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+												<input
+													type="datetime-local"
+													className="arena-datetime-input w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
 													value={seasonStart} onChange={e => setSeasonStart(e.target.value)} />
 											</label>
 											<label className="text-xs">
 												<span className="block mb-1">Season end (local)</span>
-												<input type="datetime-local" className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+												<input
+													type="datetime-local"
+													className="arena-datetime-input w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
 													value={seasonEnd} onChange={e => setSeasonEnd(e.target.value)} />
 											</label>
+										</div>
+										<div className="mt-2 text-[11px] text-muted-foreground">
+											Season start is kept in sync with scheduled start while lobby is pre-stage/scheduled.
 										</div>
 									</div>
 								</div>
@@ -451,7 +458,7 @@ export function OwnerSettingsModal({
 												<span className="block mb-1">Invite expiry (local)</span>
 												<input
 													type="datetime-local"
-													className="w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
+													className="arena-datetime-input w-full px-3 py-2 rounded-md border border-strong bg-main text-main"
 													value={inviteExpiresAt}
 													onChange={e => setInviteExpiresAt(e.target.value)}
 													disabled={!inviteEnabled}

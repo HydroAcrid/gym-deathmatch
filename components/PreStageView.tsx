@@ -315,11 +315,12 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 								Start Deathmatch now
 							</Button>
 							<div className="grid md:grid-cols-3 gap-3">
-								<Input
-									type="datetime-local"
-									value={scheduleAt}
-									onChange={(e) => setScheduleAt(e.target.value)}
-								/>
+									<Input
+										type="datetime-local"
+										value={scheduleAt}
+										onChange={(e) => setScheduleAt(e.target.value)}
+										className="arena-datetime-input h-11 box-border"
+									/>
 								<Button variant="outline" onClick={schedule} className="h-11 touch-target">
 									Schedule start
 								</Button>
