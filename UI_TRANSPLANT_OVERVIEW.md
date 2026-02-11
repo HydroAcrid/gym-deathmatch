@@ -94,7 +94,7 @@ This document is a comprehensive, migration-ready overview of the **original** G
 - **PeriodSummaryOverlay** — Daily/weekly summary popover; dismiss stores in localStorage. Props: open, onClose, data, period.
 
 ### Punishment / Roulette
-- **`components/punishment/PunishmentWheel.tsx`** — Roulette wheel UI (react-custom-roulette). Used by RouletteTransitionPanel.
+- **`components/punishment/PunishmentWheel.tsx`** — Custom SVG + Framer Motion roulette wheel UI (server-synced spin). Used by RouletteTransitionPanel.
 - **`components/PunishmentBanner.tsx`** — Banner for punishment; "Suggest" link.
 - **`components/WeeklyPunishmentCard.tsx`** — Weekly punishment card (verify where used).
 
