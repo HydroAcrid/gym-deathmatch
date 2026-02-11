@@ -180,9 +180,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					d.setDate(d.getDate() - 14);
 					return d.toISOString();
 				})();
-				lobby = {
-					id: lobbyId,
-					name: lrow.name,
+					lobby = {
+						id: lobbyId,
+						name: lrow.name,
 					players,
 					seasonNumber: rawSeasonNumber,
 					seasonStart: lrow.season_start ?? seasonStartFallback,
@@ -204,12 +204,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 					mode: (lrow.mode as any) || "MONEY_SURVIVAL",
 					suddenDeathEnabled: !!lrow.sudden_death_enabled,
 					challengeSettings: (lrow.challenge_settings as any) ?? null,
-					inviteEnabled: (lrow as any).invite_enabled !== false,
-					inviteExpiresAt: ((lrow as any).invite_expires_at as string | null) ?? null,
-					inviteTokenRequired: (lrow as any).invite_token_required === true,
-					stage: rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE"),
-					seasonSummary: lrow.season_summary ? (lrow.season_summary as any) : null
-				} as Lobby;
+						inviteEnabled: (lrow as any).invite_enabled !== false,
+						inviteExpiresAt: ((lrow as any).invite_expires_at as string | null) ?? null,
+						inviteTokenRequired: (lrow as any).invite_token_required === true,
+						status: rawStatus ?? "active",
+						stage: rawStage || (rawStatus === "completed" ? "COMPLETED" : rawStatus === "active" || rawStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE"),
+						seasonSummary: lrow.season_summary ? (lrow.season_summary as any) : null
+					} as Lobby;
 				// Build user map and overlay DB fields on mock lobby players as well
 				const { data: prows2 } = await supabase.from("player").select("id,user_id,avatar_url,location,quip").eq("lobby_id", lobbyId);
 				if (prows2 && prows2.length) {
@@ -660,7 +661,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	}
 
 	const live: LiveLobbyResponse = {
-		lobby: { ...lobby, players: updatedPlayers, cashPool: currentPot, stage: currentStage, seasonSummary },
+		lobby: { ...lobby, status: rawStatus ?? (lobby as any).status ?? "active", players: updatedPlayers, cashPool: currentPot, stage: currentStage, seasonSummary },
 		fetchedAt: new Date().toISOString(),
 		errors: errors.length ? errors : undefined,
 		seasonStatus: rawStatus,
