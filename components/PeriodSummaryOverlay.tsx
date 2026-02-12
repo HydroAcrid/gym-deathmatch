@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/src/ui2/ui/button";
+import { Coins, Dumbbell, Flame, Heart, ScrollText, Swords, Trophy } from "lucide-react";
 
 type SummaryData = {
 	daily?: {
@@ -90,14 +91,14 @@ period: "daily" | "weekly";
 		})
 	};
 
-	const StatPill = ({ icon, label, value }: { icon: string; label: string; value: string }) => (
+	const renderStatPill = ({ icon, label, value }: { icon: ReactNode; label: string; value: string }) => (
 		<motion.div
 			custom={0}
 			variants={cardVariants}
 			className="scoreboard-panel border-2 border-border px-3 py-3 text-foreground min-h-[88px] flex flex-col justify-between"
 		>
 			<div className="flex items-center gap-2">
-				<span className="text-base">{icon}</span>
+				<span className="text-primary">{icon}</span>
 				<div className="uppercase tracking-[0.14em] text-[10px] text-muted-foreground">{label}</div>
 			</div>
 			<div className="text-left">
@@ -134,11 +135,11 @@ period: "daily" | "weekly";
 						animate="show"
 						className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 mb-4"
 					>
-						<StatPill icon="🏋️" label="WORKOUTS" value={`${pData?.totalWorkouts ?? 0}`} />
-						<StatPill icon="💰" label="POT" value={`$${data.pot ?? 0}`} />
-						<StatPill icon="❤️" label="HEARTS" value={heartsValue} />
-						<StatPill icon="🏆" label="POINTS LEADER" value={topPoints ? `${topPoints.name} ${topPoints.points}` : "—"} />
-						<StatPill icon="⚔️" label="ARENA EVENTS" value={`${eventsCount}`} />
+						{renderStatPill({ icon: <Dumbbell className="h-4 w-4" />, label: "WORKOUTS", value: `${pData?.totalWorkouts ?? 0}` })}
+						{renderStatPill({ icon: <Coins className="h-4 w-4" />, label: "POT", value: `$${data.pot ?? 0}` })}
+						{renderStatPill({ icon: <Heart className="h-4 w-4" />, label: "HEARTS", value: heartsValue })}
+						{renderStatPill({ icon: <Trophy className="h-4 w-4" />, label: "POINTS LEADER", value: topPoints ? `${topPoints.name} ${topPoints.points}` : "—" })}
+						{renderStatPill({ icon: <Swords className="h-4 w-4" />, label: "ARENA EVENTS", value: `${eventsCount}` })}
 					</motion.div>
 
 					{spotlight && (
@@ -150,7 +151,8 @@ period: "daily" | "weekly";
 							className="scoreboard-panel border-2 border-primary/40 text-foreground p-4 mb-4"
 						>
 							<div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.14em] text-muted-foreground">
-								<span>🔥 Spotlight</span>
+								<Flame className="h-4 w-4 text-primary" />
+								<span>Spotlight</span>
 							</div>
 							<div className="font-display text-xl mt-1 text-primary">ATHLETE SPOTLIGHT</div>
 							<div className="text-sm mt-1">{spotlight.text}</div>
@@ -166,7 +168,7 @@ period: "daily" | "weekly";
 							className="scoreboard-panel border-2 border-border bg-card text-foreground p-4"
 						>
 							<div className="flex items-center gap-2 mb-2">
-								<span className="text-lg">💰</span>
+								<Coins className="h-5 w-5 text-primary" />
 								<div className="font-display text-lg tracking-[0.12em] text-primary">Pot</div>
 							</div>
 							<div className="text-4xl font-bold text-arena-gold mb-1">${data.pot ?? 0}</div>
@@ -181,7 +183,7 @@ period: "daily" | "weekly";
 							className="scoreboard-panel border-2 border-border bg-card text-foreground p-4"
 						>
 							<div className="flex items-center gap-2 mb-2">
-								<span className="text-lg">❤️</span>
+								<Heart className="h-5 w-5 text-primary" />
 								<div className="font-display text-lg tracking-[0.12em] text-primary">Hearts</div>
 							</div>
 							<div className="text-sm text-muted-foreground">Leaders: {heartsLeaders}</div>
@@ -216,7 +218,7 @@ period: "daily" | "weekly";
 								className="scoreboard-panel border-2 border-border bg-card text-foreground p-4 lg:col-span-2"
 							>
 								<div className="flex items-center gap-2 mb-2">
-									<span className="text-lg">🏆</span>
+									<Trophy className="h-5 w-5 text-primary" />
 									<div className="font-display text-lg tracking-[0.12em] text-primary">Points Board</div>
 								</div>
 								<div className="text-xs text-muted-foreground mb-2">
@@ -243,14 +245,14 @@ period: "daily" | "weekly";
 							className="scoreboard-panel border-2 border-border bg-card text-foreground p-4 lg:col-span-2"
 						>
 							<div className="flex items-center gap-2 mb-2">
-								<span className="text-lg">⚔️</span>
+								<ScrollText className="h-5 w-5 text-primary" />
 								<div className="font-display text-lg tracking-[0.12em] text-primary">Battle Log</div>
 							</div>
 							<div className="space-y-1 text-sm text-muted-foreground">
 								{periodQuips.length
 									? periodQuips.slice(0, 5).map((q, i) => (
 										<div key={i} className="flex items-start gap-2">
-											<span className="text-muted-foreground">⚔️</span>
+											<Swords className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
 											<span className="leading-relaxed">{q.text}</span>
 										</div>
 									))
