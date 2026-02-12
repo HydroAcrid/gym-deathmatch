@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			type: "OWNER_ADJUST_HEARTS",
 			payload: { targetPlayerId, delta, reason }
 		});
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		console.error("adjust hearts error", e);

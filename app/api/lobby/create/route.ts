@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { jsonError } from "@/lib/logger";
 import { getRequestUserId } from "@/lib/requestAuth";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest) {
 	const supabase = getServerSupabase();
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
 				return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);
 			}
 		}
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true, id: lobbyId });
 	} catch (e) {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });

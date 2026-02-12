@@ -3,6 +3,7 @@ import { getServerSupabase } from "@/lib/supabaseClient";
 import { onAllReady, onReadyChanged } from "@/lib/commentary";
 import { jsonError, logError } from "@/lib/logger";
 import { getRequestUserId } from "@/lib/requestAuth";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		} catch (e) {
 			logError({ route: "POST /api/lobby/[id]/ready", code: "QUIP_READY_FAILED", err: e, lobbyId, actorUserId: userId });
 		}
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		logError({ route: "POST /api/lobby/[id]/ready", code: "READY_SAVE_FAILED", err: e, lobbyId });

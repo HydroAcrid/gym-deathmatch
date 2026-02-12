@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { updateLobbyStage } from "@/lib/persistence";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyId: string }> }) {
 	try {
@@ -78,6 +79,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 		}
 		const ok = await updateLobbyStage(decoded, payload);
 		if (!ok) return jsonError("STAGE_UPDATE_FAILED", "Failed to update stage", 500);
+		void refreshLobbyLiveSnapshot(decoded);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		logError({ route: "PATCH /api/lobby/[id]/stage", code: "STAGE_BAD_REQUEST", err: e });

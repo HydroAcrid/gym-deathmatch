@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			logError({ route: "POST /api/lobby/[id]/week-start", code: "FEED_LOG_FAILED", err: e, lobbyId });
 		}
 		
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		logError({ route: "POST /api/lobby/[id]/week-start", code: "WEEK_START_FAILED", err: e, lobbyId });
