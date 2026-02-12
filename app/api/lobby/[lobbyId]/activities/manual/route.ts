@@ -5,10 +5,6 @@ import { calculateStreakFromActivities } from "@/lib/streaks";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
-type ActivityCommentRow = {
-	primary_player_id: string | null;
-	payload: { type?: string } | null;
-};
 type ActivityDateRow = { date: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
@@ -65,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			payload: { activityId: data.id, type, durationMinutes, distanceKm, caption, photoUrl }
 		});
 
-		// Commentary engine (activity, plus social/theme checks)
+		// Commentary engine (activity + streak milestones)
 		try {
 			const act: Activity = {
 				id: data.id,
@@ -96,50 +92,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					{ timezoneOffsetMinutes: requestTimezoneOffsetMinutes }
 				);
 				const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
-				if ([3, 5, 7, 10].includes(currentStreak)) {
+				const isMilestone = [3, 5, 7, 10].includes(currentStreak);
+				if (isMilestone) {
 					await onStreakMilestone(lobbyId, playerId, currentStreak);
+				} else {
+					await onStreakPR(lobbyId, playerId, currentStreak);
 				}
-				await onStreakPR(lobbyId, playerId, currentStreak);
 			} catch {
 				// best-effort streak commentary
 			}
-
-				// Social coincidence checks:
-				const since20 = new Date(Date.now() - 20 * 60 * 1000).toISOString();
-				const { data: recentActs } = await supabase
-					.from("comments")
-					.select("primary_player_id, payload")
-					.eq("lobby_id", lobbyId)
-					.eq("type", "ACTIVITY")
-					.gte("created_at", since20)
-					.order("created_at", { ascending: false })
-					.limit(5);
-				const other = ((recentActs ?? []) as ActivityCommentRow[]).find((r) => r.primary_player_id && r.primary_player_id !== playerId);
-
-				const since60 = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-				const { data: lastHour } = await supabase
-					.from("comments")
-					.select("primary_player_id, payload")
-					.eq("lobby_id", lobbyId)
-					.eq("type", "ACTIVITY")
-					.gte("created_at", since60);
-				const distinctPlayersSameType = new Set(
-					((lastHour ?? []) as ActivityCommentRow[])
-						.filter((r) => (r.payload?.type || "").toLowerCase() === type.toLowerCase())
-						.map((r) => r.primary_player_id)
-				);
-
-				if (other || distinctPlayersSameType.size >= 2) {
-					const commentary = await import("@/lib/commentary");
-					if (other) {
-						await commentary.onSocialBurst(lobbyId, String(other.primary_player_id), playerId);
-						await commentary.onRivalryPulse(lobbyId, String(other.primary_player_id), playerId);
-					}
-					if (distinctPlayersSameType.size >= 2) {
-						await commentary.onThemeHour(lobbyId, type);
-					}
-				}
-			} catch { /* ignore */ }
+		} catch { /* ignore */ }
 
 		void refreshLobbyLiveSnapshot(lobbyId, requestTimezoneOffsetMinutes);
 		return NextResponse.json({

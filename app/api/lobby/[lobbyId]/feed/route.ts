@@ -26,20 +26,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			lobbyId,
 			limit,
 			memberPlayerId: access.memberPlayerId || access.ownerPlayerId || null,
-			commentVisibility: ["feed", "history", "both"],
+			commentVisibility: ["feed", "both"],
+			includeActivities: false,
+			includeEvents: false,
+			includeComments: true,
 		});
-		const items: FeedItem[] = timelineData.timeline.map((item) => ({
-			id: item.id,
-			type: item.source === "activity" ? "post" : item.source === "event" ? "event" : "comment",
-			text: item.text,
-			createdAt: item.createdAt,
-			player: item.player
-				? {
-						name: item.player.name,
-						avatar_url: item.player.avatar_url ?? null,
-				  }
-				: null,
-		}));
+		const items: FeedItem[] = timelineData.comments
+			.filter((comment: any) => String(comment.type || "").toUpperCase() !== "ACTIVITY")
+			.map((comment: any) => ({
+				id: `comment-${comment.id}`,
+				type: "comment",
+				text: String(comment.rendered || "Comment"),
+				createdAt: String(comment.created_at || new Date().toISOString()),
+				player: null,
+			}));
 
 		return NextResponse.json({ items });
 	} catch (e) {

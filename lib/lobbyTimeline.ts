@@ -41,6 +41,9 @@ type LoadLobbyTimelineArgs = {
 	limit: number;
 	memberPlayerId: string | null;
 	commentVisibility?: Array<"feed" | "history" | "both">;
+	includeActivities?: boolean;
+	includeEvents?: boolean;
+	includeComments?: boolean;
 };
 
 function normalizePlayer(value: any): PlayerLite | null {
@@ -109,27 +112,39 @@ export async function loadLobbyTimelineData({
 	limit,
 	memberPlayerId,
 	commentVisibility = ["feed", "history", "both"],
+	includeActivities = true,
+	includeEvents = true,
+	includeComments = true,
 }: LoadLobbyTimelineArgs): Promise<TimelineData> {
+	const activitiesPromise = includeActivities
+		? supabase
+				.from("manual_activities")
+				.select("*, player:player_id(id,name,avatar_url,user_id)")
+				.eq("lobby_id", lobbyId)
+				.order("created_at", { ascending: false })
+				.limit(limit)
+		: Promise.resolve({ data: [] });
+	const eventsPromise = includeEvents
+		? supabase
+				.from("history_events")
+				.select("*, actor:actor_player_id(id,name,avatar_url,user_id), target:target_player_id(id,name,avatar_url,user_id)")
+				.eq("lobby_id", lobbyId)
+				.order("created_at", { ascending: false })
+				.limit(limit)
+		: Promise.resolve({ data: [] });
+	const commentsPromise = includeComments
+		? supabase
+				.from("comments")
+				.select("id,type,rendered,created_at,primary_player_id,player:primary_player_id(id,name,avatar_url,user_id)")
+				.eq("lobby_id", lobbyId)
+				.in("visibility", commentVisibility as any)
+				.order("created_at", { ascending: false })
+				.limit(limit)
+		: Promise.resolve({ data: [] });
 	const [{ data: activities }, { data: events }, { data: comments }, { data: players }, { data: lobby }] = await Promise.all([
-		supabase
-			.from("manual_activities")
-			.select("*, player:player_id(id,name,avatar_url,user_id)")
-			.eq("lobby_id", lobbyId)
-			.order("created_at", { ascending: false })
-			.limit(limit),
-		supabase
-			.from("history_events")
-			.select("*, actor:actor_player_id(id,name,avatar_url,user_id), target:target_player_id(id,name,avatar_url,user_id)")
-			.eq("lobby_id", lobbyId)
-			.order("created_at", { ascending: false })
-			.limit(limit),
-		supabase
-			.from("comments")
-			.select("id,type,rendered,created_at,primary_player_id,player:primary_player_id(id,name,avatar_url,user_id)")
-			.eq("lobby_id", lobbyId)
-			.in("visibility", commentVisibility as any)
-			.order("created_at", { ascending: false })
-			.limit(limit),
+		activitiesPromise,
+		eventsPromise,
+		commentsPromise,
 		supabase
 			.from("player")
 			.select("id,name,avatar_url,user_id,hearts,lives_remaining")

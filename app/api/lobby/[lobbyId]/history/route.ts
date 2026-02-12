@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			lobbyId,
 			limit,
 			memberPlayerId: member.id ?? null,
-			commentVisibility: ["feed", "history", "both"],
+			commentVisibility: ["history", "both"],
 		});
 
 		return NextResponse.json(

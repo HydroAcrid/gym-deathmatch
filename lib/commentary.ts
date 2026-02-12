@@ -216,7 +216,7 @@ export function generateQuips(ctx: EngineContext): Quip[] {
 			type: "ACTIVITY",
 			rendered: base,
 			payload: { type: a.type, mins, km, timeOfDay },
-			visibility: "both",
+			visibility: "feed",
 			primaryPlayerId: a.playerId,
 			activityId: a.id
 		});
@@ -292,213 +292,112 @@ export async function onActivityLogged(lobbyId: string, activity: Activity): Pro
 		}, { excludeUserId: actorUserId });
 	} catch { /* ignore */ }
 
-	// Extra flavor scenarios to keep the feed lively
+	// Feed highlight policy: max one quip per workout, only for notable moments.
 	try {
 		const supabase = getServerSupabase();
-		if (!supabase) return;
+		if (!supabase || !activity.playerId || !activity.id) return;
 		const now = new Date();
 		const hour = now.getHours();
-		const dayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+		const dayKey = now.toISOString().slice(0, 10);
+		let rendered: string | null = null;
+		let payload: Record<string, unknown> | null = null;
+		let dedupeKey: Record<string, unknown> | null = null;
 
-		// Deterministic hash helper for template selection
-		const pickTemplate = (tmpls: string[], seed: string) => {
-			const h = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-			return tmpls[h % tmpls.length];
-		};
-
-		// Time-of-day callouts (late-night / lunch)
-		if (hour >= 22 || hour < 5) {
-			const templates = [
-				"Late-night grinder. {name} punched the clock after hours 🌙",
-				"{name} is stealing reps from tomorrow's sleep schedule 🦉",
-				"No bedtime, just sets. {name} keeps the lights on in the arena."
-			];
-			await insertQuipOnce({
-				lobbyId,
-				type: "SUMMARY",
-				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "late"),
-				payload: { timeWindow: "late-night", day: dayKey },
-				primaryPlayerId: activity.playerId,
-				visibility: "both",
-				dedupeMs: 6 * 60 * 60 * 1000,
-				dedupeKey: { timeWindow: "late-night", day: dayKey }
-			});
-		} else if (hour >= 11 && hour < 14) {
-			const templates = [
-				"Lunchtime warrior: {name} traded sandwiches for sweat 🥪➡️🏋️",
-				"Clocked out, clocked in. {name} owns the lunch hour.",
-				"Midday raid by {name}. The cafe can wait."
-			];
-			await insertQuipOnce({
-				lobbyId,
-				type: "SUMMARY",
-				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "mid"),
-				payload: { timeWindow: "midday", day: dayKey },
-				primaryPlayerId: activity.playerId,
-				visibility: "both",
-				dedupeMs: 6 * 60 * 60 * 1000,
-				dedupeKey: { timeWindow: "midday", day: dayKey }
-			});
-		}
-
-		// Double-header: 2+ workouts same day (manual data)
-		const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-		const endDay = new Date(startDay.getTime() + 24 * 60 * 60 * 1000);
-		const { data: dayActs } = await supabase
-			.from("manual_activities")
-			.select("id,date")
+		// Priority 1: inter-player interaction (back-to-back workouts)
+		const since20 = new Date(now.getTime() - 20 * 60 * 1000).toISOString();
+		const { data: recentActivityComment } = await supabase
+			.from("comments")
+			.select("primary_player_id")
 			.eq("lobby_id", lobbyId)
-			.eq("player_id", activity.playerId)
-			.gte("date", startDay.toISOString())
-			.lt("date", endDay.toISOString());
-		if ((dayActs?.length ?? 0) >= 2) {
-			const templates = [
-				"Double-header for {name}. Arena tax prepaid.",
-				"{name} ran back another session today. Respect.",
-				"Two-a-day unlocked. {name} is farming XP."
-			];
-			await insertQuipOnce({
-				lobbyId,
-				type: "SUMMARY",
-				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "dbl"),
-				payload: { doubleHeaderDate: dayKey },
-				primaryPlayerId: activity.playerId,
-				visibility: "both",
-				dedupeMs: 12 * 60 * 60 * 1000,
-				dedupeKey: { doubleHeaderDate: dayKey }
-			});
+			.eq("type", "ACTIVITY")
+			.neq("primary_player_id", activity.playerId)
+			.gte("created_at", since20)
+			.order("created_at", { ascending: false })
+			.limit(1)
+			.maybeSingle();
+		const otherPlayerId = String(recentActivityComment?.primary_player_id || "");
+		if (otherPlayerId) {
+			const { data: duoPlayers } = await supabase
+				.from("player")
+				.select("id,name")
+				.in("id", [activity.playerId, otherPlayerId] as any);
+			const names = new Map<string, string>();
+			for (const p of (duoPlayers ?? []) as Array<{ id: string; name: string | null }>) {
+				names.set(p.id, (p.name || "Athlete").trim() || "Athlete");
+			}
+			const actor = names.get(activity.playerId) ?? "Athlete";
+			const other = names.get(otherPlayerId) ?? "Athlete";
+			rendered = `${actor} and ${other} went back-to-back. Arena tempo rising.`;
+			payload = { activityHighlight: "back_to_back", otherPlayerId, activityId: activity.id };
+			dedupeKey = { activityId: activity.id, activityHighlight: "back_to_back", otherPlayerId };
 		}
 
-		// Consistency: 3-day streak (manual data by day)
-		const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-		const { data: recentActs } = await supabase
-			.from("manual_activities")
-			.select("date")
-			.eq("lobby_id", lobbyId)
-			.eq("player_id", activity.playerId)
-			.gte("date", threeDaysAgo.toISOString());
-		const distinctDays = new Set(
-			(recentActs ?? []).map(r => {
-				const d = new Date(r.date as string);
-				return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-			})
-		);
-		if (distinctDays.size >= 3) {
-			const templates = [
-				"Three days straight. {name} found a groove.",
-				"Consistency badge: {name} is on a 3-day heater.",
-				"Alarm clock setting: OFF. {name} shows up three days running."
-			];
-			await insertQuipOnce({
-				lobbyId,
-				type: "SUMMARY",
-				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + "streak3"),
-				payload: { streakDays: 3 },
-				primaryPlayerId: activity.playerId,
-				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000,
-				dedupeKey: { streakDays: 3 }
-			});
-		}
-
-		// Underdog alert: lowest hearts posts a workout
-		const { data: heartRows } = await supabase.from("player").select("id,lives_remaining").eq("lobby_id", lobbyId);
-		if (heartRows && heartRows.length) {
-			const minHearts = Math.min(...heartRows.map(r => (r.lives_remaining as number) ?? 0));
-			const maxHearts = Math.max(...heartRows.map(r => (r.lives_remaining as number) ?? 0));
-			const isUnderdog = heartRows.find(r => r.id === activity.playerId && (r.lives_remaining as number) === minHearts && minHearts < maxHearts);
-			if (isUnderdog) {
-				const templates = [
-					"Underdog swings back. {name} fights off elimination.",
-					"{name} climbing out of the basement — hearts on the line.",
-					"Lowest hearts, highest effort. {name} stays alive."
-				];
-				await insertQuipOnce({
-					lobbyId,
-					type: "SUMMARY",
-					rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "underdog"),
-					payload: { underdog: true, day: dayKey },
-					primaryPlayerId: activity.playerId,
-					visibility: "both",
-					dedupeMs: 12 * 60 * 60 * 1000,
-					dedupeKey: { underdog: true, day: dayKey }
-				});
+		// Priority 2: two-a-day callout
+		if (!rendered) {
+			const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+			const endDay = new Date(startDay.getTime() + 24 * 60 * 60 * 1000);
+			const { data: dayActs } = await supabase
+				.from("manual_activities")
+				.select("id")
+				.eq("lobby_id", lobbyId)
+				.eq("player_id", activity.playerId)
+				.gte("date", startDay.toISOString())
+				.lt("date", endDay.toISOString());
+			if ((dayActs?.length ?? 0) >= 2) {
+				rendered = "{name} ran back another session today. Respect.";
+				payload = { activityHighlight: "double_header", day: dayKey, activityId: activity.id };
+				dedupeKey = { activityId: activity.id, activityHighlight: "double_header" };
 			}
 		}
 
-		// Idle to active: first workout after 48h idle
-		const since48 = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
-		const { data: prevAct } = await supabase
-			.from("manual_activities")
-			.select("date")
-			.eq("lobby_id", lobbyId)
-			.eq("player_id", activity.playerId)
-			.lt("date", since48)
-			.order("date", { ascending: false })
-			.limit(1);
-		const hadOld = (prevAct ?? []).length > 0;
-		const { data: recentWithin48 } = await supabase
-			.from("manual_activities")
-			.select("id")
-			.eq("lobby_id", lobbyId)
-			.eq("player_id", activity.playerId)
-			.gte("date", since48)
-			.limit(2);
-		const onlyThisOne = (recentWithin48?.length ?? 0) <= 1;
-		if (hadOld && onlyThisOne) {
-			const templates = [
-				"Back from the shadows — {name} returns after a pause.",
-				"48h idle breaker. {name} re-enters the arena.",
-				"Rust shaken. {name} clocks back in."
-			];
-			await insertQuipOnce({
-				lobbyId,
-				type: "SUMMARY",
-				rendered: pickTemplate(templates, lobbyId + (activity.playerId ?? "") + dayKey + "idle"),
-				payload: { idleBreak: true, day: dayKey },
-				primaryPlayerId: activity.playerId,
-				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000,
-				dedupeKey: { idleBreak: true, day: dayKey }
-			});
+		// Priority 3: return-after-idle
+		if (!rendered) {
+			const since48 = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+			const { data: prevAct } = await supabase
+				.from("manual_activities")
+				.select("date")
+				.eq("lobby_id", lobbyId)
+				.eq("player_id", activity.playerId)
+				.lt("date", since48)
+				.order("date", { ascending: false })
+				.limit(1);
+			const hadOld = (prevAct ?? []).length > 0;
+			const { data: recentWithin48 } = await supabase
+				.from("manual_activities")
+				.select("id")
+				.eq("lobby_id", lobbyId)
+				.eq("player_id", activity.playerId)
+				.gte("date", since48)
+				.limit(2);
+			const onlyThisOne = (recentWithin48?.length ?? 0) <= 1;
+			if (hadOld && onlyThisOne) {
+				rendered = "Rust shaken. {name} clocks back in.";
+				payload = { activityHighlight: "idle_break", day: dayKey, activityId: activity.id };
+				dedupeKey = { activityId: activity.id, activityHighlight: "idle_break" };
+			}
 		}
 
-		// Weekend opener / Monday motivation (once per day per lobby)
-		const weekday = now.getDay(); // 0 = Sun, 1 = Mon, 6 = Sat
-		if (weekday === 6) {
-			await insertQuipOnce({
-				lobbyId,
-				type: "SUMMARY",
-				rendered: "Weekend opener — {name} sets the tempo.",
-				payload: { weekend: true, day: dayKey },
-				primaryPlayerId: activity.playerId,
-				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000,
-				dedupeKey: { weekend: true, day: dayKey }
-			});
-		} else if (weekday === 1) {
-			await insertQuipOnce({
-				lobbyId,
-				type: "SUMMARY",
-				rendered: "Monday motivation drop by {name}. Alarm clocks everywhere.",
-				payload: { monday: true, day: dayKey },
-				primaryPlayerId: activity.playerId,
-				visibility: "both",
-				dedupeMs: 24 * 60 * 60 * 1000,
-				dedupeKey: { monday: true, day: dayKey }
-			});
+		// Priority 4: time window flavor
+		if (!rendered && (hour >= 22 || hour < 5)) {
+			rendered = "No bedtime, just sets. {name} keeps the lights on in the arena.";
+			payload = { activityHighlight: "late_night", day: dayKey, activityId: activity.id };
+			dedupeKey = { activityId: activity.id, activityHighlight: "late_night" };
+		} else if (!rendered && hour >= 11 && hour < 14) {
+			rendered = "Clocked out, clocked in. {name} owns the lunch hour.";
+			payload = { activityHighlight: "midday", day: dayKey, activityId: activity.id };
+			dedupeKey = { activityId: activity.id, activityHighlight: "midday" };
 		}
 
-		// Photo of the day: first photo comment each day
+		if (!rendered || !payload || !dedupeKey) return;
 		await insertQuipOnce({
 			lobbyId,
 			type: "SUMMARY",
-			rendered: "Photo of the day nominee from {name}.",
-			payload: { photoDay: dayKey },
+			rendered,
+			payload,
 			primaryPlayerId: activity.playerId,
 			visibility: "feed",
-			dedupeMs: 24 * 60 * 60 * 1000,
-			dedupeKey: { photoDay: dayKey }
+			dedupeMs: 7 * 24 * 60 * 60 * 1000,
+			dedupeKey
 		});
 	} catch {
 		// best-effort flavor; ignore errors
@@ -852,20 +751,18 @@ export async function onDailyReminder(lobbyId: string, playerId: string, playerN
 	const supabase = getServerSupabase();
 	if (!supabase) return;
 	const resolvedDayKey = dayKey ?? new Date().toISOString().slice(0, 10);
-	const rendered = `{name} hasn't logged an activity today — time to move 💪`;
-	const inserted = await insertQuipOnce({
+	const claim = await claimCommentaryEvent({
 		lobbyId,
-		type: "SUMMARY",
-		rendered,
-		payload: { reminder: true, day: resolvedDayKey },
-		primaryPlayerId: playerId,
-		visibility: "both",
-		dedupeMs: 24 * 60 * 60 * 1000,
-		dedupeKey: { reminder: true, day: resolvedDayKey }
+		eventType: "SUMMARY",
+		idempotencyKey: `daily-reminder:${playerId}:${resolvedDayKey}`,
+		sourceType: "daily-reminder-push",
+		sourceId: playerId,
+		metadata: { day: resolvedDayKey },
 	});
-	if (!inserted) return;
+	if (claim === "duplicate") return;
 
-	// Push: nudge the player only
+	// Push-only reminder (do not write feed/history commentary).
+	let sent = false;
 	try {
 		const { data: pl } = await supabase.from("player").select("user_id").eq("id", playerId).maybeSingle();
 		const userId = pl?.user_id as string | null | undefined;
@@ -875,9 +772,17 @@ export async function onDailyReminder(lobbyId: string, playerId: string, playerN
 				body: `${playerName}, no workout logged yet today. Tap to post.`,
 				url: `/lobby/${lobbyId}/history`
 			});
+			sent = true;
 		}
 	} catch {
 		// ignore
+	}
+	if (!sent && claim === "claimed") {
+		await releaseCommentaryClaim({
+			lobbyId,
+			eventType: "SUMMARY",
+			idempotencyKey: `daily-reminder:${playerId}:${resolvedDayKey}`,
+		});
 	}
 }
 
