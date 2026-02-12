@@ -15,88 +15,11 @@ import {
   Flame,
   Dumbbell,
 } from "lucide-react";
-import { calculatePoints } from "@/lib/points";
-import { formatLocalDate } from "@/lib/datetime";
-
-/* ---------- Types ---------- */
-
-type LobbyRow = {
-  id: string;
-  name: string;
-  season_number: number;
-  stage: string | null;
-  status: string | null;
-  season_start: string | null;
-  season_end: string | null;
-  cash_pool: number;
-  season_summary?: any;
-};
-
-type EnrichedPlayer = {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-  userId?: string;
-  totalWorkouts: number;
-  currentStreak: number;
-  longestStreak: number;
-  livesRemaining: number;
-  averageWorkoutsPerWeek: number;
-};
-
-type LiveLobby = {
-  lobby: {
-    id: string;
-    name: string;
-    seasonNumber: number;
-    stage: string;
-    cashPool: number;
-    initialLives: number;
-    players: EnrichedPlayer[];
-    seasonSummary?: {
-      seasonNumber?: number;
-      winners?: Array<{ id: string; name: string; avatarUrl?: string; totalWorkouts: number; hearts: number; currentStreak?: number; points?: number }>;
-      losers?: Array<{ id: string; name: string; totalWorkouts: number; hearts?: number; currentStreak?: number; points?: number }>;
-      finalPot?: number;
-      highlights?: {
-        longestStreak?: { playerName: string; streak: number };
-        mostWorkouts?: { playerName: string; count: number };
-        mostConsistent?: { playerName: string; avgPerWeek: number };
-      };
-    } | null;
-  };
-};
-
-type Champion = { name: string; titles: number; seasons: string[]; avatarUrl?: string | null };
-type AllTimeRecord = { record: string; holder: string; value: string; lobby: string };
-type PastSeason = {
-  lobbyId: string;
-  lobbyName: string;
-  season: number;
-  champion: string;
-  startDate: string;
-  endDate: string;
-  participants: number;
-  totalWorkouts: number;
-  finalPot: number;
-  highlights: string;
-};
-type ActiveSeason = {
-  lobbyId: string;
-  lobbyName: string;
-  seasonNumber: number;
-  athleteCount: number;
-  totalWorkouts: number;
-  currentLeader: string;
-  currentLeaderPoints: number;
-};
-
-/* ---------- Helpers ---------- */
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return formatLocalDate(iso, { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
-}
+import {
+  type LobbyRow,
+  type LiveLobby,
+  buildRecordsViewModel,
+} from "@/src/ui2/adapters/records";
 
 /* ---------- Component ---------- */
 
@@ -133,197 +56,14 @@ export default function RecordsPage() {
       .finally(() => setLoading(false));
   }, [user?.id]);
 
-  // Compute champions, records, past seasons, active seasons
-  const { champions, records, pastSeasons, activeSeasons } = useMemo(() => {
-    const champMap = new Map<string, { titles: number; seasons: string[]; avatarUrl?: string | null }>();
-    const pastList: PastSeason[] = [];
-    const activeList: ActiveSeason[] = [];
-    const recordCandidates = {
-      longestStreak: { holder: "", value: 0, lobby: "" },
-      mostWorkouts: { holder: "", value: 0, lobby: "" },
-      mostChampionships: { holder: "", value: 0 },
-      mostPoints: { holder: "", value: 0, lobby: "" },
-      mostConsistent: { holder: "", value: 0, lobby: "" },
-    };
-
-    for (const lobby of lobbies) {
-      const live = liveData.get(lobby.id);
-      if (!live?.lobby) continue;
-
-      const players = live.lobby.players ?? [];
-      const summary = live.lobby.seasonSummary;
-
-      // Active seasons
-      if (live.lobby.stage === "ACTIVE" && players.length > 0) {
-        const sorted = [...players].sort((a, b) =>
-          calculatePoints({ workouts: b.totalWorkouts, streak: b.currentStreak }) -
-          calculatePoints({ workouts: a.totalWorkouts, streak: a.currentStreak })
-        );
-        const totalW = players.reduce((s, p) => s + p.totalWorkouts, 0);
-        const leader = sorted[0];
-        const leaderPoints = leader
-          ? calculatePoints({ workouts: leader.totalWorkouts, streak: leader.currentStreak })
-          : 0;
-        activeList.push({
-          lobbyId: lobby.id,
-          lobbyName: lobby.name,
-          seasonNumber: live.lobby.seasonNumber,
-          athleteCount: players.length,
-          totalWorkouts: totalW,
-          currentLeader: leader?.name ?? "—",
-          currentLeaderPoints: leaderPoints,
-        });
-      }
-
-      // Completed seasons with summary
-      if (live.lobby.stage === "COMPLETED" && summary) {
-        const winners = summary.winners ?? [];
-        const champion = winners[0]?.name ?? "UNKNOWN";
-        const totalW =
-          [...(summary.winners ?? []), ...(summary.losers ?? [])].reduce(
-            (s: number, p: { totalWorkouts?: number }) => s + (p.totalWorkouts ?? 0),
-            0
-          );
-        const seasonPlayers = [...(summary.winners ?? []), ...(summary.losers ?? [])];
-        const seasonTop = seasonPlayers.reduce(
-          (best, player) => {
-            const points = player.points ?? calculatePoints({
-              workouts: player.totalWorkouts ?? 0,
-              streak: player.currentStreak ?? 0
-            });
-            return points > best.points ? { name: player.name, points } : best;
-          },
-          { name: "", points: 0 }
-        );
-        if (seasonTop.points > recordCandidates.mostPoints.value) {
-          recordCandidates.mostPoints = { holder: seasonTop.name, value: seasonTop.points, lobby: lobby.name };
-        }
-
-        pastList.push({
-          lobbyId: lobby.id,
-          lobbyName: lobby.name,
-          season: summary.seasonNumber ?? live.lobby.seasonNumber,
-          champion,
-          startDate: formatDate(lobby.season_start),
-          endDate: formatDate(lobby.season_end),
-          participants: players.length,
-          totalWorkouts: totalW,
-          finalPot: summary.finalPot ?? lobby.cash_pool,
-          highlights: summary.highlights?.longestStreak
-            ? `${summary.highlights.longestStreak.playerName} achieved a ${summary.highlights.longestStreak.streak}-day streak`
-            : summary.highlights?.mostWorkouts
-              ? `${summary.highlights.mostWorkouts.playerName} logged ${summary.highlights.mostWorkouts.count} workouts`
-              : "",
-        });
-
-        // Track champions
-        for (const w of winners) {
-          const fallbackAvatar = players.find((p) => p.name === w.name && p.avatarUrl)?.avatarUrl ?? null;
-          const existing = champMap.get(w.name) ?? { titles: 0, seasons: [], avatarUrl: w.avatarUrl ?? fallbackAvatar };
-          existing.titles++;
-          existing.seasons.push(`${lobby.name} S${summary.seasonNumber ?? live.lobby.seasonNumber}`);
-          if (!existing.avatarUrl) {
-            existing.avatarUrl = w.avatarUrl ?? fallbackAvatar;
-          }
-          champMap.set(w.name, existing);
-        }
-
-        // Records from highlights
-        if (summary.highlights?.longestStreak) {
-          const s = summary.highlights.longestStreak;
-          if (s.streak > recordCandidates.longestStreak.value) {
-            recordCandidates.longestStreak = { holder: s.playerName, value: s.streak, lobby: lobby.name };
-          }
-        }
-        if (summary.highlights?.mostWorkouts) {
-          const m = summary.highlights.mostWorkouts;
-          if (m.count > recordCandidates.mostWorkouts.value) {
-            recordCandidates.mostWorkouts = { holder: m.playerName, value: m.count, lobby: lobby.name };
-          }
-        }
-        if (summary.highlights?.mostConsistent) {
-          const c = summary.highlights.mostConsistent;
-          if (c.avgPerWeek > recordCandidates.mostConsistent.value) {
-            recordCandidates.mostConsistent = { holder: c.playerName, value: c.avgPerWeek, lobby: lobby.name };
-          }
-        }
-      }
-
-      // Aggregate player records from live data
-      for (const p of players) {
-        const points = calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak });
-        if (p.longestStreak > recordCandidates.longestStreak.value) {
-          recordCandidates.longestStreak = { holder: p.name, value: p.longestStreak, lobby: lobby.name };
-        }
-        if (p.totalWorkouts > recordCandidates.mostWorkouts.value) {
-          recordCandidates.mostWorkouts = { holder: p.name, value: p.totalWorkouts, lobby: lobby.name };
-        }
-        if (points > recordCandidates.mostPoints.value) {
-          recordCandidates.mostPoints = { holder: p.name, value: points, lobby: lobby.name };
-        }
-      }
-    }
-
-    // Track most championships
-    for (const [name, data] of champMap) {
-      if (data.titles > recordCandidates.mostChampionships.value) {
-        recordCandidates.mostChampionships = { holder: name, value: data.titles };
-      }
-    }
-
-    // Build records list
-    const recordsList: AllTimeRecord[] = [];
-    if (recordCandidates.longestStreak.value > 0) {
-      recordsList.push({
-        record: "LONGEST STREAK",
-        holder: recordCandidates.longestStreak.holder,
-        value: `${recordCandidates.longestStreak.value} DAYS`,
-        lobby: recordCandidates.longestStreak.lobby,
-      });
-    }
-    if (recordCandidates.mostWorkouts.value > 0) {
-      recordsList.push({
-        record: "MOST WORKOUTS",
-        holder: recordCandidates.mostWorkouts.holder,
-        value: `${recordCandidates.mostWorkouts.value}`,
-        lobby: recordCandidates.mostWorkouts.lobby,
-      });
-    }
-    if (recordCandidates.mostPoints.value > 0) {
-      recordsList.push({
-        record: "MOST POINTS",
-        holder: recordCandidates.mostPoints.holder,
-        value: `${recordCandidates.mostPoints.value}`,
-        lobby: recordCandidates.mostPoints.lobby,
-      });
-    }
-    if (recordCandidates.mostChampionships.value > 0) {
-      recordsList.push({
-        record: "MOST CHAMPIONSHIPS",
-        holder: recordCandidates.mostChampionships.holder,
-        value: `${recordCandidates.mostChampionships.value}`,
-        lobby: "ALL TIME",
-      });
-    }
-    if (recordCandidates.mostConsistent.value > 0) {
-      recordsList.push({
-        record: "MOST CONSISTENT",
-        holder: recordCandidates.mostConsistent.holder,
-        value: `${recordCandidates.mostConsistent.value.toFixed(1)}/WK`,
-        lobby: recordCandidates.mostConsistent.lobby,
-      });
-    }
-
-    // Build champions list sorted by titles
-    const championsList: Champion[] = Array.from(champMap.entries())
-      .map(([name, data]) => ({ name, titles: data.titles, seasons: data.seasons, avatarUrl: data.avatarUrl ?? null }))
-      .sort((a, b) => b.titles - a.titles);
-
-    // Sort past seasons newest first
-    pastList.sort((a, b) => b.season - a.season);
-
-    return { champions: championsList, records: recordsList, pastSeasons: pastList, activeSeasons: activeList };
-  }, [lobbies, liveData]);
+  const { champions, records, pastSeasons, activeSeasons, hasData } = useMemo(
+    () =>
+      buildRecordsViewModel({
+        lobbies,
+        liveData,
+      }),
+    [lobbies, liveData]
+  );
 
   if (!user) {
     return (
@@ -347,8 +87,6 @@ export default function RecordsPage() {
       </div>
     );
   }
-
-  const hasData = champions.length > 0 || records.length > 0 || pastSeasons.length > 0 || activeSeasons.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
