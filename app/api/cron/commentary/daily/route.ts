@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runDailyCommentaryJob } from "@/lib/commentaryJobs";
+import { CommentaryJobService } from "@/domains/commentary/services/commentaryJobService";
 import { isCommentaryQueueUnavailableError } from "@/lib/commentaryEvents";
 
 function isAuthorized(req: Request): boolean {
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 		const lobbyId = url.searchParams.get("lobbyId") || undefined;
 		const processRaw = (url.searchParams.get("process") || "true").toLowerCase();
 		const processQueue = !["0", "false", "no"].includes(processRaw);
-		const result = await runDailyCommentaryJob({ lobbyId, processQueue });
+		const result = await CommentaryJobService.runDaily({ lobbyId, processQueue });
 		return NextResponse.json({ ok: true, ...result });
 	} catch (err) {
 		if (isCommentaryQueueUnavailableError(err)) {
