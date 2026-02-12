@@ -1,24 +1,17 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { summarizeTypesThisWeek } from "@/lib/messages";
 import { authFetch } from "@/lib/clientAuth";
-
-type Player = {
-	name: string;
-	totalWorkouts: number;
-	currentStreak: number;
-	averageWorkoutsPerWeek: number;
-	recentActivities?: Array<{
-		type: string;
-		startDate: string;
-		durationMinutes: number;
-		distanceKm: number;
-	}>;
-};
+import {
+	type LobbyStatsPlayer,
+	toLobbyStatsPayload,
+	calculateLobbyTotals,
+	calculateLobbyPlayerDerivedStats,
+	toTitleCase,
+} from "@/src/ui2/adapters/lobbyStats";
 
 export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: string }> }) {
 	const [seasonNumber, setSeasonNumber] = useState<number>(1);
-	const [players, setPlayers] = useState<Player[]>([]);
+	const [players, setPlayers] = useState<LobbyStatsPlayer[]>([]);
 	const [lobbyId, setLobbyId] = useState<string>("");
 
 	useEffect(() => {
@@ -30,9 +23,10 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 			try {
 				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 				const data = await res.json();
-				if (ignore || !data?.lobby) return;
-				setSeasonNumber(data.lobby.seasonNumber ?? 1);
-				setPlayers(data.lobby.players ?? []);
+				if (ignore) return;
+				const payload = toLobbyStatsPayload(data);
+				setSeasonNumber(payload.seasonNumber);
+				setPlayers(payload.players);
 			} catch {
 				// ignore
 			}
@@ -40,29 +34,7 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 		return () => { ignore = true; };
 	}, [params]);
 
-	const totals = useMemo(() => {
-		const totalWorkouts = players.reduce((s, p) => s + (p.totalWorkouts ?? 0), 0);
-		const combinedStreaks = players.reduce((s, p) => s + (p.currentStreak ?? 0), 0);
-		const mostConsistent = players.reduce((a: Player | null, b: Player) => (!a || b.averageWorkoutsPerWeek > a.averageWorkoutsPerWeek ? b : a), null as any);
-		return { totalWorkouts, combinedStreaks, mostConsistent };
-	}, [players]);
-
-	function perPlayerStats(p: Player) {
-		const acts = p.recentActivities ?? [];
-		const totalMinutes = acts.reduce((s, a) => s + (a.durationMinutes ?? 0), 0);
-		const totalDistance = acts.reduce((s, a) => s + (a.distanceKm ?? 0), 0);
-		const avgDuration = acts.length ? Math.round((totalMinutes / acts.length) * 10) / 10 : 0;
-		const longest = acts.reduce((m, a) => (a.durationMinutes > (m?.durationMinutes ?? 0) ? a : m), null as any);
-		const typesCount = acts.reduce((map: Record<string, number>, a) => {
-			const k = (a.type || "Other").toLowerCase();
-			map[k] = (map[k] ?? 0) + 1;
-			return map;
-		}, {});
-		const mostFrequentType = Object.entries(typesCount).sort((a,b) => b[1]-a[1])[0]?.[0] ?? "-";
-		const earliest = acts.reduce((m, a) => (toHour(a.startDate) < (m ?? 24) ? toHour(a.startDate) : m), null as any);
-		const latest = acts.reduce((m, a) => (toHour(a.startDate) > (m ?? -1) ? toHour(a.startDate) : m), null as any);
-		return { totalMinutes, totalDistance, avgDuration, longest, mostFrequentType, earliest, latest, variety: summarizeTypesThisWeek(acts as any) };
-	}
+	const totals = useMemo(() => calculateLobbyTotals(players), [players]);
 
 	return (
 		<div className="min-h-screen">
@@ -97,7 +69,7 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					{players.map((p) => {
-						const s = perPlayerStats(p);
+						const s = calculateLobbyPlayerDerivedStats(p);
 						return (
 							<div key={p.name} className="scoreboard-panel p-4 space-y-3">
 								<div className="font-display text-base tracking-widest text-primary">{p.name.toUpperCase()}</div>
@@ -116,7 +88,7 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 									</div>
 									<div>
 										<div className="text-xs text-muted-foreground">MOST FREQUENT</div>
-										<div className="font-display">{titleCase(s.mostFrequentType)}</div>
+										<div className="font-display">{toTitleCase(s.mostFrequentType)}</div>
 									</div>
 									<div>
 										<div className="text-xs text-muted-foreground">LONGEST WORKOUT</div>
@@ -129,13 +101,13 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 										</div>
 									</div>
 								</div>
-								{(p as any).activityCounts ? (
+								{p.activityCounts ? (
 									<div className="text-xs text-muted-foreground">
 										<div className="text-[11px] mb-1">ACTIVITY SOURCES</div>
 										<div className="flex flex-wrap gap-3">
-											<span>All: {(p as any).activityCounts.total}</span>
-											<span>📡 Strava: {(p as any).activityCounts.strava}</span>
-											<span>✍️ Manual: {(p as any).activityCounts.manual}</span>
+											<span>All: {p.activityCounts.total}</span>
+											<span>📡 Strava: {p.activityCounts.strava}</span>
+											<span>✍️ Manual: {p.activityCounts.manual}</span>
 										</div>
 									</div>
 								) : null}
@@ -148,7 +120,3 @@ export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: 
 		</div>
 	);
 }
-
-function toHour(iso: string) { return new Date(iso).getHours(); }
-function titleCase(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
-

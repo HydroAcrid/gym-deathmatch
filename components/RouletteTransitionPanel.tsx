@@ -336,6 +336,12 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			const r = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/spin`, { method: "POST" });
 			if (!r.ok) {
 				setErrorMsg("Spin failed");
+			} else if (typeof window !== "undefined") {
+				// Ensure stage/status UI flips promptly even if realtime delivery lags.
+				window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
+				window.setTimeout(() => {
+					window.dispatchEvent(new CustomEvent("gymdm:refresh-live"));
+				}, 350);
 			}
 			// Success: do nothing, wait for realtime event to trigger animation
 		} catch {

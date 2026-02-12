@@ -117,6 +117,7 @@ async function claimEventForProcessing(supabase: any, row: CommentaryEventRow): 
 			status: "processing",
 			attempts,
 			last_error: null,
+			processed_at: null,
 		})
 		.eq("id", row.id)
 		.in("status", ["queued", "failed"])
@@ -148,6 +149,7 @@ async function markEventFailedOrDead(supabase: any, row: CommentaryEventRow, err
 			.update({
 				status: "dead",
 				last_error: message,
+				processed_at: new Date().toISOString(),
 			})
 			.eq("id", row.id);
 		if (error) throw error;
@@ -161,6 +163,7 @@ async function markEventFailedOrDead(supabase: any, row: CommentaryEventRow, err
 			status: "failed",
 			last_error: message,
 			next_attempt_at: nextAttemptAt,
+			processed_at: null,
 		})
 		.eq("id", row.id);
 	if (error) throw error;

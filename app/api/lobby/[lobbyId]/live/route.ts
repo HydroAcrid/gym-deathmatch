@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
-import { buildLiveLobbyResponse, readRequestTimezoneOffsetMinutes } from "@/lib/liveSnapshot";
+import { LiveSnapshotService } from "@/domains/lobby/services/liveSnapshotService";
 import { getLobbyLiveSnapshot, saveLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 function readDebugFlag(req: Request): boolean {
@@ -23,14 +23,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		return NextResponse.json({ error: "Not a lobby member" }, { status: 403 });
 	}
 
-	const requestTimezoneOffsetMinutes = readRequestTimezoneOffsetMinutes(req);
+	const requestTimezoneOffsetMinutes = LiveSnapshotService.readRequestTimezoneOffsetMinutes(req);
 
 	if (!debugMode) {
 		const snapshot = await getLobbyLiveSnapshot(lobbyId, requestTimezoneOffsetMinutes);
 		if (snapshot) return NextResponse.json(snapshot, { status: 200 });
 	}
 
-	const live = await buildLiveLobbyResponse({
+	const live = await LiveSnapshotService.getLobbySnapshot({
 		lobbyId,
 		debugMode,
 		requestTimezoneOffsetMinutes,

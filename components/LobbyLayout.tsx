@@ -52,6 +52,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const modeLabel = String(mode || "MONEY_SURVIVAL").replace(/_/g, " ");
 	const isMoneyMode = String(mode || "").startsWith("MONEY_");
 	const isChallengeMode = String(mode || "").startsWith("CHALLENGE_");
+	const requireWeekReadyGate = Boolean((lobbyData as any).challengeSettings?.requireWeekReadyGate);
 	const ownerName = players.find((p) => p.id === lobbyData.ownerId)?.name || "Host";
 	const weeklyAnte = (lobbyData as any).weeklyAnte ?? 10;
 
@@ -560,7 +561,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					)}
 				</div>
 
-				{isChallengeMode && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
+				{isChallengeMode && requireWeekReadyGate && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
 					<div className="space-y-6">
 						<WeekSetup
 							lobbyId={lobbyData.id}
@@ -592,7 +593,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 							)}
 
 							{/* Challenge Mode Hero */}
-								{stage !== "COMPLETED" && isChallengeMode && (
+								{stage !== "COMPLETED" && isChallengeMode && mode !== "CHALLENGE_ROULETTE" && (
 									<ChallengeHero
 										lobbyId={lobbyData.id}
 										mode={mode as any}

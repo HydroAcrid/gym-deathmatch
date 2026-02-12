@@ -273,18 +273,62 @@ create table if not exists activity_votes (
 );
 alter table activity_votes enable row level security;
 drop policy if exists activity_votes_member on activity_votes;
-create policy activity_votes_member on activity_votes
-for all using (
+drop policy if exists activity_votes_select_member on activity_votes;
+drop policy if exists activity_votes_insert_self on activity_votes;
+drop policy if exists activity_votes_update_self on activity_votes;
+drop policy if exists activity_votes_delete_self on activity_votes;
+create policy activity_votes_select_member on activity_votes
+for select using (
   exists (
-    select 1 from manual_activities a
+    select 1
+    from manual_activities a
     where a.id = activity_votes.activity_id
-      and exists (select 1 from player p where p.id = activity_votes.voter_player_id and p.lobby_id = a.lobby_id)
+      and (
+        exists (select 1 from player p where p.lobby_id = a.lobby_id and p.user_id::text = auth.uid()::text)
+        or exists (select 1 from lobby l where l.id = a.lobby_id and l.owner_user_id::text = auth.uid()::text)
+      )
+  )
+);
+create policy activity_votes_insert_self on activity_votes
+for insert with check (
+  exists (
+    select 1
+    from manual_activities a
+    join player p on p.id = activity_votes.voter_player_id
+    where a.id = activity_votes.activity_id
+      and p.lobby_id = a.lobby_id
+      and p.user_id::text = auth.uid()::text
+  )
+);
+create policy activity_votes_update_self on activity_votes
+for update using (
+  exists (
+    select 1
+    from manual_activities a
+    join player p on p.id = activity_votes.voter_player_id
+    where a.id = activity_votes.activity_id
+      and p.lobby_id = a.lobby_id
+      and p.user_id::text = auth.uid()::text
   )
 ) with check (
   exists (
-    select 1 from manual_activities a
+    select 1
+    from manual_activities a
+    join player p on p.id = activity_votes.voter_player_id
     where a.id = activity_votes.activity_id
-      and exists (select 1 from player p where p.id = activity_votes.voter_player_id and p.lobby_id = a.lobby_id)
+      and p.lobby_id = a.lobby_id
+      and p.user_id::text = auth.uid()::text
+  )
+);
+create policy activity_votes_delete_self on activity_votes
+for delete using (
+  exists (
+    select 1
+    from manual_activities a
+    join player p on p.id = activity_votes.voter_player_id
+    where a.id = activity_votes.activity_id
+      and p.lobby_id = a.lobby_id
+      and p.user_id::text = auth.uid()::text
   )
 );
 
@@ -303,6 +347,7 @@ drop policy if exists history_events_lobby_read on history_events;
 create policy history_events_lobby_read on history_events
 for select using (
   exists (select 1 from player p where p.lobby_id = history_events.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = history_events.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 
 -- Heart adjustments (owner overrides)
@@ -318,6 +363,7 @@ drop policy if exists heart_adj_lobby_read on heart_adjustments;
 create policy heart_adj_lobby_read on heart_adjustments
 for select using (
   exists (select 1 from player p where p.lobby_id = heart_adjustments.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = heart_adjustments.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 
 -- Weekly pot contributions (for precise accounting)
@@ -335,6 +381,7 @@ drop policy if exists weekly_pot_select_member on weekly_pot_contributions;
 create policy weekly_pot_select_member on weekly_pot_contributions
 for select using (
   exists (select 1 from player p where p.lobby_id = weekly_pot_contributions.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = weekly_pot_contributions.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 
 -- Commentary / quips
@@ -355,6 +402,7 @@ drop policy if exists comments_read_member on comments;
 create policy comments_read_member on comments
 for select using (
   exists (select 1 from player p where p.lobby_id = comments.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = comments.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 -- service-role writes only via API; no public insert policy
 create index if not exists comments_lobby_created_idx on comments (lobby_id, created_at desc);
@@ -380,6 +428,7 @@ drop policy if exists commentary_emitted_read_member on commentary_emitted;
 create policy commentary_emitted_read_member on commentary_emitted
 for select using (
   exists (select 1 from player p where p.lobby_id = commentary_emitted.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = commentary_emitted.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 create index if not exists commentary_emitted_lobby_created_idx on commentary_emitted (lobby_id, created_at desc);
 
@@ -594,6 +643,7 @@ drop policy if exists lobby_punishments_member_read on lobby_punishments;
 create policy lobby_punishments_member_read on lobby_punishments
 for select using (
   exists (select 1 from player p where p.lobby_id = lobby_punishments.lobby_id and p.user_id = auth.uid())
+  or exists (select 1 from lobby l where l.id = lobby_punishments.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 
 create table if not exists lobby_spin_events (
@@ -611,6 +661,7 @@ drop policy if exists lobby_spin_events_member_read on lobby_spin_events;
 create policy lobby_spin_events_member_read on lobby_spin_events
 for select using (
   exists (select 1 from player p where p.lobby_id = lobby_spin_events.lobby_id and p.user_id = auth.uid())
+  or exists (select 1 from lobby l where l.id = lobby_spin_events.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 create index if not exists lobby_spin_events_lobby_week_idx on lobby_spin_events (lobby_id, week desc, created_at desc);
 
@@ -628,6 +679,7 @@ drop policy if exists user_punishments_member_read on user_punishments;
 create policy user_punishments_member_read on user_punishments
 for select using (
   exists (select 1 from player p where p.lobby_id = user_punishments.lobby_id and p.user_id = auth.uid())
+  or exists (select 1 from lobby l where l.id = user_punishments.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 drop policy if exists user_punishments_update_self on user_punishments;
 create policy user_punishments_update_self on user_punishments
@@ -652,6 +704,7 @@ drop policy if exists user_ready_member on user_ready_states;
 create policy user_ready_member on user_ready_states
 for select using (
   exists (select 1 from player p where p.lobby_id = user_ready_states.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = user_ready_states.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 
 -- Week-ready states for challenge modes (per week, not just per lobby)
@@ -669,6 +722,7 @@ drop policy if exists week_ready_member on week_ready_states;
 create policy week_ready_member on week_ready_states
 for select using (
   exists (select 1 from player p where p.lobby_id = week_ready_states.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = week_ready_states.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 
 -- Persisted live snapshots (read-optimized, refreshed from write paths/jobs)
@@ -785,3 +839,216 @@ drop trigger if exists trg_prevent_owner_player_delete on player;
 create trigger trg_prevent_owner_player_delete
 before delete on player
 for each row execute function prevent_owner_player_delete();
+
+-- DB invariants: week numbers must be positive.
+do $$
+begin
+  if not exists (
+    select 1
+    from information_schema.table_constraints
+    where table_name = 'lobby_punishments'
+      and constraint_name = 'lobby_punishments_week_positive'
+  ) then
+    alter table lobby_punishments
+      add constraint lobby_punishments_week_positive check (week > 0);
+  end if;
+
+  if not exists (
+    select 1
+    from information_schema.table_constraints
+    where table_name = 'lobby_spin_events'
+      and constraint_name = 'lobby_spin_events_week_positive'
+  ) then
+    alter table lobby_spin_events
+      add constraint lobby_spin_events_week_positive check (week > 0);
+  end if;
+
+  if not exists (
+    select 1
+    from information_schema.table_constraints
+    where table_name = 'commentary_events'
+      and constraint_name = 'commentary_events_attempts_nonnegative'
+  ) then
+    alter table commentary_events
+      add constraint commentary_events_attempts_nonnegative check (attempts >= 0);
+  end if;
+end $$;
+
+-- DB invariant: at most one active punishment per lobby/week.
+create unique index if not exists lobby_punishments_single_active_week_idx
+  on lobby_punishments (lobby_id, week)
+  where active = true;
+
+-- DB invariant: punishment rows must reference players from the same lobby.
+create or replace function enforce_lobby_punishment_integrity()
+returns trigger as $$
+declare
+  created_by_lobby text;
+  chosen_by_lobby text;
+begin
+  if new.created_by is not null then
+    select p.lobby_id into created_by_lobby from player p where p.id = new.created_by;
+    if created_by_lobby is null then
+      raise exception 'created_by player % not found', new.created_by;
+    end if;
+    if created_by_lobby is distinct from new.lobby_id then
+      raise exception 'created_by player % does not belong to lobby %', new.created_by, new.lobby_id;
+    end if;
+  end if;
+
+  if new.chosen_by is not null then
+    select p.lobby_id into chosen_by_lobby from player p where p.id = new.chosen_by;
+    if chosen_by_lobby is null then
+      raise exception 'chosen_by player % not found', new.chosen_by;
+    end if;
+    if chosen_by_lobby is distinct from new.lobby_id then
+      raise exception 'chosen_by player % does not belong to lobby %', new.chosen_by, new.lobby_id;
+    end if;
+  end if;
+
+  if new.active and coalesce(new.week_status, '') not in ('PENDING_CONFIRMATION', 'ACTIVE', 'COMPLETE') then
+    raise exception 'active punishment must have week_status in (PENDING_CONFIRMATION, ACTIVE, COMPLETE)';
+  end if;
+
+  if not new.active and coalesce(new.week_status, '') = 'ACTIVE' then
+    raise exception 'inactive punishment cannot have ACTIVE week_status';
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_lobby_punishment_integrity on lobby_punishments;
+create trigger trg_lobby_punishment_integrity
+before insert or update on lobby_punishments
+for each row execute function enforce_lobby_punishment_integrity();
+
+-- DB invariant: spin events must reference a punishment in the same lobby/week
+-- and can only be created while lobby is in transition_spin.
+create or replace function enforce_lobby_spin_event_integrity()
+returns trigger as $$
+declare
+  lobby_status text;
+  winner_lobby text;
+  winner_week int;
+  creator_lobby text;
+begin
+  select l.status into lobby_status from lobby l where l.id = new.lobby_id;
+  if lobby_status is null then
+    raise exception 'spin event lobby % not found', new.lobby_id;
+  end if;
+  if lobby_status <> 'transition_spin' then
+    raise exception 'spin events require lobby status transition_spin, got %', lobby_status;
+  end if;
+
+  select p.lobby_id, p.week into winner_lobby, winner_week
+  from lobby_punishments p
+  where p.id = new.winner_item_id;
+  if winner_lobby is null then
+    raise exception 'winner punishment % not found', new.winner_item_id;
+  end if;
+  if winner_lobby is distinct from new.lobby_id or winner_week is distinct from new.week then
+    raise exception 'spin winner % must belong to lobby % week %', new.winner_item_id, new.lobby_id, new.week;
+  end if;
+
+  if new.created_by is not null then
+    select p.lobby_id into creator_lobby from player p where p.id = new.created_by;
+    if creator_lobby is null then
+      raise exception 'spin created_by player % not found', new.created_by;
+    end if;
+    if creator_lobby is distinct from new.lobby_id then
+      raise exception 'spin created_by player % does not belong to lobby %', new.created_by, new.lobby_id;
+    end if;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_lobby_spin_event_integrity on lobby_spin_events;
+create trigger trg_lobby_spin_event_integrity
+before insert or update on lobby_spin_events
+for each row execute function enforce_lobby_spin_event_integrity();
+
+-- DB invariant: week-ready rows must reference players in the same lobby.
+create or replace function enforce_week_ready_state_integrity()
+returns trigger as $$
+declare
+  player_lobby text;
+begin
+  select p.lobby_id into player_lobby from player p where p.id = new.player_id;
+  if player_lobby is null then
+    raise exception 'week_ready player % not found', new.player_id;
+  end if;
+  if player_lobby is distinct from new.lobby_id then
+    raise exception 'week_ready player % does not belong to lobby %', new.player_id, new.lobby_id;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_week_ready_state_integrity on week_ready_states;
+create trigger trg_week_ready_state_integrity
+before insert or update on week_ready_states
+for each row execute function enforce_week_ready_state_integrity();
+
+-- DB invariant: commentary queue state machine transitions.
+create or replace function enforce_commentary_event_state_machine()
+returns trigger as $$
+declare
+  allowed boolean := false;
+begin
+  if new.attempts < 0 then
+    raise exception 'commentary event attempts must be >= 0';
+  end if;
+
+  if tg_op = 'INSERT' then
+    if new.status <> 'queued' then
+      raise exception 'new commentary events must start in queued status';
+    end if;
+    if new.next_attempt_at is null then
+      new.next_attempt_at := now();
+    end if;
+    new.processed_at := null;
+    return new;
+  end if;
+
+  if new.attempts < old.attempts then
+    raise exception 'commentary event attempts cannot decrease (% -> %)', old.attempts, new.attempts;
+  end if;
+
+  allowed := (
+    (old.status = 'queued' and new.status in ('queued', 'processing', 'failed', 'done', 'dead')) or
+    (old.status = 'processing' and new.status in ('processing', 'failed', 'done', 'dead')) or
+    (old.status = 'failed' and new.status in ('failed', 'queued', 'processing', 'dead')) or
+    (old.status = 'done' and new.status = 'done') or
+    (old.status = 'dead' and new.status = 'dead')
+  );
+
+  if not allowed then
+    raise exception 'invalid commentary status transition % -> %', old.status, new.status;
+  end if;
+
+  if new.status in ('done', 'dead') then
+    if new.processed_at is null then
+      new.processed_at := now();
+    end if;
+  else
+    new.processed_at := null;
+  end if;
+
+  if new.status in ('queued', 'processing') and new.next_attempt_at is null then
+    new.next_attempt_at := now();
+  end if;
+  if new.status = 'failed' and new.next_attempt_at is null then
+    raise exception 'failed commentary event must set next_attempt_at';
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_commentary_event_state_machine on commentary_events;
+create trigger trg_commentary_event_state_machine
+before insert or update on commentary_events
+for each row execute function enforce_commentary_event_state_machine();

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { processCommentaryQueue } from "@/lib/commentaryProcessor";
+import { CommentaryProcessorService } from "@/domains/commentary/services/commentaryProcessorService";
 import { isCommentaryQueueUnavailableError } from "@/lib/commentaryEvents";
 
 function isAuthorized(req: Request): boolean {
@@ -50,7 +50,7 @@ async function handle(req: Request) {
 			}
 		}
 
-		const stats = await processCommentaryQueue(options);
+		const stats = await CommentaryProcessorService.process(options);
 		return NextResponse.json(stats);
 	} catch (err) {
 		if (isCommentaryQueueUnavailableError(err)) {

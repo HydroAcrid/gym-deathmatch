@@ -11,57 +11,19 @@ import { PhotoLightbox } from "@/src/ui2/components/PhotoLightbox";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { authFetch } from "@/lib/clientAuth";
 import { formatLocalDateTime } from "@/lib/datetime";
-
-type PlayerLite = {
-	id: string;
-	name: string;
-	avatar_url?: string | null;
-	user_id?: string | null;
-};
-
-type ActivityRow = {
-	id: string;
-	lobby_id: string;
-	player_id: string;
-	player_snapshot?: PlayerLite | null;
-	player_name?: string | null;
-	player_avatar_url?: string | null;
-	player_user_id?: string | null;
-	date: string;
-	type: string;
-	duration_minutes: number | null;
-	distance_km: number | null;
-	caption: string | null;
-	notes?: string | null;
-	photo_url: string | null;
-	status: string;
-	vote_deadline: string | null;
-	decided_at: string | null;
-	created_at?: string | null;
-};
-
-type EventRow = {
-	id: string;
-	lobby_id: string;
-	origin?: "history" | "comment";
-	actor_player_id: string | null;
-	target_player_id: string | null;
-	actor_snapshot?: PlayerLite | null;
-	target_snapshot?: PlayerLite | null;
-	actor_name?: string | null;
-	target_name?: string | null;
-	type: string;
-	payload: any;
-	created_at: string;
-};
-
-type CommentRow = {
-	id: string;
-	type: string;
-	rendered: string;
-	created_at: string;
-	primary_player_id?: string | null;
-};
+import {
+	type PlayerLite,
+	type ActivityRow,
+	type EventRow,
+	type VoteSummary,
+	normalizeLobbyHistoryResponse,
+	playerForActivity,
+	canVoteActivity,
+	timeLeftLabel,
+	titleCase,
+	getInitials,
+	renderEventLine,
+} from "@/src/ui2/adapters/lobbyHistory";
 
 export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId: string }> }) {
 	const [lobbyId, setLobbyId] = useState<string>("");
@@ -69,7 +31,7 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [ownerPlayerId, setOwnerPlayerId] = useState<string | null>(null);
 	const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 	const [activities, setActivities] = useState<ActivityRow[]>([]);
-	const [votesByAct, setVotesByAct] = useState<Record<string, { legit: number; sus: number; mine?: "legit" | "sus" }>>({});
+	const [votesByAct, setVotesByAct] = useState<Record<string, VoteSummary>>({});
 	const { user, isHydrated } = useAuth();
 	const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
 	const [adjustTarget, setAdjustTarget] = useState<string>("");
@@ -78,13 +40,13 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const [historyEvents, setHistoryEvents] = useState<EventRow[]>([]);
 	const [lobbyName, setLobbyName] = useState<string>("");
 	const [feedFilter, setFeedFilter] = useState<"all" | "activities">("all");
-const [signedUrlByAct, setSignedUrlByAct] = useState<Record<string, string>>({});
-const toast = useToast();
-const [currentPot, setCurrentPot] = useState<number | null>(null);
-const [potInput, setPotInput] = useState<string>("");
+	const [signedUrlByAct, setSignedUrlByAct] = useState<Record<string, string>>({});
+	const toast = useToast();
+	const [currentPot, setCurrentPot] = useState<number | null>(null);
+	const [potInput, setPotInput] = useState<string>("");
 	const isOwnerUser = ownerUserId && user?.id === ownerUserId;
 
-		const reloadActivities = useCallback(async (lid: string = lobbyId) => {
+	const reloadActivities = useCallback(async (lid: string = lobbyId) => {
 		if (!lid) return;
 		if (!isHydrated || !user?.id) return;
 		try {
@@ -98,98 +60,23 @@ const [potInput, setPotInput] = useState<string>("");
 				return;
 			}
 			const data = await res.json();
-			const rawActivities = (data?.activities ?? []) as any[];
-				const normalizedActivities: ActivityRow[] = rawActivities.map((a: any) => ({
-					...a,
-					player_id: a.player_id ?? a.playerId,
-					player_snapshot: a.player_snapshot ?? a.playerSnapshot ?? null,
-					player_name: a.player_name ?? a.playerName ?? a.player_snapshot?.name ?? null,
-					player_avatar_url: a.player_avatar_url ?? a.playerAvatarUrl ?? a.player_snapshot?.avatar_url ?? null,
-					player_user_id: a.player_user_id ?? a.playerUserId ?? a.player_snapshot?.user_id ?? null,
-					date: a.date ?? a.createdAt ?? a.created_at ?? "",
-					duration_minutes: a.duration_minutes ?? a.duration ?? null,
-					distance_km: a.distance_km ?? a.distance ?? null,
-					caption: a.caption ?? null,
-					notes: a.notes ?? null,
-					photo_url: a.photo_url ?? a.imageUrl ?? null,
-					vote_deadline: a.vote_deadline ?? a.voteDeadline ?? null,
-					decided_at: a.decided_at ?? a.decidedAt ?? null
-				}));
-				const playerRows = (data?.players ?? []) as any[];
-				const normalizedPlayers: PlayerLite[] = playerRows.map((p: any) => ({
-					id: p.id,
-					name: p.name,
-					avatar_url: p.avatar_url ?? p.avatarUrl ?? null,
-					user_id: p.user_id ?? p.userId ?? null
-				}));
-				const snapshotPlayers: PlayerLite[] = [];
-				for (const act of normalizedActivities) {
-					if (act.player_snapshot && !normalizedPlayers.some(p => p.id === act.player_snapshot?.id)) {
-						snapshotPlayers.push(act.player_snapshot);
-					}
-				}
-				const lobbyRow = data?.lobby as any;
-				setLobbyName(lobbyRow?.name || lid);
-				setOwnerUserId(lobbyRow?.owner_user_id ?? lobbyRow?.ownerUserId ?? null);
-				if (typeof lobbyRow?.cash_pool === "number") {
-					setCurrentPot(lobbyRow.cash_pool);
-					setPotInput(String(lobbyRow.cash_pool));
-				}
-
-				const comments = (data?.comments ?? []) as CommentRow[];
-				const commentEvents: EventRow[] = comments.map(c => ({
-					id: c.id,
-					lobby_id: lid,
-					origin: "comment",
-					actor_player_id: c.primary_player_id || null,
-					actor_name: c.primary_player_id ? normalizedPlayers.find(p => p.id === c.primary_player_id)?.name ?? null : null,
-					target_player_id: null,
-					type: "COMMENT",
-					payload: { rendered: c.rendered, commentType: c.type },
-					created_at: c.created_at
-				}));
-				const rawEvents = ((data?.events ?? []) as EventRow[]).map(ev => {
-					const evAny = ev as any;
-					return {
-						...ev,
-						origin: "history" as const,
-						actor_snapshot: ev.actor_snapshot ?? evAny.actorSnapshot ?? null,
-						target_snapshot: ev.target_snapshot ?? evAny.targetSnapshot ?? null,
-						actor_name: ev.actor_name ?? ev.actor_snapshot?.name ?? null,
-						target_name: ev.target_name ?? ev.target_snapshot?.name ?? null
-					};
-				});
-				for (const ev of rawEvents) {
-					if (ev.actor_snapshot && !normalizedPlayers.some(p => p.id === ev.actor_snapshot?.id)) {
-						snapshotPlayers.push(ev.actor_snapshot);
-					}
-					if (ev.target_snapshot && !normalizedPlayers.some(p => p.id === ev.target_snapshot?.id)) {
-						snapshotPlayers.push(ev.target_snapshot);
-					}
-				}
-				const mergedPlayers = [...normalizedPlayers];
-				for (const snap of snapshotPlayers) {
-					if (snap && !mergedPlayers.some(p => p.id === snap.id)) mergedPlayers.push(snap);
-				}
-				setActivities(normalizedActivities);
-				setPlayers(mergedPlayers);
-
-				const combinedEvents = ([...rawEvents, ...commentEvents] as EventRow[]).sort(
-					(a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-				);
-			setHistoryEvents(combinedEvents);
-
-			const ownerId = data?.ownerPlayerId as string | null | undefined;
-			if (ownerId) {
-				setOwnerPlayerId(ownerId);
-			} else if (data?.ownerUserId && user?.id && data.ownerUserId === user.id) {
-				const ownerPlayer = normalizedPlayers.find(p => p.user_id === user.id);
-				if (ownerPlayer) setOwnerPlayerId(ownerPlayer.id);
+			const normalized = normalizeLobbyHistoryResponse({
+				lobbyId: lid,
+				userId: user?.id,
+				raw: data,
+			});
+			setActivities(normalized.activities);
+			setPlayers(normalized.players);
+			setHistoryEvents(normalized.historyEvents);
+			setLobbyName(normalized.lobbyName);
+			setOwnerUserId(normalized.ownerUserId);
+			if (typeof normalized.currentPot === "number") {
+				setCurrentPot(normalized.currentPot);
+				setPotInput(String(normalized.currentPot));
 			}
-
-			const myPlayer = (data?.myPlayerId as string | null | undefined) ?? normalizedPlayers.find(p => p.user_id === user?.id)?.id ?? null;
-			setMyPlayerId(myPlayer);
-			setVotesByAct(data?.votes ?? {});
+			setOwnerPlayerId(normalized.ownerPlayerId);
+			setMyPlayerId(normalized.myPlayerId);
+			setVotesByAct(normalized.votesByAct);
 		} catch (e) {
 			console.error("history reload error", e);
 		}
@@ -279,43 +166,16 @@ const [potInput, setPotInput] = useState<string>("");
 		};
 	}, [lobbyId, reloadActivities]);
 
-		function playerById(id: string) {
-			return players.find(p => p.id === id);
-		}
-
-		function playerForActivity(activity: ActivityRow) {
-			if (!activity.player_id) return activity.player_snapshot ?? null;
-			const existing = playerById(activity.player_id);
-			if (existing) return existing;
-			if (activity.player_snapshot) return activity.player_snapshot;
-			const fallback: PlayerLite = {
-				id: activity.player_id,
-				name: activity.player_name ?? "Unknown athlete",
-				avatar_url: activity.player_avatar_url ?? null,
-				user_id: activity.player_user_id ?? undefined
-			};
-			return fallback;
-		}
-
 	function canVote(a: ActivityRow) {
-		if (a.decided_at) return false;
-		if ((players?.length || 0) <= 2) return false;
-		if (!myPlayerId || a.player_id === myPlayerId) return false;
-		if (a.status === "pending") {
-			if (a.vote_deadline && new Date(a.vote_deadline).getTime() < Date.now()) return false;
-			return true;
-		}
-		if (a.status === "approved" && !a.decided_at) return true;
-		return false;
+		return canVoteActivity({
+			activity: a,
+			myPlayerId,
+			playerCount: players.length,
+		});
 	}
 
 	function timeLeft(a: ActivityRow) {
-		if (!a.vote_deadline) return "";
-		const ms = new Date(a.vote_deadline).getTime() - Date.now();
-		if (ms <= 0) return "0h";
-		const h = Math.floor(ms / 3600000);
-		const m = Math.floor((ms % 3600000) / 60000);
-		return `${h}h ${m}m`;
+		return timeLeftLabel(a.vote_deadline);
 	}
 
 	async function vote(activityId: string, choice: "legit" | "sus" | "remove") {
@@ -622,7 +482,7 @@ const [potInput, setPotInput] = useState<string>("");
 					}
 
 					const a = item.a as ActivityRow;
-					const p = playerForActivity(a);
+					const p = playerForActivity(a, players);
 					const v = votesByAct[a.id] || { legit: 0, sus: 0 };
 					const pending = a.status === "pending";
 					const statusMap: Record<string, { label: string; className: string }> = {
@@ -947,7 +807,7 @@ function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { ac
 		return acc;
 	}, {});
 
-const canComment = Boolean(user?.id && myPlayerId);
+	const canComment = Boolean(user?.id && myPlayerId);
 
 	const renderComment = (c: PostComment, level: number) => {
 		const children = repliesByParent[c.id] || [];
@@ -1049,56 +909,4 @@ const canComment = Boolean(user?.id && myPlayerId);
 			)}
 		</div>
 	);
-}
-
-function titleCase(s: string) {
-	return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-}
-
-function getInitials(name?: string | null) {
-	if (!name) return "AA";
-	const parts = name.trim().split(/\s+/).filter(Boolean);
-	if (parts.length === 0) return "AA";
-	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-	return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-function renderEventLine(ev: EventRow, players: PlayerLite[]) {
-	const actor =
-		ev.actor_player_id
-			? players.find(p => p.id === ev.actor_player_id)?.name || ev.actor_snapshot?.name || ev.actor_name || "Unknown athlete"
-			: ev.actor_snapshot?.name || ev.actor_name || "System";
-	const target =
-		ev.target_player_id
-			? players.find(p => p.id === ev.target_player_id)?.name || ev.target_snapshot?.name || ev.target_name || "Unknown athlete"
-			: ev.target_snapshot?.name || ev.target_name || "";
-	if (ev.type === "ACTIVITY_LOGGED") return `${actor} posted a workout`;
-	if (ev.type === "VOTE_RESULT") {
-		const result = ev.payload?.result || "decision";
-		return `Vote result: ${result.replace(/_/g, " ")} (${ev.payload?.legit ?? 0} legit · ${ev.payload?.sus ?? 0} sus)`;
-	}
-	if (ev.type === "WEEKLY_TARGET_MET") {
-		const wk = ev.payload?.weeklyTarget ?? "target";
-		const cnt = ev.payload?.workouts ?? "?";
-		const name = ev.target_name || players.find(p => p.id === ev.target_player_id)?.name || "Athlete";
-		return `${name} met weekly target: ${cnt}/${wk}`;
-	}
-	if (ev.type === "WEEKLY_TARGET_MISSED") {
-		const wk = ev.payload?.weeklyTarget ?? "target";
-		const cnt = ev.payload?.workouts ?? "?";
-		const name = ev.target_name || players.find(p => p.id === ev.target_player_id)?.name || "Athlete";
-		return `${name} missed weekly target: ${cnt}/${wk}`;
-	}
-	if (ev.type === "OWNER_OVERRIDE_ACTIVITY") {
-		return `${actor} set an activity to ${String(ev.payload?.newStatus || "").toUpperCase()}${target ? ` for ${target}` : ""}`;
-	}
-	if (ev.type === "OWNER_ADJUST_HEARTS") {
-		const d = Number(ev.payload?.delta || 0);
-		const sign = d > 0 ? "+" : "";
-		return `${actor} adjusted hearts for ${target}: ${sign}${d}${ev.payload?.reason ? ` — ${ev.payload.reason}` : ""}`;
-	}
-	if (ev.type === "COMMENT") {
-		return ev.payload?.rendered || "Comment";
-	}
-	return `${actor || "System"}: ${ev.type}`;
 }

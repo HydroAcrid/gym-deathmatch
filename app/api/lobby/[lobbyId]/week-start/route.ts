@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		// Get the active punishment for this week
 		const { data: activePunishment } = await supabase
 			.from("lobby_punishments")
-			.select("id, text")
+			.select("id, text, week_status")
 			.eq("lobby_id", lobbyId)
 			.eq("week", week)
 			.eq("active", true)
@@ -28,6 +28,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			return jsonError("NO_ACTIVE_PUNISHMENT", "No active punishment found for this week", 404);
 		}
 		
+		// If already active, treat as idempotent success.
+		if ((activePunishment as any).week_status === "ACTIVE") {
+			await supabase.from("lobby").update({ status: "active", stage: "ACTIVE" }).eq("id", lobbyId);
+			void refreshLobbyLiveSnapshot(lobbyId);
+			return NextResponse.json({ ok: true, alreadyStarted: true });
+		}
+
 		// Update week_status to ACTIVE
 		const { error: updateError } = await supabase
 			.from("lobby_punishments")
@@ -42,18 +49,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			.select("season_start, mode, owner_id")
 			.eq("id", lobbyId)
 			.maybeSingle();
+		if (!lobby) {
+			return jsonError("NOT_FOUND", "Lobby not found", 404);
+		}
 		
 		// If this is the first week, set season_start
-		if (lobby && week === 1 && !lobby.season_start) {
+		if (week === 1 && !lobby.season_start) {
 			await supabase
 				.from("lobby")
-				.update({ season_start: new Date().toISOString(), status: "active" })
+				.update({ season_start: new Date().toISOString(), status: "active", stage: "ACTIVE" })
 				.eq("id", lobbyId);
-		} else if (lobby && String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE")) {
+		} else if (String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE")) {
 			// For challenge roulette, ensure status is active
 			await supabase
 				.from("lobby")
-				.update({ status: "active" })
+				.update({ status: "active", stage: "ACTIVE" })
 				.eq("id", lobbyId);
 		}
 		
