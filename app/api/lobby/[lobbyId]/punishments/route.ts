@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { resolvePunishmentWeek } from "@/lib/challengeWeek";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			return jsonError("PUNISHMENT_INSERT_FAILED", "Failed to save punishment", 400);
 		}
 
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		logError({ route: "POST /api/lobby/[id]/punishments", code: "PUNISHMENT_SAVE_FAILED", err: e, lobbyId });

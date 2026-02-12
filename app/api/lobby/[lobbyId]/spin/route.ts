@@ -3,6 +3,7 @@ import { onSpin } from "@/lib/commentary";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { resolvePunishmentWeek } from "@/lib/challengeWeek";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			logError({ route: "POST /api/lobby/[id]/spin", code: "QUIP_SPIN_FAILED", err: e, lobbyId });
 		}
 	}
+	void refreshLobbyLiveSnapshot(lobbyId);
 	return NextResponse.json({
 		ok: true,
 		chosen,

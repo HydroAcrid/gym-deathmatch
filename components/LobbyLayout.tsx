@@ -71,6 +71,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const [summaryOpen, setSummaryOpen] = useState(false);
 	const [summaryPeriod, setSummaryPeriod] = useState<"daily"|"weekly">("daily");
 	const [summarySeenKey, setSummarySeenKey] = useState<string | null>(null);
+	const summaryRunRef = useRef<string | null>(null);
 	const [potAmount, setPotAmount] = useState<number>(currentPot);
 	const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 	const [openManual, setOpenManual] = useState(false);
@@ -118,6 +119,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	// Period summary overlay (daily/weekly)
 	useEffect(() => {
 		if (!user?.id || !lobbyData?.id) return;
+		if (!players.length) return;
 		const keyDaily = `period-summary-daily-${lobbyData.id}`;
 		const keyWeekly = `period-summary-weekly-${lobbyData.id}`;
 		const today = new Date();
@@ -135,14 +137,26 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		const shouldShowWeekly = seenWeekly !== weekKey;
 		const shouldShowDaily = seenDaily !== dayKey;
 		if (!shouldShowWeekly && !shouldShowDaily) return;
+		const targetPeriod: "weekly" | "daily" = shouldShowWeekly ? "weekly" : "daily";
+		const targetValue = targetPeriod === "weekly" ? weekKey : dayKey;
+		const runKey = `${lobbyData.id}|${targetPeriod}|${targetValue}`;
+		if (summaryRunRef.current === runKey) return;
+		summaryRunRef.current = runKey;
+		let cancelled = false;
 
 		(async () => {
 			try {
 				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyData.id)}/summary`, { cache: "no-store" });
-				if (!res.ok) return;
+				if (!res.ok) {
+					summaryRunRef.current = null;
+					return;
+				}
 				const j = await res.json();
 				const data = j.summary;
-				if (!data) return;
+				if (!data) {
+					summaryRunRef.current = null;
+					return;
+				}
 
 				// Keep hearts summary aligned with the latest live player projection.
 				const livePlayers = ((liveData as any)?.players ?? liveData?.lobby?.players ?? lobbyData.players ?? []) as any[];
@@ -182,21 +196,27 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					};
 				}
 
+				if (cancelled) return;
 				setPeriodSummary(data);
 				if (shouldShowWeekly && data.weekly) {
+					if (typeof window !== "undefined") localStorage.setItem(keyWeekly, weekKey);
 					setSummaryPeriod("weekly");
 					setSummaryOpen(true);
 					setSummarySeenKey(`${keyWeekly}|${weekKey}`);
 				} else if (shouldShowDaily && data.daily) {
+					if (typeof window !== "undefined") localStorage.setItem(keyDaily, dayKey);
 					setSummaryPeriod("daily");
 					setSummaryOpen(true);
 					setSummarySeenKey(`${keyDaily}|${dayKey}`);
 				}
 			} catch {
-				// ignore
+				summaryRunRef.current = null;
 			}
 		})();
-	}, [user?.id, lobbyData?.id, liveData?.lobby?.players?.length]);
+		return () => {
+			cancelled = true;
+		};
+	}, [user?.id, lobbyData?.id, players.length, liveData?.lobby?.players?.length]);
 
 	// Show connection errors
 	useEffect(() => {

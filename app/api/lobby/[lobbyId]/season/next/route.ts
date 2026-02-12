@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			logError({ route: "POST /api/lobby/[id]/season/next", code: "USER_READY_CLEAR_FAILED", err: e, lobbyId });
 		}
 
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ 
 			ok: true, 
 			seasonNumber: newSeasonNumber,

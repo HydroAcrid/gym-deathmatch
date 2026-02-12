@@ -3,6 +3,7 @@ import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { runWeeklyRouletteJob } from "@/lib/rouletteJobs";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 type PlayerLite = {
 	id: string;
@@ -232,6 +233,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			actions.push("SEASON_SUMMARY_WRITTEN");
 		}
 
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true, actions });
 	} catch (e) {
 		logError({ route: "POST /api/lobby/[id]/reconcile", code: "RECONCILE_FAILED", err: e, lobbyId });

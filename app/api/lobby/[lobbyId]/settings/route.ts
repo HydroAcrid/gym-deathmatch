@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -62,12 +63,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 			delete patch.invite_token_required;
 			delete patch.invite_token;
 			if (Object.keys(patch).length === 0) {
+				void refreshLobbyLiveSnapshot(lobbyId);
 				return NextResponse.json({ ok: true, inviteControlsSkipped: true });
 			}
 			const retry = await supabase.from("lobby").update(patch).eq("id", lobbyId);
 			error = retry.error;
 		}
 		if (error) throw error;
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		console.error("settings patch error", e);

@@ -3,6 +3,7 @@ import { onActivityLogged } from "@/lib/commentary";
 import type { Activity } from "@/lib/types";
 import { calculateStreakFromActivities } from "@/lib/streaks";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 type ActivityCommentRow = {
 	primary_player_id: string | null;
@@ -140,6 +141,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				}
 			} catch { /* ignore */ }
 
+		void refreshLobbyLiveSnapshot(lobbyId, requestTimezoneOffsetMinutes);
 		return NextResponse.json({
 			id: data.id,
 			lobbyId: data.lobby_id,

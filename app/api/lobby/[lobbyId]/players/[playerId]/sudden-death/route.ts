@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string; playerId: string }> }) {
 	const { lobbyId, playerId } = await params;
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		if (!p || p.lobby_id !== lobbyId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 		const { error } = await supabase.from("player").update({ sudden_death: enabled }).eq("id", playerId);
 		if (error) throw error;
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
