@@ -11,14 +11,14 @@ import {
   Dumbbell,
   Flame,
   Calendar,
-  Clock,
   TrendingUp,
   Crown,
-  Award,
-  Medal,
   MapPin,
+  ChevronDown,
+  ExternalLink,
 } from "lucide-react";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { calculatePoints } from "@/lib/points";
 
 /* ---------- Types ---------- */
 
@@ -50,14 +50,19 @@ type EnrichedPlayer = {
   longestStreak: number;
   livesRemaining: number;
   weeklyTarget: number;
+  heartsTimeline?: Array<{ weekStart: string; workouts: number }>;
   recentActivities: Array<{
-    id: string;
-    date: string;
-    type: string;
-    duration_minutes: number;
-    distance_km?: number | null;
+    id?: string;
+    name?: string;
     caption?: string | null;
-    source: string;
+    type?: string;
+    startDate?: string;
+    date?: string;
+    durationMinutes?: number;
+    duration_minutes?: number;
+    distanceKm?: number | null;
+    distance_km?: number | null;
+    source?: string;
   }>;
 };
 
@@ -96,6 +101,14 @@ type AggregatedStats = {
     rank: number;
     workouts: number;
     result: string;
+    points: number;
+    currentStreak: number;
+    longestStreak: number;
+    hearts: number;
+    weeklyProgress: number;
+    weeklyTarget: number;
+    seasonStart: string | null;
+    seasonEnd: string | null;
   }>;
   recentWorkouts: Array<{
     id: string;
@@ -119,6 +132,7 @@ function formatDuration(minutes: number): string {
 }
 
 function formatTimeAgo(date: Date): string {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "recently";
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffHours = Math.floor(diffMs / 3600000);
@@ -138,6 +152,13 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+function formatDateShort(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 /* ---------- Component ---------- */
 
 export default function ProfilePage() {
@@ -151,7 +172,6 @@ export default function ProfilePage() {
   // Fetch profile + lobbies
   useEffect(() => {
     if (!user?.id) return;
-    setLoading(true);
 
     Promise.all([
       authFetch(`/api/profile`).then((r) => (r.ok ? r.json() : null)),
@@ -162,8 +182,9 @@ export default function ProfilePage() {
         const lobbyList = lobbiesRes?.lobbies ?? [];
         setLobbies(lobbyList);
 
-        // Fetch live data for each lobby (up to 10 most recent)
-        const recent = lobbyList.slice(0, 10);
+        // Fetch live data for all joined/owned lobbies to keep profile stats accurate.
+        // Lobby count is capped server-side, so this remains bounded.
+        const recent = lobbyList;
         return Promise.all(
           recent.map((l: LobbyRow) =>
             authFetch(`/api/lobby/${l.id}/live`)
@@ -219,6 +240,11 @@ export default function ProfilePage() {
       // Rank by workouts in this lobby
       const sorted = [...live.lobby.players].sort((a, b) => b.totalWorkouts - a.totalWorkouts);
       const rank = sorted.findIndex((p) => p.userId === userId) + 1;
+      const weeklyProgress = (() => {
+        const timeline = Array.isArray(me.heartsTimeline) ? me.heartsTimeline : [];
+        if (!timeline.length) return 0;
+        return timeline[timeline.length - 1]?.workouts ?? 0;
+      })();
 
       let result = "IN PROGRESS";
       if (live.lobby.stage === "COMPLETED") {
@@ -238,27 +264,50 @@ export default function ProfilePage() {
         rank,
         workouts: me.totalWorkouts,
         result,
+        points: calculatePoints({ workouts: me.totalWorkouts, streak: me.currentStreak ?? 0 }),
+        currentStreak: me.currentStreak ?? 0,
+        longestStreak: me.longestStreak ?? 0,
+        hearts: me.livesRemaining ?? 0,
+        weeklyProgress,
+        weeklyTarget: me.weeklyTarget ?? 3,
+        seasonStart: lobby.season_start ?? null,
+        seasonEnd: lobby.season_end ?? null,
       });
 
       // Collect recent activities
       if (me.recentActivities) {
-        for (const act of me.recentActivities) {
+        for (let idx = 0; idx < me.recentActivities.length; idx++) {
+          const act = me.recentActivities[idx];
+          const rawDate = act.startDate || act.date;
+          if (!rawDate) continue;
+          const parsedDate = new Date(rawDate);
+          if (Number.isNaN(parsedDate.getTime())) continue;
+          const duration = Number(act.durationMinutes ?? act.duration_minutes ?? 0);
+          const distanceRaw = act.distanceKm ?? act.distance_km;
+          const distance = typeof distanceRaw === "number" ? distanceRaw : null;
+          const title = act.caption || act.name || `${act.type || "Workout"} workout`;
+          const stableId = act.id || `${lobby.id}:${rawDate}:${act.type || "workout"}:${idx}`;
           allWorkouts.push({
-            id: act.id,
-            title: act.caption || `${act.type} workout`,
+            id: stableId,
+            title,
             type: act.type || "workout",
-            duration: act.duration_minutes || 0,
-            distance: act.distance_km,
-            date: new Date(act.date),
-            source: act.source,
+            duration: Number.isFinite(duration) ? duration : 0,
+            distance,
+            date: parsedDate,
+            source: act.source || "manual",
             lobbyName: lobby.name,
           });
         }
       }
     }
 
+    // De-dup by id in case live payload includes repeated entries.
+    const dedupedWorkouts = Array.from(
+      new Map(allWorkouts.map((w) => [w.id, w])).values()
+    );
+
     // Sort workouts by date descending
-    allWorkouts.sort((a, b) => b.date.getTime() - a.date.getTime());
+    dedupedWorkouts.sort((a, b) => b.date.getTime() - a.date.getTime());
 
     return {
       totalWorkouts,
@@ -269,13 +318,21 @@ export default function ProfilePage() {
       currentHearts,
       maxHearts,
       lobbies: lobbyEntries,
-      recentWorkouts: allWorkouts.slice(0, 20),
+      recentWorkouts: dedupedWorkouts.slice(0, 20),
     };
   }, [user?.id, lobbies, liveData]);
 
   const displayName = profile?.displayName || user?.user_metadata?.full_name || "ATHLETE";
   const initials = getInitials(displayName);
   const location = profile?.location || "";
+  const seasonRows = useMemo(() => {
+    return [...stats.lobbies].sort((a, b) => {
+      const activeRank = (s: string) => (s === "ACTIVE" ? 0 : s === "COMPLETED" ? 1 : 2);
+      const byStage = activeRank(a.stage) - activeRank(b.stage);
+      if (byStage !== 0) return byStage;
+      return b.seasonNumber - a.seasonNumber;
+    });
+  }, [stats.lobbies]);
 
   if (!user) {
     return (
@@ -516,40 +573,72 @@ export default function ProfilePage() {
                 SEASON PARTICIPATION
               </h3>
             </div>
-            {stats.lobbies.length === 0 ? (
+            {seasonRows.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-sm">No seasons found.</div>
             ) : (
               <div className="divide-y divide-border/50">
-                {stats.lobbies.map((s) => (
-                  <Link
-                    key={s.id}
-                    href={`/lobby/${s.id}`}
-                    className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors block"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-display font-bold">{s.name.toUpperCase()}</span>
-                        {s.result === "CHAMPION" && <Crown className="w-4 h-4 text-arena-gold" />}
+                {seasonRows.map((s) => (
+                  <details key={`${s.id}-${s.seasonNumber}`} className="group">
+                    <summary className="list-none p-4 hover:bg-muted/30 transition-colors cursor-pointer">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-display font-bold">{s.name.toUpperCase()}</span>
+                            {s.result === "CHAMPION" && <Crown className="w-4 h-4 text-arena-gold" />}
+                          </div>
+                          <p className="text-sm text-muted-foreground">Season {s.seasonNumber}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div
+                              className={`arena-badge text-[10px] mb-1 ${
+                                s.result === "CHAMPION"
+                                  ? "arena-badge-gold"
+                                  : s.stage === "ACTIVE"
+                                    ? "arena-badge-primary"
+                                    : ""
+                              }`}
+                            >
+                              {s.result}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              #{s.rank} • {s.workouts} workouts
+                            </p>
+                          </div>
+                          <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">Season {s.seasonNumber}</p>
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className={`arena-badge text-[10px] mb-1 ${
-                          s.result === "CHAMPION"
-                            ? "arena-badge-gold"
-                            : s.stage === "ACTIVE"
-                              ? "arena-badge-primary"
-                              : ""
-                        }`}
-                      >
-                        {s.result}
+                    </summary>
+                    <div className="px-4 pb-4 pt-1 border-t border-border/40 bg-muted/10">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div className="scoreboard-panel p-3">
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Points</div>
+                          <div className="font-display text-lg text-primary">{s.points}</div>
+                        </div>
+                        <div className="scoreboard-panel p-3">
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Streak</div>
+                          <div className="font-display text-lg text-primary">{s.currentStreak}</div>
+                        </div>
+                        <div className="scoreboard-panel p-3">
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Hearts</div>
+                          <div className="font-display text-lg text-primary">{s.hearts}</div>
+                        </div>
+                        <div className="scoreboard-panel p-3">
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Goal</div>
+                          <div className="font-display text-lg text-primary">{s.weeklyProgress}/{s.weeklyTarget}</div>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        #{s.rank} • {s.workouts} workouts
-                      </p>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateShort(s.seasonStart)} → {formatDateShort(s.seasonEnd)}
+                        </p>
+                        <Link href={`/lobby/${s.id}`} className="arena-badge px-3 py-2 text-[10px] inline-flex items-center gap-1">
+                          OPEN LOBBY
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      </div>
                     </div>
-                  </Link>
+                  </details>
                 ))}
               </div>
             )}
