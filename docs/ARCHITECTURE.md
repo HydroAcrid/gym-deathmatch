@@ -59,6 +59,10 @@
 1. DB-level invariants and RLS/service-role assumptions are documented in `docs/DB_SECURITY.md`.
 2. Critical queue/spin/owner integrity rules must be enforced in schema, not only app code.
 
+## UI Composition
+1. UI layering and ownership/deprecation map are documented in `docs/UI_OWNERSHIP.md`.
+2. Target pattern is `page -> adapter -> ui2 components`.
+
 ## Near-Term Refactor Priorities
 1. Decompose `lib/liveSnapshot.ts` into smaller domain services.
 2. Move vote resolution logic out of route handlers into domain services.

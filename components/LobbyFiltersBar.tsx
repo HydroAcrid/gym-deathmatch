@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * @deprecated Use `src/ui2/components/LobbyFiltersBar.tsx`.
+ * This component is retained temporarily for legacy imports.
+ */
 import { useState, useMemo } from "react";
 
 export type SortOption = 
@@ -144,4 +148,3 @@ export function LobbyFiltersBar({
 		</div>
 	);
 }
-
