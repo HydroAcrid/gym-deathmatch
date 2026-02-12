@@ -376,6 +376,18 @@ export function renderEventLine(ev: EventRow, players: PlayerLite[]): string {
 		: ev.target_snapshot?.name || ev.target_name || "";
 
 	if (ev.type === "ACTIVITY_LOGGED") return `${actor} posted a workout`;
+	if (ev.type === "PUNISHMENT_SPUN") {
+		const text = String(ev.payload?.text ?? "").trim();
+		const week = ev.payload?.week ? `Week ${ev.payload.week}: ` : "";
+		return `${week}Roulette selected${text ? ` "${text}"` : " a punishment"}.`;
+	}
+	if (ev.type === "WEEK_STARTED") {
+		const week = ev.payload?.week ? `Week ${ev.payload.week}` : "Week";
+		const punishment = String(ev.payload?.punishment ?? "").trim();
+		return punishment
+			? `${week} armed. Punishment active: "${punishment}".`
+			: `${week} armed. Fight!`;
+	}
 	if (ev.type === "VOTE_RESULT") {
 		const result = String(ev.payload?.result ?? "decision");
 		const legit = Number(ev.payload?.legit ?? 0);

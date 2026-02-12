@@ -105,7 +105,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	if (!chosen) return jsonError("SPIN_WINNER_NOT_FOUND", "Spin winner not found", 500);
 	// Enforce active row from canonical spin-event winner
 	await supabase.from("lobby_punishments").update({ active: false, week_status: null }).eq("lobby_id", lobbyId).eq("week", week);
-	await supabase.from("lobby_punishments").update({ active: true, week_status: "PENDING_CONFIRMATION" }).eq("id", chosen.id);
+	await supabase.from("lobby_punishments").update({ active: true, week_status: "ACTIVE" }).eq("id", chosen.id);
+	const lobbyPatch: Record<string, unknown> = { status: "active", stage: "ACTIVE" };
+	if (week === 1 && !(lobby as any).season_start) {
+		lobbyPatch.season_start = new Date().toISOString();
+	}
+	await supabase.from("lobby").update(lobbyPatch).eq("id", lobbyId);
 	
 	if (createdSpinEvent) {
 		// Reset all week-ready states for this week
@@ -126,6 +131,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					spinId: spinEvent.id,
 					startedAt: spinEvent.started_at,
 					winnerItemId: spinEvent.winner_item_id
+				}
+			});
+			await supabase.from("history_events").insert({
+				lobby_id: lobbyId,
+				type: "WEEK_STARTED",
+				payload: {
+					week,
+					punishment: chosen.text,
+					viaSpin: true
 				}
 			});
 			} catch (e) {

@@ -67,13 +67,26 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 			const weekByDate = currentWeekIndex(lobby.season_start as string);
 			let status = String(lobby.status || "active");
 			if (status === "active" && weekByDate > 1) {
-				await supabase
-					.from("lobby")
-					.update({ status: "transition_spin", stage: "ACTIVE" })
-					.eq("id", lobbyId)
-					.eq("status", "active");
-				status = "transition_spin";
-				transitioned += 1;
+				// Only enter transition if the date-derived current week has not started yet.
+				// This prevents cron from re-opening the wheel for already-active weeks.
+				const { data: currentWeekRows } = await supabase
+					.from("lobby_punishments")
+					.select("week_status")
+					.eq("lobby_id", lobbyId)
+					.eq("week", weekByDate);
+				const hasStartedCurrentWeek = (currentWeekRows || []).some((row: any) => {
+					const wkStatus = String(row?.week_status || "");
+					return wkStatus === "ACTIVE" || wkStatus === "COMPLETE";
+				});
+				if (!hasStartedCurrentWeek) {
+					await supabase
+						.from("lobby")
+						.update({ status: "transition_spin", stage: "ACTIVE" })
+						.eq("id", lobbyId)
+						.eq("status", "active");
+					status = "transition_spin";
+					transitioned += 1;
+				}
 			}
 			if (status !== "transition_spin") {
 				skipped.push(`${lobbyId}:STATUS_${status}`);
