@@ -8,6 +8,7 @@ import { useState } from "react";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { authFetch } from "@/lib/clientAuth";
 import { calculatePoints, POINTS_FORMULA_TEXT } from "@/lib/points";
+import { Coins, Dumbbell, Flame, Heart, Trophy, TrendingUp } from "lucide-react";
 
 export function SeasonCompleteOverlay({
 	lobbyId,
@@ -140,7 +141,7 @@ export function SeasonCompleteOverlay({
 											}`}
 										>
 											{player.isWinner && (
-												<span className="text-2xl">🏆</span>
+												<Trophy className="h-6 w-6 text-primary" />
 											)}
 											<div className="h-12 w-12 rounded-full overflow-hidden border-2 border-border flex-shrink-0">
 												{player.avatarUrl ? (
@@ -152,13 +153,23 @@ export function SeasonCompleteOverlay({
 														className="object-cover"
 													/>
 												) : (
-													<div className="h-full w-full flex items-center justify-center text-xl bg-muted">🏋️</div>
+													<div className="h-full w-full flex items-center justify-center bg-muted">
+														<Dumbbell className="h-5 w-5 text-primary" />
+													</div>
 												)}
 											</div>
 											<div className="flex-1 min-w-0">
 												<div className="font-display tracking-widest text-primary text-base truncate">{player.name.toUpperCase()}</div>
-												<div className="text-xs text-muted-foreground">
-													🏆 {player.points ?? 0} pts • ❤️ {player.hearts} • {player.totalWorkouts} workouts
+												<div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+													<span className="inline-flex items-center gap-1">
+														<Trophy className="h-3 w-3 text-primary" /> {player.points ?? 0} pts
+													</span>
+													<span>•</span>
+													<span className="inline-flex items-center gap-1">
+														<Heart className="h-3 w-3 text-primary" /> {player.hearts}
+													</span>
+													<span>•</span>
+													<span>{player.totalWorkouts} workouts</span>
 												</div>
 											</div>
 										</motion.div>
@@ -184,28 +195,40 @@ export function SeasonCompleteOverlay({
 								<div className="space-y-3">
 									{seasonSummary.highlights.longestStreak && (
 										<div className="p-3 rounded-md border border-border bg-muted/10">
-											<div className="text-xs text-muted-foreground mb-1">🔥 LONGEST STREAK</div>
+											<div className="text-xs text-muted-foreground mb-1 inline-flex items-center gap-1">
+												<Flame className="h-3.5 w-3.5 text-primary" />
+												<span>LONGEST STREAK</span>
+											</div>
 											<div className="font-display tracking-widest text-primary text-lg">{seasonSummary.highlights.longestStreak.playerName}</div>
 											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.longestStreak.streak} days</div>
 										</div>
 									)}
 									{seasonSummary.highlights.mostWorkouts && (
 										<div className="p-3 rounded-md border border-border bg-muted/10">
-											<div className="text-xs text-muted-foreground mb-1">💪 MOST WORKOUTS</div>
+											<div className="text-xs text-muted-foreground mb-1 inline-flex items-center gap-1">
+												<Dumbbell className="h-3.5 w-3.5 text-primary" />
+												<span>MOST WORKOUTS</span>
+											</div>
 											<div className="font-display tracking-widest text-primary text-lg">{seasonSummary.highlights.mostWorkouts.playerName}</div>
 											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.mostWorkouts.count} total</div>
 										</div>
 									)}
 									{seasonSummary.highlights.mostConsistent && (
 										<div className="p-3 rounded-md border border-border bg-muted/10">
-											<div className="text-xs text-muted-foreground mb-1">📈 MOST CONSISTENT</div>
+											<div className="text-xs text-muted-foreground mb-1 inline-flex items-center gap-1">
+												<TrendingUp className="h-3.5 w-3.5 text-primary" />
+												<span>MOST CONSISTENT</span>
+											</div>
 											<div className="font-display tracking-widest text-primary text-lg">{seasonSummary.highlights.mostConsistent.playerName}</div>
 											<div className="text-sm text-muted-foreground">{seasonSummary.highlights.mostConsistent.avgPerWeek.toFixed(1)} avg/week</div>
 										</div>
 									)}
 									{isMoney && (
 										<div className="p-3 rounded-md border border-border bg-muted/10">
-											<div className="text-xs text-muted-foreground mb-1">💰 FINAL POT</div>
+											<div className="text-xs text-muted-foreground mb-1 inline-flex items-center gap-1">
+												<Coins className="h-3.5 w-3.5 text-primary" />
+												<span>FINAL POT</span>
+											</div>
 											<div className="font-display tracking-widest text-primary text-2xl">${seasonSummary.finalPot}</div>
 										</div>
 									)}

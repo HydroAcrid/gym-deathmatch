@@ -2,6 +2,7 @@
 
 import { cloneElement, isValidElement, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Camera, Coins, Flame, Heart, Smartphone, Swords } from "lucide-react";
 
 const STEPS = [
 	{
@@ -9,42 +10,42 @@ const STEPS = [
 		headline: "WELCOME TO GYM DEATHMATCH",
 		text: "Compete with friends to keep your streak alive. Lose all lives and you owe the pot.",
 		sub: "Seasonal, brutal, and completely fair. Ready?",
-		visual: "🥊"
+		visual: <Swords className="h-7 w-7 text-primary" />
 	},
 	{
 		key: "hearts",
-		headline: "💗 HEARTS ARE YOUR LIVES",
+		headline: "HEARTS ARE YOUR LIVES",
 		text: "You start each season with 3 hearts. Miss your weekly goal and lose one. Hit your target — earn one back.",
 		sub: "Fall to zero hearts, and you're out.",
-		visual: "💗"
+		visual: <Heart className="h-7 w-7 text-primary" />
 	},
 	{
 		key: "workouts",
-		headline: "🏋️‍♂️ POST YOUR WORKOUTS",
+		headline: "POST YOUR WORKOUTS",
 		text: "Connect Strava for auto-tracking — or log workouts manually with a photo.",
-		sub: "Friends can vote if a manual post looks sus 👀. Majority wins.",
-		visual: "📸"
+		sub: "Friends can vote if a manual post looks suspicious. Majority wins.",
+		visual: <Camera className="h-7 w-7 text-primary" />
 	},
 	{
 		key: "pot",
-		headline: "💰 THE POT IS ON THE LINE",
+		headline: "THE POT IS ON THE LINE",
 		text: "Everyone adds to the weekly ante. The pot grows until someone loses all lives.",
 		sub: "Owners can customize the starting pot, weekly ante, and scaling rules.",
-		visual: "💵"
+		visual: <Coins className="h-7 w-7 text-primary" />
 	},
 	{
 		key: "install",
 		headline: "ADD GYM DEATHMATCH TO YOUR HOME SCREEN",
 		text: "Turn Gym Deathmatch into a real app on your phone — opens faster, smoother, and works fullscreen.",
-		sub: "📱 iOS: Share → Add to Home Screen\n⭐ Android: Menu → Install App",
-		visual: "📲"
+		sub: "iOS: Share → Add to Home Screen\nAndroid: Menu → Install App",
+		visual: <Smartphone className="h-7 w-7 text-primary" />
 	},
 	{
 		key: "victory",
-		headline: "🔥 SURVIVE THE SEASON",
+		headline: "SURVIVE THE SEASON",
 		text: "When someone gets KO’d, the match ends. Winner takes bragging rights — loser pays the price.",
 		sub: "Each KO is logged in the History feed, forever.",
-		visual: "⚡"
+		visual: <Flame className="h-7 w-7 text-primary" />
 	}
 ] as const;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { Coins, Sparkles, Trophy } from "lucide-react";
 
 export function WinnerOverlay({
 	open,
@@ -59,17 +60,17 @@ export function WinnerOverlay({
 					>
 						{/* confetti */}
 						<div className="pointer-events-none absolute inset-0">
-							<div className="absolute -top-2 left-1/4 animate-bounce">🎉</div>
-							<div className="absolute -top-2 left-1/2 animate-bounce">🎊</div>
-							<div className="absolute -top-2 left-3/4 animate-bounce">✨</div>
+							<div className="absolute -top-2 left-1/4 animate-bounce"><Sparkles className="h-5 w-5 text-primary" /></div>
+							<div className="absolute -top-2 left-1/2 animate-bounce"><Sparkles className="h-5 w-5 text-arena-gold" /></div>
+							<div className="absolute -top-2 left-3/4 animate-bounce"><Sparkles className="h-5 w-5 text-primary" /></div>
 							{/* coin pour */}
-							<div className="absolute -top-4 right-8 animate-[fall_1.2s_linear_infinite]">🪙</div>
-							<div className="absolute -top-4 right-14 animate-[fall_1.4s_linear_infinite]">🪙</div>
-							<div className="absolute -top-4 right-20 animate-[fall_1.6s_linear_infinite]">🪙</div>
+							<div className="absolute -top-4 right-8 animate-[fall_1.2s_linear_infinite]"><Coins className="h-5 w-5 text-arena-gold" /></div>
+							<div className="absolute -top-4 right-14 animate-[fall_1.4s_linear_infinite]"><Coins className="h-5 w-5 text-arena-gold" /></div>
+							<div className="absolute -top-4 right-20 animate-[fall_1.6s_linear_infinite]"><Coins className="h-5 w-5 text-arena-gold" /></div>
 						</div>
 						<div className="font-display text-2xl text-primary mb-2">WINNER</div>
 						<div className="mx-auto h-20 w-20 rounded-full overflow-hidden bg-muted/30 border border-border mb-2">
-							{winnerAvatar ? <img src={winnerAvatar} alt="winner" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-3xl">🏆</div>}
+							{winnerAvatar ? <img src={winnerAvatar} alt="winner" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center"><Trophy className="h-8 w-8 text-primary" /></div>}
 						</div>
 						<div className="font-display text-xl text-foreground mb-1">{winnerName.toUpperCase()}</div>
 						<div className="text-sm text-muted-foreground mb-4">survives them all • Pot: ${displayPot || pot}</div>
@@ -79,7 +80,7 @@ export function WinnerOverlay({
 								className="arena-badge px-4 py-2 text-xs"
 								onClick={async () => {
 									const url = typeof window !== "undefined" ? window.location.href : "";
-									const text = `🏆 ${winnerName} wins Gym Deathmatch! Pot: $${pot}`;
+									const text = `${winnerName} wins Gym Deathmatch! Pot: $${pot}`;
 									try {
 										if (navigator.share) {
 											await navigator.share({ title: "Gym Deathmatch", text, url });
@@ -98,5 +99,4 @@ export function WinnerOverlay({
 		</AnimatePresence>
 	);
 }
-
 
