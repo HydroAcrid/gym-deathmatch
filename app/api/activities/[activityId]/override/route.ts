@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { getRequestUserId } from "@/lib/requestAuth";
 import {
-	enqueueCommentaryEvent,
 	ensureCommentaryQueueReady,
 	isCommentaryQueueUnavailableError,
 } from "@/lib/commentaryEvents";
+import { emitVoteResolvedEvent } from "@/lib/commentaryProducers";
 import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ activityId: string }> }) {
@@ -45,16 +45,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 			type: "OWNER_OVERRIDE_ACTIVITY",
 			payload: { activityId, previousStatus: act.status, newStatus, reason }
 		});
-		await enqueueCommentaryEvent({
+		await emitVoteResolvedEvent({
 			lobbyId: String(act.lobby_id),
-			type: "VOTE_RESOLVED",
-			key: `vote-result:${activityId}:${newStatus}`,
-			payload: {
-				activityId: String(activityId),
-				playerId: String(act.player_id),
-				result: newStatus as "approved" | "rejected",
-				reason: reason ?? "owner_override",
-			},
+			activityId: String(activityId),
+			playerId: String(act.player_id),
+			result: newStatus as "approved" | "rejected",
+			reason: reason ?? "owner_override",
 		});
 		void processCommentaryQueue({ lobbyId: String(act.lobby_id), limit: 80, maxMs: 600 }).catch((err) => {
 			console.error("override commentary tail-process failed", err);

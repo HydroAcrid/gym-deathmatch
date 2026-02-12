@@ -1,4 +1,3 @@
-import { createHash } from "crypto";
 import { getServerSupabase } from "@/lib/supabaseClient";
 
 export type CommentaryEventType =
@@ -132,22 +131,6 @@ export function isCommentaryQueueUnavailableError(err: unknown): boolean {
 		message.includes("commentary_rule_runs") ||
 		message.includes("commentary_emitted")
 	);
-}
-
-function stableSerialize(value: unknown): string {
-	if (value === null || value === undefined) return "null";
-	if (Array.isArray(value)) return `[${value.map((v) => stableSerialize(v)).join(",")}]`;
-	if (typeof value === "object") {
-		const obj = value as Record<string, unknown>;
-		const keys = Object.keys(obj).sort();
-		return `{${keys.map((k) => `${JSON.stringify(k)}:${stableSerialize(obj[k])}`).join(",")}}`;
-	}
-	return JSON.stringify(value);
-}
-
-export function buildCommentaryEventKey(prefix: string, payload: unknown): string {
-	const hash = createHash("sha256").update(stableSerialize(payload)).digest("hex").slice(0, 24);
-	return `${prefix}:${hash}`;
 }
 
 export async function ensureCommentaryQueueReady(): Promise<void> {

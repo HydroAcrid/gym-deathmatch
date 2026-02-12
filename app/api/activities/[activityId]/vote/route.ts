@@ -2,35 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { getRequestUserId } from "@/lib/requestAuth";
 import {
-	enqueueCommentaryEvent,
 	ensureCommentaryQueueReady,
 	isCommentaryQueueUnavailableError,
 } from "@/lib/commentaryEvents";
+import { emitVoteResolvedEvent } from "@/lib/commentaryProducers";
 import { processCommentaryQueue } from "@/lib/commentaryProcessor";
-
-async function enqueueVoteResolvedEvent(input: {
-	lobbyId: string;
-	activityId: string;
-	playerId: string;
-	result: "approved" | "rejected";
-	reason?: string | null;
-	legit?: number;
-	sus?: number;
-}) {
-	await enqueueCommentaryEvent({
-		lobbyId: input.lobbyId,
-		type: "VOTE_RESOLVED",
-		key: `vote-result:${input.activityId}:${input.result}`,
-		payload: {
-			activityId: input.activityId,
-			playerId: input.playerId,
-			result: input.result,
-			reason: input.reason ?? null,
-			legit: input.legit ?? null,
-			sus: input.sus ?? null,
-		},
-	});
-}
 
 async function resolveActivityVotes(supabase: any, activityId: string) {
 	// load activity and votes
@@ -106,7 +82,7 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 			payload: { activityId, result: "approved_timeout", legit, sus, totalEligibleVoters }
 		});
 		try {
-			await enqueueVoteResolvedEvent({
+			await emitVoteResolvedEvent({
 				lobbyId: String(act.lobby_id),
 				activityId: String(activityId),
 				playerId: String(act.player_id),
@@ -137,7 +113,7 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 				payload: { activityId, result: "rejected_threshold", legit, sus, totalEligibleVoters }
 			});
 			try {
-				await enqueueVoteResolvedEvent({
+				await emitVoteResolvedEvent({
 					lobbyId: String(act.lobby_id),
 					activityId: String(activityId),
 					playerId: String(act.player_id),
@@ -167,7 +143,7 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 			payload: { activityId, result: "rejected_unanimous", legit, sus, totalEligibleVoters }
 		});
 		try {
-			await enqueueVoteResolvedEvent({
+			await emitVoteResolvedEvent({
 				lobbyId: String(act.lobby_id),
 				activityId: String(activityId),
 				playerId: String(act.player_id),
@@ -209,7 +185,7 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 			}
 		});
 		try {
-			await enqueueVoteResolvedEvent({
+			await emitVoteResolvedEvent({
 				lobbyId: String(act.lobby_id),
 				activityId: String(activityId),
 				playerId: String(act.player_id),

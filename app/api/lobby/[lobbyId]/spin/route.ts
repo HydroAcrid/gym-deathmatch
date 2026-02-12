@@ -4,10 +4,10 @@ import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { resolvePunishmentWeek } from "@/lib/challengeWeek";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 import {
-	enqueueCommentaryEvent,
 	ensureCommentaryQueueReady,
 	isCommentaryQueueUnavailableError,
 } from "@/lib/commentaryEvents";
+import { emitSpinResolvedEvent } from "@/lib/commentaryProducers";
 import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
@@ -128,27 +128,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 					winnerItemId: spinEvent.winner_item_id
 				}
 			});
-		} catch (e) {
-			logError({ route: "POST /api/lobby/[id]/spin", code: "HISTORY_LOG_FAILED", err: e, lobbyId });
-		}
-		try {
-			await enqueueCommentaryEvent({
-				lobbyId,
-				type: "SPIN_RESOLVED",
-				key: `spin:${spinEvent.id}`,
-				payload: {
+			} catch (e) {
+				logError({ route: "POST /api/lobby/[id]/spin", code: "HISTORY_LOG_FAILED", err: e, lobbyId });
+			}
+			try {
+				await emitSpinResolvedEvent({
+					lobbyId,
 					week,
 					spinId: String(spinEvent.id),
 					winnerItemId: String(spinEvent.winner_item_id),
 					text: String(chosen.text || ""),
 					startedAt: String(spinEvent.started_at),
 					auto: false,
-				},
-			});
-		} catch (e) {
-			logError({ route: "POST /api/lobby/[id]/spin", code: "SPIN_EVENT_ENQUEUE_FAILED", err: e, lobbyId });
+				});
+			} catch (e) {
+				logError({ route: "POST /api/lobby/[id]/spin", code: "SPIN_EVENT_ENQUEUE_FAILED", err: e, lobbyId });
+			}
 		}
-	}
 	void processCommentaryQueue({ lobbyId, limit: 80, maxMs: 800 }).catch((err) => {
 		logError({ route: "POST /api/lobby/[id]/spin", code: "SPIN_PROCESS_TAIL_FAILED", err, lobbyId });
 	});

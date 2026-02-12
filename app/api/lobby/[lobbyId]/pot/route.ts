@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 import {
-	enqueueCommentaryEvent,
 	ensureCommentaryQueueReady,
 	isCommentaryQueueUnavailableError,
 } from "@/lib/commentaryEvents";
+import { emitPotChangedEvent } from "@/lib/commentaryProducers";
 import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
@@ -40,11 +40,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	const { error: updErr } = await supabase.from("lobby").update({ cash_pool: newPot }).eq("id", lobbyId);
 	if (updErr) return NextResponse.json({ error: "Failed to update pot" }, { status: 500 });
 
-	await enqueueCommentaryEvent({
+	await emitPotChangedEvent({
 		lobbyId,
-		type: "POT_CHANGED",
-		key: `pot:${newPot}:${delta}`,
-		payload: { delta, pot: newPot },
+		pot: newPot,
+		delta,
 	});
 	void processCommentaryQueue({ lobbyId, limit: 50, maxMs: 400 }).catch((err) => {
 		console.error("pot commentary tail-process failed", err);

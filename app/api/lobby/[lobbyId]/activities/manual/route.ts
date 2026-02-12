@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 import {
-	enqueueCommentaryEvent,
 	ensureCommentaryQueueReady,
 	isCommentaryQueueUnavailableError,
 } from "@/lib/commentaryEvents";
+import { emitActivityLoggedEvent } from "@/lib/commentaryProducers";
 import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
@@ -63,18 +63,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			payload: { activityId: data.id, type, durationMinutes, distanceKm, caption, photoUrl }
 		});
 
-		await enqueueCommentaryEvent({
+		await emitActivityLoggedEvent({
 			lobbyId,
-			type: "ACTIVITY_LOGGED",
-			key: `activity:${String(data.id)}`,
-			payload: {
-				activityId: String(data.id),
+			activity: {
+				id: String(data.id),
 				playerId,
-				type: String(type),
+				lobbyId,
+				date: String(data.date || dateIso),
 				durationMinutes,
 				distanceKm,
+				type: type as "run" | "ride" | "gym" | "walk" | "other",
+				source: "manual",
 				notes,
-				createdAt: String(data.date || dateIso),
 			},
 		});
 		void processCommentaryQueue({ lobbyId, limit: 25, maxMs: 250 }).catch((err) => {

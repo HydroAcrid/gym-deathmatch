@@ -2,7 +2,17 @@ import { getServerSupabase } from "./supabaseClient";
 import { computeWeeklyHearts } from "./rules";
 import { fetchRecentActivities } from "./strava";
 import { getUserStravaTokens } from "./persistence";
-import { enqueueCommentaryEvent, ensureCommentaryQueueReady } from "./commentaryEvents";
+import { ensureCommentaryQueueReady } from "./commentaryEvents";
+import {
+	emitDailyReminderDueEvent,
+	emitWeeklyGhostGroupEvent,
+	emitWeeklyHitTargetGroupEvent,
+	emitWeeklyHypeGroupEvent,
+	emitWeeklyMissedTargetGroupEvent,
+	emitWeeklyPerfectGroupEvent,
+	emitWeeklyResetEvent,
+	emitWeeklyTightRaceEvent,
+} from "./commentaryProducers";
 import { processCommentaryQueue, type CommentaryProcessStats } from "./commentaryProcessor";
 import { logError } from "./logger";
 
@@ -170,18 +180,14 @@ export async function runDailyCommentaryJob(opts?: {
 				for (const r of (stravaToday ?? []) as PlayerIdRow[]) stravaSet.add(r.player_id);
 			}
 
-			for (const p of players as Array<{ id: string; name: string | null }>) {
-				if (manualSet.has(p.id) || stravaSet.has(p.id)) continue;
-				const result = await enqueueCommentaryEvent({
-					lobbyId: lobby.id,
-					type: "DAILY_REMINDER_DUE",
-					key: `daily-reminder:${p.id}:${todayKey}`,
-					payload: {
+				for (const p of players as Array<{ id: string; name: string | null }>) {
+					if (manualSet.has(p.id) || stravaSet.has(p.id)) continue;
+					const result = await emitDailyReminderDueEvent({
+						lobbyId: lobby.id,
 						playerId: p.id,
 						playerName: p.name ?? "Athlete",
 						dayKey: todayKey,
-					},
-				});
+					});
 				if (result.enqueued) {
 					eventsQueued += 1;
 					remindersQueued += 1;
@@ -372,19 +378,14 @@ export async function runWeeklyCommentaryJob(opts?: {
 				}
 			}
 
-			for (const [weekStart, entries] of missedByWeek.entries()) {
-				if (!entries.length) continue;
-				const keyPlayers = entries.map((p) => p.id).sort().join(",");
-				const enqueued = await enqueueCommentaryEvent({
-					lobbyId: lobby.id,
-					type: "WEEKLY_MISSED_TARGET_GROUP",
-					key: `weekly-missed:${weekStart}:${keyPlayers}`,
-					payload: {
+				for (const [weekStart, entries] of missedByWeek.entries()) {
+					if (!entries.length) continue;
+					const enqueued = await emitWeeklyMissedTargetGroupEvent({
+						lobbyId: lobby.id,
 						weekStart,
 						weeklyTarget,
 						players: entries,
-					},
-				});
+					});
 				if (enqueued.enqueued) {
 					heartsEvents += 1;
 					eventsQueued += 1;
@@ -393,19 +394,14 @@ export async function runWeeklyCommentaryJob(opts?: {
 				}
 			}
 
-			for (const [weekStart, entries] of hitByWeek.entries()) {
-				if (!entries.length) continue;
-				const keyPlayers = entries.map((p) => p.id).sort().join(",");
-				const enqueued = await enqueueCommentaryEvent({
-					lobbyId: lobby.id,
-					type: "WEEKLY_HIT_TARGET_GROUP",
-					key: `weekly-hit:${weekStart}:${keyPlayers}`,
-					payload: {
+				for (const [weekStart, entries] of hitByWeek.entries()) {
+					if (!entries.length) continue;
+					const enqueued = await emitWeeklyHitTargetGroupEvent({
+						lobbyId: lobby.id,
 						weekStart,
 						weeklyTarget,
 						players: entries,
-					},
-				});
+					});
 				if (enqueued.enqueued) {
 					heartsEvents += 1;
 					eventsQueued += 1;
@@ -414,19 +410,14 @@ export async function runWeeklyCommentaryJob(opts?: {
 				}
 			}
 
-			for (const [weekStart, entries] of ghostByWeek.entries()) {
-				if (!entries.length) continue;
-				const keyPlayers = entries.map((p) => p.id).sort().join(",");
-				const enqueued = await enqueueCommentaryEvent({
-					lobbyId: lobby.id,
-					type: "WEEKLY_GHOST_GROUP",
-					key: `weekly-ghost:${weekStart}:${keyPlayers}`,
-					payload: {
+				for (const [weekStart, entries] of ghostByWeek.entries()) {
+					if (!entries.length) continue;
+					const enqueued = await emitWeeklyGhostGroupEvent({
+						lobbyId: lobby.id,
 						weekStart,
 						weeklyTarget,
 						players: entries,
-					},
-				});
+					});
 				if (enqueued.enqueued) {
 					ghostWarnings += 1;
 					eventsQueued += 1;
@@ -435,19 +426,14 @@ export async function runWeeklyCommentaryJob(opts?: {
 				}
 			}
 
-			for (const [weekStart, entries] of perfectByWeek.entries()) {
-				if (!entries.length) continue;
-				const keyPlayers = entries.map((p) => p.id).sort().join(",");
-				const enqueued = await enqueueCommentaryEvent({
-					lobbyId: lobby.id,
-					type: "WEEKLY_PERFECT_GROUP",
-					key: `weekly-perfect:${weekStart}:${keyPlayers}`,
-					payload: {
+				for (const [weekStart, entries] of perfectByWeek.entries()) {
+					if (!entries.length) continue;
+					const enqueued = await emitWeeklyPerfectGroupEvent({
+						lobbyId: lobby.id,
 						weekStart,
 						weeklyTarget,
 						players: entries.map((entry) => ({ id: entry.id, name: entry.name ?? null })),
-					},
-				});
+					});
 				if (enqueued.enqueued) {
 					eventsQueued += 1;
 				} else if (enqueued.duplicate) {
@@ -466,19 +452,14 @@ export async function runWeeklyCommentaryJob(opts?: {
 						hype.push({ id: player.id, name: player.name ?? null });
 					}
 				}
-				if (hype.length > 0) {
-					const weekStart = String(currentWeekByPlayer.get(hype[0].id)?.weekStart || weekStartMondayUTC(now).toISOString());
-					const keyPlayers = hype.map((p) => p.id).sort().join(",");
-					const enqueued = await enqueueCommentaryEvent({
-						lobbyId: lobby.id,
-						type: "WEEKLY_HYPE_GROUP",
-						key: `weekly-hype:${weekStart}:${keyPlayers}`,
-						payload: {
+					if (hype.length > 0) {
+						const weekStart = String(currentWeekByPlayer.get(hype[0].id)?.weekStart || weekStartMondayUTC(now).toISOString());
+						const enqueued = await emitWeeklyHypeGroupEvent({
+							lobbyId: lobby.id,
 							weekStart,
 							weeklyTarget,
 							players: hype,
-						},
-					});
+						});
 					if (enqueued.enqueued) {
 						hypeEvents += 1;
 						eventsQueued += 1;
@@ -491,19 +472,15 @@ export async function runWeeklyCommentaryJob(opts?: {
 			if (String(lobby.mode || "").startsWith("MONEY_") && Number(lobby.cash_pool ?? 0) >= 50) {
 				const maxHearts = Math.max(...Array.from(heartsByPlayer.values()));
 				const leaders = players.filter((p) => (heartsByPlayer.get(p.id) ?? 0) === maxHearts);
-				if (leaders.length >= 2) {
-					const weekStart = weekStartMondayUTC(now).toISOString();
-					const names = leaders.map((p) => p.name || "Athlete");
-					const enqueued = await enqueueCommentaryEvent({
-						lobbyId: lobby.id,
-						type: "WEEKLY_TIGHT_RACE",
-						key: `weekly-tight-race:${weekStart}:${Number(lobby.cash_pool ?? 0)}:${names.slice().sort().join(",")}`,
-						payload: {
+					if (leaders.length >= 2) {
+						const weekStart = weekStartMondayUTC(now).toISOString();
+						const names = leaders.map((p) => p.name || "Athlete");
+						const enqueued = await emitWeeklyTightRaceEvent({
+							lobbyId: lobby.id,
 							weekStart,
 							pot: Number(lobby.cash_pool ?? 0),
 							names,
-						},
-					});
+						});
 					if (enqueued.enqueued) {
 						tightRaceEvents += 1;
 						eventsQueued += 1;
@@ -514,14 +491,12 @@ export async function runWeeklyCommentaryJob(opts?: {
 			}
 
 			// Weekly reset announcement + ready reset (job runs daily; reset itself is Monday-gated).
-			if (now.getUTCDay() === 1) {
-				const ws = weekStartMondayUTC(now).toISOString();
-				const enqueued = await enqueueCommentaryEvent({
-					lobbyId: lobby.id,
-					type: "WEEKLY_RESET",
-					key: `weekly-reset:${ws}`,
-					payload: { weekStart: ws },
-				});
+				if (now.getUTCDay() === 1) {
+					const ws = weekStartMondayUTC(now).toISOString();
+					const enqueued = await emitWeeklyResetEvent({
+						lobbyId: lobby.id,
+						weekStart: ws,
+					});
 				if (enqueued.enqueued) {
 					eventsQueued += 1;
 				} else if (enqueued.duplicate) {

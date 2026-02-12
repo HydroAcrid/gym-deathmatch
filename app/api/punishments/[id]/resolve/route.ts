@@ -3,10 +3,10 @@ import { getServerSupabase } from "@/lib/supabaseClient";
 import { jsonError, logError } from "@/lib/logger";
 import { getRequestUserId } from "@/lib/requestAuth";
 import {
-	enqueueCommentaryEvent,
 	ensureCommentaryQueueReady,
 	isCommentaryQueueUnavailableError,
 } from "@/lib/commentaryEvents";
+import { emitPunishmentResolvedEvent } from "@/lib/commentaryProducers";
 import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -32,26 +32,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 		if (error) throw error;
 		// History event for visibility
 		try {
-			await supabase.from("history_events").insert({
-				lobby_id: row.lobby_id,
-				type: "PUNISHMENT_RESOLVED",
-				target_player_id: null,
-				payload: { punishmentId: id, userId: row.user_id }
-			});
-			const { data: p } = await supabase.from("player").select("id").eq("lobby_id", row.lobby_id).eq("user_id", row.user_id).maybeSingle();
-			await enqueueCommentaryEvent({
-				lobbyId: String(row.lobby_id),
-				type: "PUNISHMENT_RESOLVED",
-				key: `punishment-resolved:${id}`,
-				payload: {
+				await supabase.from("history_events").insert({
+					lobby_id: row.lobby_id,
+					type: "PUNISHMENT_RESOLVED",
+					target_player_id: null,
+					payload: { punishmentId: id, userId: row.user_id }
+				});
+				const { data: p } = await supabase.from("player").select("id").eq("lobby_id", row.lobby_id).eq("user_id", row.user_id).maybeSingle();
+				await emitPunishmentResolvedEvent({
+					lobbyId: String(row.lobby_id),
 					punishmentId: String(id),
 					playerId: p?.id ? String(p.id) : null,
 					userId: row.user_id ? String(row.user_id) : null,
-				},
-			});
-		} catch (e) {
-			logError({ route: "POST /api/punishments/[id]/resolve", code: "HISTORY_LOG_FAILED", err: e, lobbyId: row.lobby_id, actorUserId });
-		}
+				});
+			} catch (e) {
+				logError({ route: "POST /api/punishments/[id]/resolve", code: "HISTORY_LOG_FAILED", err: e, lobbyId: row.lobby_id, actorUserId });
+			}
 		void processCommentaryQueue({ lobbyId: String(row.lobby_id), limit: 40, maxMs: 300 }).catch((err) => {
 			logError({ route: "POST /api/punishments/[id]/resolve", code: "PUNISHMENT_PROCESS_TAIL_FAILED", err, lobbyId: row.lobby_id, actorUserId });
 		});
