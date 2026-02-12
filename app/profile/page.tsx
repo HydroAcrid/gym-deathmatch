@@ -122,6 +122,48 @@ type AggregatedStats = {
   }>;
 };
 
+type ArchivedSeasonEntry = {
+  lobbyId: string;
+  lobbyName: string;
+  seasonNumber: number;
+  mode?: string | null;
+  stage?: string | null;
+  status?: string | null;
+  seasonStart: string | null;
+  seasonEnd: string | null;
+  finalPot: number;
+  archivedAt: string | null;
+  rank: number;
+  workouts: number;
+  points: number;
+  currentStreak: number;
+  longestStreak: number;
+  hearts: number;
+  weeklyProgress: number;
+  weeklyTarget: number;
+  result: string;
+};
+
+type ProfileSeasonRow = {
+  id: string;
+  name: string;
+  seasonNumber: number;
+  stage: string;
+  rank: number;
+  workouts: number;
+  result: string;
+  points: number;
+  currentStreak: number;
+  longestStreak: number;
+  hearts: number;
+  weeklyProgress: number;
+  weeklyTarget: number;
+  seasonStart: string | null;
+  seasonEnd: string | null;
+  source: "live" | "archive";
+  finalPot?: number;
+};
+
 /* ---------- Helpers ---------- */
 
 function formatDuration(minutes: number): string {
@@ -166,6 +208,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [lobbies, setLobbies] = useState<LobbyRow[]>([]);
   const [liveData, setLiveData] = useState<Map<string, LiveLobby>>(new Map());
+  const [archivedSeasons, setArchivedSeasons] = useState<ArchivedSeasonEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "seasons">("overview");
 
@@ -176,9 +219,11 @@ export default function ProfilePage() {
     Promise.all([
       authFetch(`/api/profile`).then((r) => (r.ok ? r.json() : null)),
       authFetch(`/api/lobbies`).then((r) => (r.ok ? r.json() : { lobbies: [] })),
+      authFetch(`/api/profile/seasons`).then((r) => (r.ok ? r.json() : { seasons: [] })),
     ])
-      .then(([profileRes, lobbiesRes]) => {
+      .then(([profileRes, lobbiesRes, seasonsRes]) => {
         if (profileRes) setProfile(profileRes);
+        setArchivedSeasons(Array.isArray(seasonsRes?.seasons) ? seasonsRes.seasons : []);
         const lobbyList = lobbiesRes?.lobbies ?? [];
         setLobbies(lobbyList);
 
@@ -325,14 +370,67 @@ export default function ProfilePage() {
   const displayName = profile?.displayName || user?.user_metadata?.full_name || "ATHLETE";
   const initials = getInitials(displayName);
   const location = profile?.location || "";
-  const seasonRows = useMemo(() => {
-    return [...stats.lobbies].sort((a, b) => {
-      const activeRank = (s: string) => (s === "ACTIVE" ? 0 : s === "COMPLETED" ? 1 : 2);
-      const byStage = activeRank(a.stage) - activeRank(b.stage);
-      if (byStage !== 0) return byStage;
-      return b.seasonNumber - a.seasonNumber;
+  const mergedSeasonRows = useMemo((): ProfileSeasonRow[] => {
+    const liveRows: ProfileSeasonRow[] = stats.lobbies.map((s) => ({
+      ...s,
+      source: "live",
+    }));
+    const archiveRows: ProfileSeasonRow[] = archivedSeasons.map((s) => ({
+      id: s.lobbyId,
+      name: s.lobbyName,
+      seasonNumber: s.seasonNumber,
+      stage: s.stage || "COMPLETED",
+      rank: s.rank,
+      workouts: s.workouts,
+      result: s.result,
+      points: s.points,
+      currentStreak: s.currentStreak,
+      longestStreak: s.longestStreak,
+      hearts: s.hearts,
+      weeklyProgress: s.weeklyProgress,
+      weeklyTarget: s.weeklyTarget,
+      seasonStart: s.seasonStart,
+      seasonEnd: s.seasonEnd,
+      source: "archive",
+      finalPot: s.finalPot,
+    }));
+
+    // Prefer live row when both exist for same lobby+season.
+    const bySeason = new Map<string, ProfileSeasonRow>();
+    for (const row of [...archiveRows, ...liveRows]) {
+      bySeason.set(`${row.id}:${row.seasonNumber}`, row);
+    }
+    return Array.from(bySeason.values());
+  }, [stats.lobbies, archivedSeasons]);
+
+  const seasonGroups = useMemo(() => {
+    const grouped = new Map<string, { lobbyId: string; lobbyName: string; seasons: ProfileSeasonRow[] }>();
+    for (const row of mergedSeasonRows) {
+      const existing = grouped.get(row.id);
+      if (existing) {
+        existing.seasons.push(row);
+      } else {
+        grouped.set(row.id, {
+          lobbyId: row.id,
+          lobbyName: row.name,
+          seasons: [row],
+        });
+      }
+    }
+    const groups = Array.from(grouped.values());
+    for (const g of groups) {
+      g.seasons.sort((a, b) => b.seasonNumber - a.seasonNumber);
+    }
+    groups.sort((a, b) => {
+      const aLatest = a.seasons[0]?.seasonNumber ?? 0;
+      const bLatest = b.seasons[0]?.seasonNumber ?? 0;
+      return bLatest - aLatest;
     });
-  }, [stats.lobbies]);
+    return groups;
+  }, [mergedSeasonRows]);
+
+  const totalSeasonsPlayed = mergedSeasonRows.length || stats.seasonsPlayed;
+  const totalTitles = mergedSeasonRows.filter((s) => s.result === "CHAMPION").length || stats.seasonsWon;
 
   if (!user) {
     return (
@@ -384,10 +482,10 @@ export default function ProfilePage() {
                 <h1 className="font-display text-2xl font-bold tracking-wider">
                   {displayName.toUpperCase()}
                 </h1>
-                {stats.seasonsWon > 0 && (
+                {totalTitles > 0 && (
                   <div className="flex items-center gap-1 px-2 py-0.5 bg-arena-gold/20 border border-arena-gold/30 text-arena-gold text-xs font-display">
                     <Crown className="w-3 h-3" />
-                    {stats.seasonsWon}x CHAMPION
+                    {totalTitles}x CHAMPION
                   </div>
                 )}
               </div>
@@ -419,7 +517,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Trophy className="w-4 h-4 text-arena-gold" />
-                  <span className="font-display font-bold">{stats.seasonsWon}</span>
+                  <span className="font-display font-bold">{totalTitles}</span>
                   <span className="text-muted-foreground">titles</span>
                 </div>
               </div>
@@ -476,7 +574,7 @@ export default function ProfilePage() {
               </div>
               <div className="scoreboard-panel p-4 text-center">
                 <Calendar className="w-5 h-5 mx-auto text-primary mb-2" />
-                <div className="font-display text-2xl font-bold text-primary">{stats.seasonsPlayed}</div>
+                <div className="font-display text-2xl font-bold text-primary">{totalSeasonsPlayed}</div>
                 <div className="text-xs text-muted-foreground uppercase tracking-wider">SEASONS</div>
               </div>
               <div className="scoreboard-panel p-4 text-center">
@@ -486,7 +584,7 @@ export default function ProfilePage() {
               </div>
               <div className="scoreboard-panel p-4 text-center">
                 <Trophy className="w-5 h-5 mx-auto text-arena-gold mb-2" />
-                <div className="font-display text-2xl font-bold text-arena-gold">{stats.seasonsWon}</div>
+                <div className="font-display text-2xl font-bold text-arena-gold">{totalTitles}</div>
                 <div className="text-xs text-muted-foreground uppercase tracking-wider">CHAMPIONSHIPS</div>
               </div>
             </div>
@@ -573,25 +671,32 @@ export default function ProfilePage() {
                 SEASON PARTICIPATION
               </h3>
             </div>
-            {seasonRows.length === 0 ? (
+            {seasonGroups.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-sm">No seasons found.</div>
             ) : (
               <div className="divide-y divide-border/50">
-                {seasonRows.map((s) => (
-                  <details key={`${s.id}-${s.seasonNumber}`} className="group">
+                {seasonGroups.map((group) => (
+                  <details key={group.lobbyId} className="group">
                     <summary className="list-none p-4 hover:bg-muted/30 transition-colors cursor-pointer">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-display font-bold">{s.name.toUpperCase()}</span>
-                            {s.result === "CHAMPION" && <Crown className="w-4 h-4 text-arena-gold" />}
+                            <span className="font-display font-bold">{group.lobbyName.toUpperCase()}</span>
                           </div>
-                          <p className="text-sm text-muted-foreground">Season {s.seasonNumber}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {group.seasons.length} season{group.seasons.length === 1 ? "" : "s"} tracked
+                          </p>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
+                        <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                      </div>
+                    </summary>
+                    <div className="px-4 pb-4 pt-1 border-t border-border/40 bg-muted/10 space-y-3">
+                      {group.seasons.map((s) => (
+                        <div key={`${s.id}-${s.seasonNumber}`} className="scoreboard-panel p-3">
+                          <div className="flex items-center justify-between gap-3 mb-2">
+                            <p className="font-display tracking-wider text-sm">Season {s.seasonNumber}</p>
                             <div
-                              className={`arena-badge text-[10px] mb-1 ${
+                              className={`arena-badge text-[10px] ${
                                 s.result === "CHAMPION"
                                   ? "arena-badge-gold"
                                   : s.stage === "ACTIVE"
@@ -601,42 +706,42 @@ export default function ProfilePage() {
                             >
                               {s.result}
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              #{s.rank} • {s.workouts} workouts
-                            </p>
                           </div>
-                          <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+                            <div>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Rank</div>
+                              <div className="font-display text-base text-primary">#{s.rank}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Points</div>
+                              <div className="font-display text-base text-primary">{s.points}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Workouts</div>
+                              <div className="font-display text-base text-primary">{s.workouts}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Streak</div>
+                              <div className="font-display text-base text-primary">{s.currentStreak}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Goal</div>
+                              <div className="font-display text-base text-primary">{s.weeklyProgress}/{s.weeklyTarget}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <p className="text-xs text-muted-foreground">
+                              {formatDateShort(s.seasonStart)} → {formatDateShort(s.seasonEnd)}
+                              {typeof s.finalPot === "number" ? ` • Pot $${s.finalPot}` : ""}
+                              {s.source === "archive" ? " • Archived" : ""}
+                            </p>
+                            <Link href={`/lobby/${s.id}`} className="arena-badge px-3 py-2 text-[10px] inline-flex items-center gap-1">
+                              OPEN LOBBY
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
+                          </div>
                         </div>
-                      </div>
-                    </summary>
-                    <div className="px-4 pb-4 pt-1 border-t border-border/40 bg-muted/10">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                        <div className="scoreboard-panel p-3">
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Points</div>
-                          <div className="font-display text-lg text-primary">{s.points}</div>
-                        </div>
-                        <div className="scoreboard-panel p-3">
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Streak</div>
-                          <div className="font-display text-lg text-primary">{s.currentStreak}</div>
-                        </div>
-                        <div className="scoreboard-panel p-3">
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Hearts</div>
-                          <div className="font-display text-lg text-primary">{s.hearts}</div>
-                        </div>
-                        <div className="scoreboard-panel p-3">
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Goal</div>
-                          <div className="font-display text-lg text-primary">{s.weeklyProgress}/{s.weeklyTarget}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <p className="text-xs text-muted-foreground">
-                          {formatDateShort(s.seasonStart)} → {formatDateShort(s.seasonEnd)}
-                        </p>
-                        <Link href={`/lobby/${s.id}`} className="arena-badge px-3 py-2 text-[10px] inline-flex items-center gap-1">
-                          OPEN LOBBY
-                          <ExternalLink className="w-3 h-3" />
-                        </Link>
-                      </div>
+                      ))}
                     </div>
                   </details>
                 ))}

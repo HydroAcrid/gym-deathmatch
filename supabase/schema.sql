@@ -631,6 +631,38 @@ for select using (
   or exists (select 1 from lobby l where l.id = lobby_live_snapshots.lobby_id and l.owner_user_id::text = auth.uid()::text)
 );
 
+-- Archived per-lobby season snapshots (historical seasons for one lobby id)
+create table if not exists lobby_seasons (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  lobby_name text not null,
+  season_number int not null,
+  mode text null,
+  stage text null,
+  status text null,
+  season_start timestamptz null,
+  season_end timestamptz null,
+  final_pot int not null default 0,
+  summary jsonb null,
+  players jsonb not null default '[]'::jsonb,
+  archived_at timestamptz not null default now(),
+  unique(lobby_id, season_number)
+);
+create index if not exists lobby_seasons_lobby_idx on lobby_seasons (lobby_id, season_number desc);
+create index if not exists lobby_seasons_archived_idx on lobby_seasons (archived_at desc);
+alter table lobby_seasons enable row level security;
+drop policy if exists lobby_seasons_member_read on lobby_seasons;
+create policy lobby_seasons_member_read on lobby_seasons
+for select using (
+  exists (select 1 from player p where p.lobby_id = lobby_seasons.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = lobby_seasons.lobby_id and l.owner_user_id::text = auth.uid()::text)
+  or exists (
+    select 1
+    from jsonb_array_elements(coalesce(lobby_seasons.players, '[]'::jsonb)) as pp
+    where pp->>'userId' = auth.uid()::text
+  )
+);
+
 -- DB invariant: one linked player row per (lobby,user)
 create unique index if not exists player_lobby_user_unique_idx
   on player (lobby_id, user_id)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
+import { archiveCurrentLobbySeason } from "@/lib/seasonArchive";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -24,6 +25,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		if (!lobby) return jsonError("NOT_FOUND", "Lobby not found", 404);
 
 		const newSeasonNumber = (lobby.season_number as number) + 1;
+		let archiveWarning: string | null = null;
+
+		// Archive current season snapshot before reset.
+		// Best-effort: do not block rollover if archival table is missing in a lagging environment.
+		try {
+			const archived = await archiveCurrentLobbySeason(lobbyId);
+			if (!archived.ok) {
+				archiveWarning = archived.reason ?? "archive_failed";
+				logError({
+					route: "POST /api/lobby/[id]/season/next",
+					code: "SEASON_ARCHIVE_WARNING",
+					err: new Error(archiveWarning),
+					lobbyId
+				});
+			}
+		} catch (e) {
+			archiveWarning = "archive_exception";
+			logError({
+				route: "POST /api/lobby/[id]/season/next",
+				code: "SEASON_ARCHIVE_EXCEPTION",
+				err: e,
+				lobbyId
+			});
+		}
 		
 		// Calculate new dates if not provided
 		let newSeasonStart: string;
@@ -126,7 +151,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			ok: true, 
 			seasonNumber: newSeasonNumber,
 			seasonStart: newSeasonStart,
-			seasonEnd: newSeasonEnd
+			seasonEnd: newSeasonEnd,
+			archiveWarning
 		});
 	} catch (e) {
 		logError({ route: "POST /api/lobby/[id]/season/next", code: "NEXT_SEASON_FAILED", err: e, lobbyId });
