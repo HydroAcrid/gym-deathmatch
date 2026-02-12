@@ -383,6 +383,63 @@ for select using (
 );
 create index if not exists commentary_emitted_lobby_created_idx on commentary_emitted (lobby_id, created_at desc);
 
+-- Event-first commentary pipeline
+create table if not exists commentary_events (
+  id uuid primary key default gen_random_uuid(),
+  lobby_id text not null references lobby(id) on delete cascade,
+  event_type text not null,
+  event_key text not null,
+  payload jsonb not null default '{}'::jsonb,
+  status text not null default 'queued' check (status in ('queued','processing','done','failed','dead')),
+  attempts int not null default 0,
+  next_attempt_at timestamptz not null default now(),
+  last_error text null,
+  created_at timestamptz not null default now(),
+  processed_at timestamptz null,
+  unique(lobby_id, event_type, event_key)
+);
+create index if not exists commentary_events_status_next_idx on commentary_events (status, next_attempt_at);
+create index if not exists commentary_events_lobby_created_idx on commentary_events (lobby_id, created_at desc);
+alter table commentary_events enable row level security;
+drop policy if exists commentary_events_read_member on commentary_events;
+create policy commentary_events_read_member on commentary_events
+for select using (
+  exists (select 1 from player p where p.lobby_id = commentary_events.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = commentary_events.lobby_id and l.owner_user_id::text = auth.uid()::text)
+);
+
+create table if not exists commentary_rule_runs (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references commentary_events(id) on delete cascade,
+  rule_id text not null,
+  channel text not null check (channel in ('feed','history','push')),
+  decision text not null check (decision in ('emitted','skipped_budget','skipped_dedupe','skipped_condition','error')),
+  score int not null default 0,
+  meta jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists commentary_rule_runs_event_idx on commentary_rule_runs (event_id);
+create index if not exists commentary_rule_runs_rule_created_idx on commentary_rule_runs (rule_id, created_at desc);
+alter table commentary_rule_runs enable row level security;
+drop policy if exists commentary_rule_runs_read_member on commentary_rule_runs;
+create policy commentary_rule_runs_read_member on commentary_rule_runs
+for select using (
+  exists (
+    select 1
+    from commentary_events e
+    join player p on p.lobby_id = e.lobby_id
+    where e.id = commentary_rule_runs.event_id
+      and p.user_id::text = auth.uid()::text
+  )
+  or exists (
+    select 1
+    from commentary_events e
+    join lobby l on l.id = e.lobby_id
+    where e.id = commentary_rule_runs.event_id
+      and l.owner_user_id::text = auth.uid()::text
+  )
+);
+
 -- Web push subscriptions (per user)
 create table if not exists push_subscriptions (
   id uuid primary key default gen_random_uuid(),

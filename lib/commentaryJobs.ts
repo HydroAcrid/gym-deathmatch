@@ -2,16 +2,8 @@ import { getServerSupabase } from "./supabaseClient";
 import { computeWeeklyHearts } from "./rules";
 import { fetchRecentActivities } from "./strava";
 import { getUserStravaTokens } from "./persistence";
-import {
-	onDailyReminder,
-	onGhostWeekGroup,
-	onPerfectWeekGroup,
-	onTightRace,
-	onWeeklyHype,
-	onWeeklyHitTargetGroup,
-	onWeeklyMissedTargetGroup,
-	onWeeklyReset
-} from "./commentary";
+import { enqueueCommentaryEvent, ensureCommentaryQueueReady } from "./commentaryEvents";
+import { processCommentaryQueue, type CommentaryProcessStats } from "./commentaryProcessor";
 import { logError } from "./logger";
 
 type LobbyRow = {
@@ -68,6 +60,15 @@ function weekStartMondayUTC(d: Date): Date {
 	return start;
 }
 
+function addProcessStats(total: CommentaryProcessStats, next: CommentaryProcessStats) {
+	total.dequeued += next.dequeued;
+	total.processed += next.processed;
+	total.emitted += next.emitted;
+	total.skippedBudget += next.skippedBudget;
+	total.failed += next.failed;
+	total.dead += next.dead;
+}
+
 async function fetchStravaActivitiesForPlayer(player: PlayerRow): Promise<ActivityLike[]> {
 	let tokens: { accessToken: string } | null = null;
 	if (player.user_id) {
@@ -97,10 +98,30 @@ async function fetchStravaActivitiesForPlayer(player: PlayerRow): Promise<Activi
 	return Array.isArray(activities) ? (activities as ActivityLike[]) : [];
 }
 
-export async function runDailyCommentaryJob(opts?: { now?: Date; lobbyId?: string }): Promise<{ lobbiesProcessed: number; remindersSent: number }> {
+export async function runDailyCommentaryJob(opts?: {
+	now?: Date;
+	lobbyId?: string;
+	processQueue?: boolean;
+}): Promise<{
+	lobbiesProcessed: number;
+	remindersSent: number;
+	eventsQueued: number;
+	eventsDuplicate: number;
+	processor: CommentaryProcessStats;
+}> {
 	const now = opts?.now ?? new Date();
+	const processQueue = opts?.processQueue !== false;
 	const supabase = getServerSupabase();
-	if (!supabase) return { lobbiesProcessed: 0, remindersSent: 0 };
+	if (!supabase) {
+		return {
+			lobbiesProcessed: 0,
+			remindersSent: 0,
+			eventsQueued: 0,
+			eventsDuplicate: 0,
+			processor: { ok: true, dequeued: 0, processed: 0, emitted: 0, skippedBudget: 0, failed: 0, dead: 0 },
+		};
+	}
+	await ensureCommentaryQueueReady();
 
 	let lobbiesQuery = supabase
 		.from("lobby")
@@ -109,7 +130,18 @@ export async function runDailyCommentaryJob(opts?: { now?: Date; lobbyId?: strin
 	if (opts?.lobbyId) lobbiesQuery = lobbiesQuery.eq("id", opts.lobbyId);
 	const { data: lobbies } = await lobbiesQuery;
 
-	let remindersSent = 0;
+	let remindersQueued = 0;
+	let eventsQueued = 0;
+	let eventsDuplicate = 0;
+	const processorTotals: CommentaryProcessStats = {
+		ok: true,
+		dequeued: 0,
+		processed: 0,
+		emitted: 0,
+		skippedBudget: 0,
+		failed: 0,
+		dead: 0,
+	};
 	for (const lobby of (lobbies ?? []) as Array<{ id: string }>) {
 		try {
 			const { data: players } = await supabase.from("player").select("id,name").eq("lobby_id", lobby.id);
@@ -140,8 +172,27 @@ export async function runDailyCommentaryJob(opts?: { now?: Date; lobbyId?: strin
 
 			for (const p of players as Array<{ id: string; name: string | null }>) {
 				if (manualSet.has(p.id) || stravaSet.has(p.id)) continue;
-				await onDailyReminder(lobby.id, p.id, p.name ?? "Athlete", todayKey);
-				remindersSent += 1;
+				const result = await enqueueCommentaryEvent({
+					lobbyId: lobby.id,
+					type: "DAILY_REMINDER_DUE",
+					key: `daily-reminder:${p.id}:${todayKey}`,
+					payload: {
+						playerId: p.id,
+						playerName: p.name ?? "Athlete",
+						dayKey: todayKey,
+					},
+				});
+				if (result.enqueued) {
+					eventsQueued += 1;
+					remindersQueued += 1;
+				} else if (result.duplicate) {
+					eventsDuplicate += 1;
+				}
+			}
+
+			if (processQueue) {
+				const processed = await processCommentaryQueue({ lobbyId: lobby.id, limit: 200, maxMs: 2000 });
+				addProcessStats(processorTotals, processed);
 			}
 		} catch (e) {
 			await logError({ route: "CRON /api/cron/commentary/daily", code: "DAILY_COMMENTARY_FAILED", err: e, lobbyId: lobby.id });
@@ -150,14 +201,45 @@ export async function runDailyCommentaryJob(opts?: { now?: Date; lobbyId?: strin
 
 	return {
 		lobbiesProcessed: (lobbies ?? []).length,
-		remindersSent
+		remindersSent: remindersQueued,
+		eventsQueued,
+		eventsDuplicate,
+		processor: processorTotals,
 	};
 }
 
-export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: string }): Promise<{ lobbiesProcessed: number; heartsEvents: number; ghostWarnings: number; hypeEvents: number; tightRaceEvents: number; resets: number }> {
+export async function runWeeklyCommentaryJob(opts?: {
+	now?: Date;
+	lobbyId?: string;
+	processQueue?: boolean;
+}): Promise<{
+	lobbiesProcessed: number;
+	heartsEvents: number;
+	ghostWarnings: number;
+	hypeEvents: number;
+	tightRaceEvents: number;
+	resets: number;
+	eventsQueued: number;
+	eventsDuplicate: number;
+	processor: CommentaryProcessStats;
+}> {
 	const now = opts?.now ?? new Date();
+	const processQueue = opts?.processQueue !== false;
 	const supabase = getServerSupabase();
-	if (!supabase) return { lobbiesProcessed: 0, heartsEvents: 0, ghostWarnings: 0, hypeEvents: 0, tightRaceEvents: 0, resets: 0 };
+	if (!supabase) {
+		return {
+			lobbiesProcessed: 0,
+			heartsEvents: 0,
+			ghostWarnings: 0,
+			hypeEvents: 0,
+			tightRaceEvents: 0,
+			resets: 0,
+			eventsQueued: 0,
+			eventsDuplicate: 0,
+			processor: { ok: true, dequeued: 0, processed: 0, emitted: 0, skippedBudget: 0, failed: 0, dead: 0 },
+		};
+	}
+	await ensureCommentaryQueueReady();
 
 	let lobbiesQuery = supabase
 		.from("lobby")
@@ -171,6 +253,17 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 	let hypeEvents = 0;
 	let tightRaceEvents = 0;
 	let resets = 0;
+	let eventsQueued = 0;
+	let eventsDuplicate = 0;
+	const processorTotals: CommentaryProcessStats = {
+		ok: true,
+		dequeued: 0,
+		processed: 0,
+		emitted: 0,
+		skippedBudget: 0,
+		failed: 0,
+		dead: 0,
+	};
 
 	for (const lobby of (lobbies ?? []) as LobbyRow[]) {
 		if (!lobby.season_start) continue;
@@ -281,37 +374,85 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 
 			for (const [weekStart, entries] of missedByWeek.entries()) {
 				if (!entries.length) continue;
-				const inserted = await onWeeklyMissedTargetGroup(lobby.id, {
-					weekStart,
-					weeklyTarget,
-					players: entries
+				const keyPlayers = entries.map((p) => p.id).sort().join(",");
+				const enqueued = await enqueueCommentaryEvent({
+					lobbyId: lobby.id,
+					type: "WEEKLY_MISSED_TARGET_GROUP",
+					key: `weekly-missed:${weekStart}:${keyPlayers}`,
+					payload: {
+						weekStart,
+						weeklyTarget,
+						players: entries,
+					},
 				});
-				if (inserted) heartsEvents += 1;
+				if (enqueued.enqueued) {
+					heartsEvents += 1;
+					eventsQueued += 1;
+				} else if (enqueued.duplicate) {
+					eventsDuplicate += 1;
+				}
 			}
 
 			for (const [weekStart, entries] of hitByWeek.entries()) {
 				if (!entries.length) continue;
-				const inserted = await onWeeklyHitTargetGroup(lobby.id, {
-					weekStart,
-					weeklyTarget,
-					players: entries
+				const keyPlayers = entries.map((p) => p.id).sort().join(",");
+				const enqueued = await enqueueCommentaryEvent({
+					lobbyId: lobby.id,
+					type: "WEEKLY_HIT_TARGET_GROUP",
+					key: `weekly-hit:${weekStart}:${keyPlayers}`,
+					payload: {
+						weekStart,
+						weeklyTarget,
+						players: entries,
+					},
 				});
-				if (inserted) heartsEvents += 1;
+				if (enqueued.enqueued) {
+					heartsEvents += 1;
+					eventsQueued += 1;
+				} else if (enqueued.duplicate) {
+					eventsDuplicate += 1;
+				}
 			}
 
 			for (const [weekStart, entries] of ghostByWeek.entries()) {
 				if (!entries.length) continue;
-				const inserted = await onGhostWeekGroup(lobby.id, entries, weekStart, weeklyTarget);
-				if (inserted) ghostWarnings += 1;
+				const keyPlayers = entries.map((p) => p.id).sort().join(",");
+				const enqueued = await enqueueCommentaryEvent({
+					lobbyId: lobby.id,
+					type: "WEEKLY_GHOST_GROUP",
+					key: `weekly-ghost:${weekStart}:${keyPlayers}`,
+					payload: {
+						weekStart,
+						weeklyTarget,
+						players: entries,
+					},
+				});
+				if (enqueued.enqueued) {
+					ghostWarnings += 1;
+					eventsQueued += 1;
+				} else if (enqueued.duplicate) {
+					eventsDuplicate += 1;
+				}
 			}
 
 			for (const [weekStart, entries] of perfectByWeek.entries()) {
 				if (!entries.length) continue;
-				await onPerfectWeekGroup(lobby.id, {
-					weekStart,
-					weeklyTarget,
-					players: entries
+				const keyPlayers = entries.map((p) => p.id).sort().join(",");
+				const enqueued = await enqueueCommentaryEvent({
+					lobbyId: lobby.id,
+					type: "WEEKLY_PERFECT_GROUP",
+					key: `weekly-perfect:${weekStart}:${keyPlayers}`,
+					payload: {
+						weekStart,
+						weeklyTarget,
+						players: entries.map((entry) => ({ id: entry.id, name: entry.name ?? null })),
+					},
 				});
+				if (enqueued.enqueued) {
+					eventsQueued += 1;
+				} else if (enqueued.duplicate) {
+					eventsDuplicate += 1;
+				}
 			}
 
 			if (weeklyTarget > 0 && now.getUTCDay() === 5) {
@@ -326,8 +467,24 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 					}
 				}
 				if (hype.length > 0) {
-					await onWeeklyHype(lobby.id, hype, weeklyTarget);
-					hypeEvents += 1;
+					const weekStart = String(currentWeekByPlayer.get(hype[0].id)?.weekStart || weekStartMondayUTC(now).toISOString());
+					const keyPlayers = hype.map((p) => p.id).sort().join(",");
+					const enqueued = await enqueueCommentaryEvent({
+						lobbyId: lobby.id,
+						type: "WEEKLY_HYPE_GROUP",
+						key: `weekly-hype:${weekStart}:${keyPlayers}`,
+						payload: {
+							weekStart,
+							weeklyTarget,
+							players: hype,
+						},
+					});
+					if (enqueued.enqueued) {
+						hypeEvents += 1;
+						eventsQueued += 1;
+					} else if (enqueued.duplicate) {
+						eventsDuplicate += 1;
+					}
 				}
 			}
 
@@ -335,17 +492,48 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 				const maxHearts = Math.max(...Array.from(heartsByPlayer.values()));
 				const leaders = players.filter((p) => (heartsByPlayer.get(p.id) ?? 0) === maxHearts);
 				if (leaders.length >= 2) {
-					await onTightRace(lobby.id, leaders.map((p) => p.name || "Athlete"), Number(lobby.cash_pool ?? 0));
-					tightRaceEvents += 1;
+					const weekStart = weekStartMondayUTC(now).toISOString();
+					const names = leaders.map((p) => p.name || "Athlete");
+					const enqueued = await enqueueCommentaryEvent({
+						lobbyId: lobby.id,
+						type: "WEEKLY_TIGHT_RACE",
+						key: `weekly-tight-race:${weekStart}:${Number(lobby.cash_pool ?? 0)}:${names.slice().sort().join(",")}`,
+						payload: {
+							weekStart,
+							pot: Number(lobby.cash_pool ?? 0),
+							names,
+						},
+					});
+					if (enqueued.enqueued) {
+						tightRaceEvents += 1;
+						eventsQueued += 1;
+					} else if (enqueued.duplicate) {
+						eventsDuplicate += 1;
+					}
 				}
 			}
 
 			// Weekly reset announcement + ready reset (job runs daily; reset itself is Monday-gated).
 			if (now.getUTCDay() === 1) {
 				const ws = weekStartMondayUTC(now).toISOString();
-				await onWeeklyReset(lobby.id, ws);
+				const enqueued = await enqueueCommentaryEvent({
+					lobbyId: lobby.id,
+					type: "WEEKLY_RESET",
+					key: `weekly-reset:${ws}`,
+					payload: { weekStart: ws },
+				});
+				if (enqueued.enqueued) {
+					eventsQueued += 1;
+				} else if (enqueued.duplicate) {
+					eventsDuplicate += 1;
+				}
 				await supabase.from("user_ready_states").update({ ready: false }).eq("lobby_id", lobby.id);
 				resets += 1;
+			}
+
+			if (processQueue) {
+				const processed = await processCommentaryQueue({ lobbyId: lobby.id, limit: 200, maxMs: 2000 });
+				addProcessStats(processorTotals, processed);
 			}
 		} catch (e) {
 			await logError({ route: "CRON /api/cron/commentary/weekly", code: "WEEKLY_COMMENTARY_FAILED", err: e, lobbyId: lobby.id });
@@ -358,6 +546,9 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 		ghostWarnings,
 		hypeEvents,
 		tightRaceEvents,
-		resets
+		resets,
+		eventsQueued,
+		eventsDuplicate,
+		processor: processorTotals,
 	};
 }

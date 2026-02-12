@@ -5,6 +5,7 @@ export function integrationConfig() {
 		baseUrl: process.env.TEST_BASE_URL ?? "",
 		authToken: process.env.TEST_AUTH_TOKEN ?? "",
 		ownerAuthToken: process.env.TEST_OWNER_AUTH_TOKEN ?? process.env.TEST_AUTH_TOKEN ?? "",
+		cronSecret: process.env.TEST_CRON_SECRET ?? process.env.CRON_SECRET ?? "",
 		lobbyId: process.env.TEST_LOBBY_ID ?? "",
 		rouletteLobbyId: process.env.TEST_ROULETTE_LOBBY_ID ?? process.env.TEST_LOBBY_ID ?? "",
 		inviteToken: process.env.TEST_INVITE_TOKEN ?? "",
@@ -20,6 +21,25 @@ export function toUrl(baseUrl, path) {
 }
 
 export async function authJson(baseUrl, path, token, init = {}) {
+	const response = await fetch(toUrl(baseUrl, path), {
+		...init,
+		headers: {
+			Authorization: `Bearer ${token}`,
+			"Content-Type": "application/json",
+			...(init.headers ?? {}),
+		},
+	});
+	const text = await response.text();
+	let json = null;
+	try {
+		json = text ? JSON.parse(text) : null;
+	} catch {
+		json = null;
+	}
+	return { response, json, text };
+}
+
+export async function bearerJson(baseUrl, path, token, init = {}) {
 	const response = await fetch(toUrl(baseUrl, path), {
 		...init,
 		headers: {

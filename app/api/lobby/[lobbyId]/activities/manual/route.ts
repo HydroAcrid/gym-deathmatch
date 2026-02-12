@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { onActivityLogged } from "@/lib/commentary";
-import type { Activity } from "@/lib/types";
-import { calculateStreakFromActivities } from "@/lib/streaks";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
-
-type ActivityDateRow = { date: string };
+import {
+	enqueueCommentaryEvent,
+	ensureCommentaryQueueReady,
+	isCommentaryQueueUnavailableError,
+} from "@/lib/commentaryEvents";
+import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	if (!access.memberPlayerId) return NextResponse.json({ error: "Not a player in lobby" }, { status: 403 });
 	const supabase = access.supabase;
 	try {
+		await ensureCommentaryQueueReady();
 		const requestTimezoneOffsetMinutes = (() => {
 			const raw = req.headers.get("x-timezone-offset-minutes");
 			if (!raw) return undefined;
@@ -27,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		const playerId = access.memberPlayerId;
 		// Always use current time when submitting - prevents date manipulation and timezone issues
 		const dateIso = new Date().toISOString();
-		const type = (String(body.type || "other").toLowerCase() as Activity["type"]);
+		const type = String(body.type || "other").toLowerCase();
 		const durationMinutes = body.durationMinutes != null ? Number(body.durationMinutes) : null;
 		const distanceKm = body.distanceKm != null ? Number(body.distanceKm) : null;
 		const notes = body.notes ? String(body.notes).slice(0, 200) : null;
@@ -61,47 +63,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			payload: { activityId: data.id, type, durationMinutes, distanceKm, caption, photoUrl }
 		});
 
-		// Commentary engine (activity + streak milestones)
-		try {
-			const act: Activity = {
-				id: data.id,
+		await enqueueCommentaryEvent({
+			lobbyId,
+			type: "ACTIVITY_LOGGED",
+			key: `activity:${String(data.id)}`,
+			payload: {
+				activityId: String(data.id),
 				playerId,
-				lobbyId,
-				date: dateIso,
+				type: String(type),
 				durationMinutes,
 				distanceKm,
-				type,
-				source: "manual",
-				notes: notes ?? undefined
-			};
-			await onActivityLogged(lobbyId, act);
-
-			try {
-				const { data: streakRows } = await supabase
-					.from("manual_activities")
-					.select("date")
-					.eq("lobby_id", lobbyId)
-					.eq("player_id", playerId)
-					.in("status", ["approved", "pending"])
-					.order("date", { ascending: false })
-					.limit(500);
-				const currentStreak = calculateStreakFromActivities(
-					((streakRows ?? []) as ActivityDateRow[]).map((r) => ({ start_date_local: r.date })),
-					undefined,
-					undefined,
-					{ timezoneOffsetMinutes: requestTimezoneOffsetMinutes }
-				);
-				const { onStreakMilestone, onStreakPR } = await import("@/lib/commentary");
-				const isMilestone = [3, 5, 7, 10].includes(currentStreak);
-				if (isMilestone) {
-					await onStreakMilestone(lobbyId, playerId, currentStreak);
-				} else {
-					await onStreakPR(lobbyId, playerId, currentStreak);
-				}
-			} catch {
-				// best-effort streak commentary
-			}
-		} catch { /* ignore */ }
+				notes,
+				createdAt: String(data.date || dateIso),
+			},
+		});
+		void processCommentaryQueue({ lobbyId, limit: 25, maxMs: 250 }).catch((err) => {
+			console.error("manual activity commentary tail-process failed", err);
+		});
 
 		void refreshLobbyLiveSnapshot(lobbyId, requestTimezoneOffsetMinutes);
 		return NextResponse.json({
@@ -121,6 +99,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			decidedAt: data.decided_at
 		}, { status: 201 });
 	} catch (e) {
+		if (isCommentaryQueueUnavailableError(e)) {
+			return NextResponse.json(
+				{ error: "COMMENTARY_QUEUE_UNAVAILABLE", message: "Run latest SQL schema before posting activities." },
+				{ status: 503 }
+			);
+		}
 		console.error("manual activity POST error", e);
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
