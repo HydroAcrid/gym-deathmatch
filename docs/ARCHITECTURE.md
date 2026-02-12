@@ -51,8 +51,13 @@
 1. `npm run lint`
 2. `npm run typecheck`
 3. `npm run test:unit`
-4. `npm run test:integration`
-5. `npm run build`
+4. `npm run test:migration-smoke`
+5. `npm run test:integration`
+6. `npm run build`
+
+## Security and Invariants
+1. DB-level invariants and RLS/service-role assumptions are documented in `docs/DB_SECURITY.md`.
+2. Critical queue/spin/owner integrity rules must be enforced in schema, not only app code.
 
 ## Near-Term Refactor Priorities
 1. Decompose `lib/liveSnapshot.ts` into smaller domain services.

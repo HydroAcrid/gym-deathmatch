@@ -25,3 +25,18 @@ These tests are network/API smoke checks for critical flows:
 - `TEST_INVITE_TOKEN` (for token-required invite tests)
 
 If required env vars are missing, each test is auto-skipped.
+
+## Migration smoke
+
+Run:
+
+```bash
+npm run test:migration-smoke
+```
+
+Optional live DB check env vars:
+
+- `MIGRATION_SMOKE_SUPABASE_URL`
+- `MIGRATION_SMOKE_SERVICE_ROLE_KEY`
+
+Without those env vars, the test still validates required schema invariants in `supabase/schema.sql`.
