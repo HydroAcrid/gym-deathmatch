@@ -130,18 +130,23 @@ export function HeartsStatusBoard({ athletes, onAthleteSelect }: HeartsStatusBoa
                     
                     {/* Weekly Progress */}
                     <div className="flex items-center gap-2 text-xs">
-                      <Target className="w-3.5 h-3.5 text-muted-foreground" />
+                      <Target className="w-3.5 h-3.5 text-primary" />
                       <span className="text-muted-foreground font-display tracking-wider">
                         {athlete.weeklyProgress}/{athlete.weeklyTarget}
                       </span>
-                      <div className="w-14 sm:w-20 h-2 bg-muted border border-border overflow-hidden">
-                        <div 
-                          className={`h-full transition-all ${progressPercent >= 100 ? "bg-[hsl(var(--status-online))]" : "bg-primary"}`}
-                          style={{ 
-                            width: `${progressPercent}%`,
-                            boxShadow: progressPercent >= 100 
-                              ? '0 0 6px hsl(var(--status-online) / 0.6)' 
-                              : '0 0 6px hsl(var(--primary) / 0.5)'
+                      <div className="relative w-16 sm:w-24 h-2.5 sm:h-3 bg-muted/90 border border-border/80 overflow-hidden">
+                        <div
+                          className={`absolute inset-y-0 left-0 transition-all ${
+                            progressPercent >= 100
+                              ? "bg-[hsl(var(--status-online))]"
+                              : "bg-primary"
+                          }`}
+                          style={{
+                            width: progressPercent > 0 ? `${Math.max(progressPercent, 8)}%` : "0%",
+                            boxShadow:
+                              progressPercent >= 100
+                                ? "0 0 10px hsl(var(--status-online) / 0.65)"
+                                : "0 0 10px hsl(var(--primary) / 0.65)",
                           }}
                         />
                       </div>
