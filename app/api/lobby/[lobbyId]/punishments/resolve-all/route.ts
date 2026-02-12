@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			type: "PUNISHMENTS_RESOLVED_BULK",
 			payload: { userId: targetUserId }
 		});
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		logError({ route: "POST /api/lobby/[id]/punishments/resolve-all", code: "BULK_RESOLVE_FAILED", err: e, lobbyId });

@@ -613,3 +613,86 @@ create policy week_ready_member on week_ready_states
 for select using (
   exists (select 1 from player p where p.lobby_id = week_ready_states.lobby_id and p.user_id::text = auth.uid()::text)
 );
+
+-- Persisted live snapshots (read-optimized, refreshed from write paths/jobs)
+create table if not exists lobby_live_snapshots (
+  lobby_id text not null references lobby(id) on delete cascade,
+  timezone_offset_minutes int not null default 0 check (timezone_offset_minutes between -840 and 840),
+  payload jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (lobby_id, timezone_offset_minutes)
+);
+create index if not exists lobby_live_snapshots_updated_idx on lobby_live_snapshots (updated_at desc);
+alter table lobby_live_snapshots enable row level security;
+drop policy if exists lobby_live_snapshots_member_read on lobby_live_snapshots;
+create policy lobby_live_snapshots_member_read on lobby_live_snapshots
+for select using (
+  exists (select 1 from player p where p.lobby_id = lobby_live_snapshots.lobby_id and p.user_id::text = auth.uid()::text)
+  or exists (select 1 from lobby l where l.id = lobby_live_snapshots.lobby_id and l.owner_user_id::text = auth.uid()::text)
+);
+
+-- DB invariant: one linked player row per (lobby,user)
+create unique index if not exists player_lobby_user_unique_idx
+  on player (lobby_id, user_id)
+  where user_id is not null;
+
+-- DB invariant: lobby.owner_id must reference a player in the same lobby,
+-- and owner_user_id must match owner player's user_id when both are present.
+create or replace function enforce_lobby_owner_integrity()
+returns trigger as $$
+declare
+  owner_row record;
+begin
+  if new.owner_id is not null then
+    select id, lobby_id, user_id
+      into owner_row
+    from player
+    where id = new.owner_id;
+
+    if owner_row.id is null then
+      raise exception 'owner_id % not found in player', new.owner_id;
+    end if;
+    if owner_row.lobby_id is distinct from new.id then
+      raise exception 'owner_id % does not belong to lobby %', new.owner_id, new.id;
+    end if;
+
+    if new.owner_user_id is null then
+      new.owner_user_id := owner_row.user_id;
+    elsif owner_row.user_id is not null and new.owner_user_id is distinct from owner_row.user_id then
+      raise exception 'owner_user_id % does not match owner player user_id %', new.owner_user_id, owner_row.user_id;
+    end if;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_lobby_owner_integrity on lobby;
+create trigger trg_lobby_owner_integrity
+before insert or update on lobby
+for each row execute function enforce_lobby_owner_integrity();
+
+-- DB invariant: prevent deleting the current lobby owner player row.
+create or replace function prevent_owner_player_delete()
+returns trigger as $$
+begin
+  if exists (
+    select 1
+    from lobby l
+    where l.id = old.lobby_id
+      and (
+        l.owner_id = old.id
+        or (l.owner_user_id is not null and old.user_id is not null and l.owner_user_id = old.user_id)
+      )
+  ) then
+    raise exception 'cannot delete current lobby owner player row';
+  end if;
+
+  return old;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_prevent_owner_player_delete on player;
+create trigger trg_prevent_owner_player_delete
+before delete on player
+for each row execute function prevent_owner_player_delete();

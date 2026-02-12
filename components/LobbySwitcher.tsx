@@ -98,13 +98,6 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 
 		return (
 			<div className="relative min-h-[400px] sm:min-h-[500px]">
-				{loading && !liveData && (
-					<div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-[#120b07]/90 backdrop-blur-sm text-foreground">
-						<div className="w-16 h-16 border-4 border-border/20 border-t-primary rounded-full animate-spin" />
-						<div className="text-sm sm:text-base tracking-[0.2em] uppercase">Loading lobby</div>
-						<div className="text-[11px] text-muted-foreground">Pulling live arena data…</div>
-					</div>
-				)}
 				{showRejoinCta && !loading && (
 					<div className="mx-auto my-8 max-w-xl scoreboard-panel p-6 sm:p-8 text-center">
 						<div className="font-display text-xl tracking-widest text-primary">LOBBY ACCESS REQUIRED</div>

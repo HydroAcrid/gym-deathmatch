@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import type { PlayerRow } from "@/types/db";
 import { evaluateInviteGate, inviteReasonMessage } from "@/lib/inviteAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				if (Object.keys(updateData).length > 0) {
 					await supabase.from("player").update(updateData).eq("id", existing.id);
 				}
+				void refreshLobbyLiveSnapshot(lobbyId);
 				return NextResponse.json({ ok: true, alreadyJoined: true, playerId: existing.id });
 			}
 		}
@@ -106,6 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			console.error("invite insert error", error);
 			return NextResponse.json({ error: "Failed to insert" }, { status: 500 });
 		}
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true, playerId });
 	} catch (e) {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });

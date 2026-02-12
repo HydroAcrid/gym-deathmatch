@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 // Get week-ready states for a specific week
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		if (error) throw error;
 		
 		console.log("[WeekSetup] Player ready toggled", { playerId: access.memberPlayerId, week, ready });
+		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
 	} catch (e) {
 		logError({ route: "POST /api/lobby/[id]/week-ready", code: "WEEK_READY_SAVE_FAILED", err: e, lobbyId });

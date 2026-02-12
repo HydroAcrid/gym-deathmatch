@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { LiveLobbyResponse } from "@/types/api";
 import { useAutoRefresh } from "./useAutoRefresh";
 import { authFetch } from "@/lib/clientAuth";
@@ -9,11 +9,22 @@ export function useLobbyLive(lobbyId: string) {
 	const [data, setData] = useState<LiveLobbyResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const initialLoadDoneRef = useRef(false);
+
+	useEffect(() => {
+		initialLoadDoneRef.current = false;
+		setLoading(true);
+		setData(null);
+		setError(null);
+	}, [lobbyId]);
 
 	const reload = useCallback(async () => {
 		if (!lobbyId) return;
 		try {
-			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
+			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, {
+				cache: "no-store",
+				trackLoading: !initialLoadDoneRef.current,
+			});
 			if (!res.ok) {
 				let message = "Failed to fetch lobby data";
 				try {
@@ -29,6 +40,7 @@ export function useLobbyLive(lobbyId: string) {
 			const json = await res.json();
 			setData(json);
 			setError(null);
+			initialLoadDoneRef.current = true;
 		} catch (err) {
 			console.error(err);
 			setError(err as Error);

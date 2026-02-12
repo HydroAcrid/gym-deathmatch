@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { onPotChanged } from "@/lib/commentary";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	if (updErr) return NextResponse.json({ error: "Failed to update pot" }, { status: 500 });
 
 	try { await onPotChanged(lobbyId, delta, newPot); } catch { /* best-effort */ }
+	void refreshLobbyLiveSnapshot(lobbyId);
 
 	return NextResponse.json({ ok: true, pot: newPot, delta });
 }
