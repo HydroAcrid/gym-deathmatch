@@ -32,3 +32,7 @@ Make new pages/features predictable to build:
    - season merge/group logic
    - formatting helpers
 2. This keeps `app/profile/page.tsx` focused on data flow + rendering.
+3. Lobby stats page now uses `src/ui2/adapters/lobbyStats.ts` for:
+   - live payload normalization
+   - total rollups
+   - per-player derived metrics
