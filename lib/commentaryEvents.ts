@@ -4,6 +4,12 @@ import { getServerSupabase } from "@/lib/supabaseClient";
 export type CommentaryEventType =
 	| "ACTIVITY_LOGGED"
 	| "DAILY_REMINDER_DUE"
+	| "VOTE_RESOLVED"
+	| "POT_CHANGED"
+	| "SPIN_RESOLVED"
+	| "READY_CHANGED"
+	| "ALL_READY"
+	| "PUNISHMENT_RESOLVED"
 	| "WEEKLY_MISSED_TARGET_GROUP"
 	| "WEEKLY_HIT_TARGET_GROUP"
 	| "WEEKLY_GHOST_GROUP"
@@ -28,6 +34,44 @@ type DailyReminderPayload = {
 	dayKey: string;
 };
 
+type VoteResolvedPayload = {
+	activityId: string;
+	playerId: string;
+	result: "approved" | "rejected";
+	reason?: string | null;
+	legit?: number | null;
+	sus?: number | null;
+};
+
+type PotChangedPayload = {
+	delta: number;
+	pot: number;
+};
+
+type SpinResolvedPayload = {
+	week: number;
+	spinId: string;
+	winnerItemId: string;
+	text: string;
+	startedAt: string;
+	auto?: boolean;
+};
+
+type ReadyChangedPayload = {
+	playerId: string;
+	ready: boolean;
+};
+
+type AllReadyPayload = {
+	readyPlayerIds: string[];
+};
+
+type PunishmentResolvedPayload = {
+	punishmentId: string;
+	playerId?: string | null;
+	userId?: string | null;
+};
+
 type WeeklyGroupPlayer = { id: string; name?: string | null };
 type WeeklyHeartsPlayer = WeeklyGroupPlayer & { heartsLost?: number; heartsGained?: number; workouts: number };
 
@@ -42,6 +86,12 @@ type WeeklyTightRacePayload = { weekStart: string; pot: number; names: string[] 
 export type CommentaryEventPayloadByType = {
 	ACTIVITY_LOGGED: ActivityLoggedPayload;
 	DAILY_REMINDER_DUE: DailyReminderPayload;
+	VOTE_RESOLVED: VoteResolvedPayload;
+	POT_CHANGED: PotChangedPayload;
+	SPIN_RESOLVED: SpinResolvedPayload;
+	READY_CHANGED: ReadyChangedPayload;
+	ALL_READY: AllReadyPayload;
+	PUNISHMENT_RESOLVED: PunishmentResolvedPayload;
 	WEEKLY_MISSED_TARGET_GROUP: WeeklyMissedPayload;
 	WEEKLY_HIT_TARGET_GROUP: WeeklyHitPayload;
 	WEEKLY_GHOST_GROUP: WeeklyGhostPayload;

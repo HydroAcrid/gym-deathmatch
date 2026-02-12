@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { onSpin } from "@/lib/commentary";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { resolvePunishmentWeek } from "@/lib/challengeWeek";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
+import {
+	enqueueCommentaryEvent,
+	ensureCommentaryQueueReady,
+	isCommentaryQueueUnavailableError,
+} from "@/lib/commentaryEvents";
+import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
@@ -11,6 +16,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	if (!access.ok) return jsonError(access.code, access.message, access.status);
 	if (!access.isOwner) return jsonError("FORBIDDEN", "Owner only", 403);
 	const supabase = access.supabase;
+	try {
+		await ensureCommentaryQueueReady();
+	} catch (e) {
+		if (isCommentaryQueueUnavailableError(e)) {
+			return jsonError("COMMENTARY_QUEUE_UNAVAILABLE", "Run latest SQL schema before spinning.", 503);
+		}
+		return jsonError("COMMENTARY_QUEUE_INIT_FAILED", "Failed to initialize commentary queue", 500);
+	}
 
 	const { data: lobby } = await supabase
 		.from("lobby")
@@ -118,10 +131,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		} catch (e) {
 			logError({ route: "POST /api/lobby/[id]/spin", code: "HISTORY_LOG_FAILED", err: e, lobbyId });
 		}
-		try { await onSpin(lobbyId, chosen.text as string); } catch (e) {
-			logError({ route: "POST /api/lobby/[id]/spin", code: "QUIP_SPIN_FAILED", err: e, lobbyId });
+		try {
+			await enqueueCommentaryEvent({
+				lobbyId,
+				type: "SPIN_RESOLVED",
+				key: `spin:${spinEvent.id}`,
+				payload: {
+					week,
+					spinId: String(spinEvent.id),
+					winnerItemId: String(spinEvent.winner_item_id),
+					text: String(chosen.text || ""),
+					startedAt: String(spinEvent.started_at),
+					auto: false,
+				},
+			});
+		} catch (e) {
+			logError({ route: "POST /api/lobby/[id]/spin", code: "SPIN_EVENT_ENQUEUE_FAILED", err: e, lobbyId });
 		}
 	}
+	void processCommentaryQueue({ lobbyId, limit: 80, maxMs: 800 }).catch((err) => {
+		logError({ route: "POST /api/lobby/[id]/spin", code: "SPIN_PROCESS_TAIL_FAILED", err, lobbyId });
+	});
 	void refreshLobbyLiveSnapshot(lobbyId);
 	return NextResponse.json({
 		ok: true,

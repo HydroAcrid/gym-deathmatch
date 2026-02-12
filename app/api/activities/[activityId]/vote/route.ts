@@ -1,7 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
-import { onVoteResolved } from "@/lib/commentary";
 import { getRequestUserId } from "@/lib/requestAuth";
+import {
+	enqueueCommentaryEvent,
+	ensureCommentaryQueueReady,
+	isCommentaryQueueUnavailableError,
+} from "@/lib/commentaryEvents";
+import { processCommentaryQueue } from "@/lib/commentaryProcessor";
+
+async function enqueueVoteResolvedEvent(input: {
+	lobbyId: string;
+	activityId: string;
+	playerId: string;
+	result: "approved" | "rejected";
+	reason?: string | null;
+	legit?: number;
+	sus?: number;
+}) {
+	await enqueueCommentaryEvent({
+		lobbyId: input.lobbyId,
+		type: "VOTE_RESOLVED",
+		key: `vote-result:${input.activityId}:${input.result}`,
+		payload: {
+			activityId: input.activityId,
+			playerId: input.playerId,
+			result: input.result,
+			reason: input.reason ?? null,
+			legit: input.legit ?? null,
+			sus: input.sus ?? null,
+		},
+	});
+}
 
 async function resolveActivityVotes(supabase: any, activityId: string) {
 	// load activity and votes
@@ -76,10 +105,16 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 			lobby_id: act.lobby_id, type: "VOTE_RESULT",
 			payload: { activityId, result: "approved_timeout", legit, sus, totalEligibleVoters }
 		});
-		// Generate commentary for final verdict
 		try {
-			const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
-			await onVoteResolved(act.lobby_id as any, activity as any, "approved");
+			await enqueueVoteResolvedEvent({
+				lobbyId: String(act.lobby_id),
+				activityId: String(activityId),
+				playerId: String(act.player_id),
+				result: "approved",
+				reason: "approved_timeout",
+				legit,
+				sus,
+			});
 		} catch { /* ignore */ }
 		return;
 	}
@@ -101,10 +136,16 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 				lobby_id: act.lobby_id, type: "VOTE_RESULT",
 				payload: { activityId, result: "rejected_threshold", legit, sus, totalEligibleVoters }
 			});
-			// Generate commentary for final verdict
 			try {
-				const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
-				await onVoteResolved(act.lobby_id as any, activity as any, "rejected");
+				await enqueueVoteResolvedEvent({
+					lobbyId: String(act.lobby_id),
+					activityId: String(activityId),
+					playerId: String(act.player_id),
+					result: "rejected",
+					reason: "rejected_threshold",
+					legit,
+					sus,
+				});
 			} catch { /* ignore */ }
 			return;
 		}
@@ -125,10 +166,16 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 			lobby_id: act.lobby_id, type: "VOTE_RESULT",
 			payload: { activityId, result: "rejected_unanimous", legit, sus, totalEligibleVoters }
 		});
-		// Generate commentary for final verdict
 		try {
-			const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
-			await onVoteResolved(act.lobby_id as any, activity as any, "rejected");
+			await enqueueVoteResolvedEvent({
+				lobbyId: String(act.lobby_id),
+				activityId: String(activityId),
+				playerId: String(act.player_id),
+				result: "rejected",
+				reason: "rejected_unanimous",
+				legit,
+				sus,
+			});
 		} catch { /* ignore */ }
 		return;
 	}
@@ -161,10 +208,16 @@ async function resolveActivityVotes(supabase: any, activityId: string) {
 				totalVotes
 			}
 		});
-		// Generate commentary for final verdict
 		try {
-			const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
-			await onVoteResolved(act.lobby_id as any, activity as any, winner as "approved" | "rejected");
+			await enqueueVoteResolvedEvent({
+				lobbyId: String(act.lobby_id),
+				activityId: String(activityId),
+				playerId: String(act.player_id),
+				result: winner as "approved" | "rejected",
+				reason: winner === "approved" ? "approved_majority" : "rejected_majority",
+				legit,
+				sus,
+			});
 		} catch { /* ignore */ }
 		return;
 	}
@@ -175,6 +228,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
+		await ensureCommentaryQueueReady();
 		const userId = await getRequestUserId(req);
 		if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
 		const body = await req.json();
@@ -267,6 +321,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 			
 			// Re-resolve votes (will revert to approved if no votes remain, or apply normal resolution logic)
 			await resolveActivityVotes(supabase, activityId);
+			void processCommentaryQueue({ lobbyId: String(actRow.lobby_id), limit: 80, maxMs: 600 }).catch((err) => {
+				console.error("vote commentary tail-process failed", err);
+			});
 			return NextResponse.json({ ok: true, removed: true, reverted: false });
 		}
 		if (!["legit", "sus"].includes(choice)) return NextResponse.json({ error: "Invalid choice" }, { status: 400 });
@@ -316,11 +373,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 		// Always resolve votes after any vote change
 		// Commentary will be generated inside resolveActivityVotes when a final verdict is reached
 		await resolveActivityVotes(supabase, activityId);
+		void processCommentaryQueue({ lobbyId: String(actRow.lobby_id), limit: 80, maxMs: 600 }).catch((err) => {
+			console.error("vote commentary tail-process failed", err);
+		});
 		return NextResponse.json({ ok: true });
 	} catch (e) {
+		if (isCommentaryQueueUnavailableError(e)) {
+			return NextResponse.json(
+				{ error: "COMMENTARY_QUEUE_UNAVAILABLE", message: "Run latest SQL schema before voting." },
+				{ status: 503 }
+			);
+		}
 		console.error("vote error", e);
 		const errorMessage = e instanceof Error ? e.message : "Bad request";
 		return NextResponse.json({ error: errorMessage }, { status: 400 });
 	}
 }
-

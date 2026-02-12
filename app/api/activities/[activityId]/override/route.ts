@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
-import { onVoteResolved } from "@/lib/commentary";
 import { getRequestUserId } from "@/lib/requestAuth";
+import {
+	enqueueCommentaryEvent,
+	ensureCommentaryQueueReady,
+	isCommentaryQueueUnavailableError,
+} from "@/lib/commentaryEvents";
+import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ activityId: string }> }) {
 	const { activityId } = await params;
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
+		await ensureCommentaryQueueReady();
 		const userId = await getRequestUserId(req);
 		if (!userId) return NextResponse.json({ error: "Missing user" }, { status: 401 });
 		const body = await req.json();
@@ -39,13 +45,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 			type: "OWNER_OVERRIDE_ACTIVITY",
 			payload: { activityId, previousStatus: act.status, newStatus, reason }
 		});
-		// Generate commentary (like voting does)
-		try {
-			const activity = { id: activityId, playerId: act.player_id, lobbyId: act.lobby_id } as any;
-			await onVoteResolved(act.lobby_id as any, activity as any, newStatus as "approved" | "rejected");
-		} catch { /* ignore */ }
+		await enqueueCommentaryEvent({
+			lobbyId: String(act.lobby_id),
+			type: "VOTE_RESOLVED",
+			key: `vote-result:${activityId}:${newStatus}`,
+			payload: {
+				activityId: String(activityId),
+				playerId: String(act.player_id),
+				result: newStatus as "approved" | "rejected",
+				reason: reason ?? "owner_override",
+			},
+		});
+		void processCommentaryQueue({ lobbyId: String(act.lobby_id), limit: 80, maxMs: 600 }).catch((err) => {
+			console.error("override commentary tail-process failed", err);
+		});
 		return NextResponse.json({ ok: true });
 	} catch (e) {
+		if (isCommentaryQueueUnavailableError(e)) {
+			return NextResponse.json(
+				{ error: "COMMENTARY_QUEUE_UNAVAILABLE", message: "Run latest SQL schema before overriding." },
+				{ status: 503 }
+			);
+		}
 		console.error("override error", e);
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}

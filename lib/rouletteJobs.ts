@@ -1,6 +1,11 @@
-import { onSpin } from "@/lib/commentary";
 import { currentWeekIndex, resolvePunishmentWeek } from "@/lib/challengeWeek";
+import {
+	enqueueCommentaryEvent,
+	ensureCommentaryQueueReady,
+	isCommentaryQueueUnavailableError,
+} from "@/lib/commentaryEvents";
 import { logError } from "@/lib/logger";
+import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 import { getServerSupabase } from "@/lib/supabaseClient";
 
 type RunWeeklyRouletteJobOptions = {
@@ -16,6 +21,19 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 			spun: 0,
 			skipped: ["SUPABASE_NOT_CONFIGURED"],
 		};
+	}
+	try {
+		await ensureCommentaryQueueReady();
+	} catch (e) {
+		if (isCommentaryQueueUnavailableError(e)) {
+			return {
+				scanned: 0,
+				transitioned: 0,
+				spun: 0,
+				skipped: ["COMMENTARY_QUEUE_UNAVAILABLE"],
+			};
+		}
+		throw e;
 	}
 
 	let query = supabase
@@ -229,9 +247,22 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 			});
 
 			try {
-				await onSpin(lobbyId, String(chosen.text || ""));
+				await enqueueCommentaryEvent({
+					lobbyId,
+					type: "SPIN_RESOLVED",
+					key: `spin:${String(spinEvent.id)}`,
+					payload: {
+						week,
+						spinId: String(spinEvent.id),
+						winnerItemId: String(spinEvent.winner_item_id),
+						text: String(chosen.text || ""),
+						startedAt: String(spinEvent.started_at),
+						auto: true,
+					},
+				});
+				await processCommentaryQueue({ lobbyId, limit: 80, maxMs: 800 });
 			} catch (e) {
-				logError({ route: "cron/roulette/weekly", code: "AUTO_SPIN_QUIP_FAILED", err: e, lobbyId });
+				logError({ route: "cron/roulette/weekly", code: "AUTO_SPIN_EVENT_FAILED", err: e, lobbyId });
 			}
 
 			spun += 1;

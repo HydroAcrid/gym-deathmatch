@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { jsonError, logError } from "@/lib/logger";
-import { onPunishmentResolved } from "@/lib/commentary";
 import { getRequestUserId } from "@/lib/requestAuth";
+import {
+	enqueueCommentaryEvent,
+	ensureCommentaryQueueReady,
+	isCommentaryQueueUnavailableError,
+} from "@/lib/commentaryEvents";
+import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
 	const supabase = getServerSupabase();
 	if (!supabase) return jsonError("SUPABASE_NOT_CONFIGURED", "Supabase not configured", 501);
 	try {
+		await ensureCommentaryQueueReady();
 		const actorUserId = await getRequestUserId(req);
 		if (!actorUserId) return jsonError("UNAUTHORIZED", "Unauthorized", 401);
 		// Fetch target row to check lobby ownership when needed
@@ -32,14 +38,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 				target_player_id: null,
 				payload: { punishmentId: id, userId: row.user_id }
 			});
-			// link user to player for nicer quip if possible
 			const { data: p } = await supabase.from("player").select("id").eq("lobby_id", row.lobby_id).eq("user_id", row.user_id).maybeSingle();
-			if (p?.id) await onPunishmentResolved(row.lobby_id as string, p.id as string);
+			await enqueueCommentaryEvent({
+				lobbyId: String(row.lobby_id),
+				type: "PUNISHMENT_RESOLVED",
+				key: `punishment-resolved:${id}`,
+				payload: {
+					punishmentId: String(id),
+					playerId: p?.id ? String(p.id) : null,
+					userId: row.user_id ? String(row.user_id) : null,
+				},
+			});
 		} catch (e) {
 			logError({ route: "POST /api/punishments/[id]/resolve", code: "HISTORY_LOG_FAILED", err: e, lobbyId: row.lobby_id, actorUserId });
 		}
+		void processCommentaryQueue({ lobbyId: String(row.lobby_id), limit: 40, maxMs: 300 }).catch((err) => {
+			logError({ route: "POST /api/punishments/[id]/resolve", code: "PUNISHMENT_PROCESS_TAIL_FAILED", err, lobbyId: row.lobby_id, actorUserId });
+		});
 		return NextResponse.json({ ok: true });
 	} catch (e) {
+		if (isCommentaryQueueUnavailableError(e)) {
+			return jsonError("COMMENTARY_QUEUE_UNAVAILABLE", "Run latest SQL schema before resolving punishments.", 503);
+		}
 		logError({ route: "POST /api/punishments/[id]/resolve", code: "RESOLVE_FAILED", err: e });
 		return jsonError("RESOLVE_FAILED", "Failed to resolve punishment", 400);
 	}

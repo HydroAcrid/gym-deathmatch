@@ -131,6 +131,197 @@ function dailyReminderRule(event: CommentaryEventRecord<"DAILY_REMINDER_DUE">, c
 	];
 }
 
+function voteResolvedRule(event: CommentaryEventRecord<"VOTE_RESOLVED">, ctx: CommentaryRuleContext): CommentaryDispatchOutput[] {
+	const payload = event.payload as CommentaryEventPayloadByType["VOTE_RESOLVED"];
+	const athleteName = displayName(ctx, payload.playerId);
+	const rendered =
+		payload.result === "approved"
+			? `Verdict: legit. ${athleteName}'s workout stands.`
+			: `Verdict: SUS. ${athleteName}'s post doesn't count.`;
+	return [
+		{
+			ruleId: "vote_resolved_both",
+			eventType: "VOTE_RESOLVED",
+			channel: "history",
+			score: 105,
+			dedupeKey: `vote-result:${payload.activityId}:${payload.result}`,
+			budgetKey: "none",
+			budgetType: "none",
+			meta: { lobbyId: event.lobbyId, activityId: payload.activityId, result: payload.result },
+			comment: {
+				lobbyId: event.lobbyId,
+				type: "VOTE",
+				rendered,
+				payload: {
+					activityId: payload.activityId,
+					result: payload.result,
+					reason: payload.reason ?? null,
+					legit: payload.legit ?? null,
+					sus: payload.sus ?? null,
+				},
+				visibility: "both",
+				primaryPlayerId: payload.playerId,
+				activityId: payload.activityId,
+			},
+		},
+	];
+}
+
+function potChangedRule(event: CommentaryEventRecord<"POT_CHANGED">): CommentaryDispatchOutput[] {
+	const payload = event.payload as CommentaryEventPayloadByType["POT_CHANGED"];
+	const renderedBase = `Ante collected. Pot climbs to $${payload.pot}`;
+	return [
+		{
+			ruleId: "pot_feed_update",
+			eventType: "POT_CHANGED",
+			channel: "feed",
+			score: 70,
+			dedupeKey: `pot-feed:${payload.pot}:${payload.delta}`,
+			budgetKey: `pot:${payload.pot}`,
+			budgetType: "feed_per_lobby_per_minute",
+			meta: { lobbyId: event.lobbyId, pot: payload.pot, delta: payload.delta },
+			comment: {
+				lobbyId: event.lobbyId,
+				type: "POT",
+				rendered: `${renderedBase} 🧾`,
+				payload: { delta: payload.delta, pot: payload.pot },
+				visibility: "feed",
+			},
+		},
+		{
+			ruleId: "pot_push_lobby",
+			eventType: "POT_CHANGED",
+			channel: "push",
+			score: 60,
+			dedupeKey: `pot-push:${payload.pot}:${payload.delta}`,
+			budgetKey: "none",
+			budgetType: "none",
+			meta: { lobbyId: event.lobbyId, pot: payload.pot, delta: payload.delta },
+			push: {
+				mode: "lobby",
+				lobbyId: event.lobbyId,
+				title: "Pot climbed",
+				body: `${renderedBase}. Stakes rising.`,
+				url: `/lobby/${event.lobbyId}/history`,
+			},
+		},
+	];
+}
+
+function spinResolvedRule(event: CommentaryEventRecord<"SPIN_RESOLVED">): CommentaryDispatchOutput[] {
+	const payload = event.payload as CommentaryEventPayloadByType["SPIN_RESOLVED"];
+	return [
+		{
+			ruleId: "spin_resolved_feed",
+			eventType: "SPIN_RESOLVED",
+			channel: "feed",
+			score: 95,
+			dedupeKey: `spin-resolved:${payload.spinId}`,
+			budgetKey: "none",
+			budgetType: "none",
+			meta: { lobbyId: event.lobbyId, spinId: payload.spinId, week: payload.week, auto: !!payload.auto },
+			comment: {
+				lobbyId: event.lobbyId,
+				type: "SUMMARY",
+				rendered: `Wheel spun. Punishment: “${payload.text}”`,
+				payload: {
+					type: "SPIN_RESOLVED",
+					week: payload.week,
+					spinId: payload.spinId,
+					startedAt: payload.startedAt,
+					winnerItemId: payload.winnerItemId,
+					auto: !!payload.auto,
+				},
+				visibility: "feed",
+			},
+		},
+	];
+}
+
+function readyChangedRule(event: CommentaryEventRecord<"READY_CHANGED">, ctx: CommentaryRuleContext): CommentaryDispatchOutput[] {
+	const payload = event.payload as CommentaryEventPayloadByType["READY_CHANGED"];
+	const name = displayName(ctx, payload.playerId);
+	const rendered = payload.ready ? `${name} fears no punishment. Ready.` : `${name} is not ready yet.`;
+	return [
+		{
+			ruleId: "ready_changed_feed",
+			eventType: "READY_CHANGED",
+			channel: "feed",
+			score: 45,
+			dedupeKey: `ready:${payload.playerId}:${payload.ready ? "1" : "0"}`,
+			budgetKey: `${event.lobbyId}:ready:${payload.playerId}`,
+			budgetType: "feed_per_lobby_per_minute",
+			meta: { lobbyId: event.lobbyId, playerId: payload.playerId, ready: payload.ready },
+			comment: {
+				lobbyId: event.lobbyId,
+				type: "SUMMARY",
+				rendered,
+				payload: { type: "READY_CHANGED", ready: payload.ready },
+				visibility: "feed",
+				primaryPlayerId: payload.playerId,
+			},
+		},
+	];
+}
+
+function allReadyRule(event: CommentaryEventRecord<"ALL_READY">): CommentaryDispatchOutput[] {
+	const payload = event.payload as CommentaryEventPayloadByType["ALL_READY"];
+	return [
+		{
+			ruleId: "all_ready_feed",
+			eventType: "ALL_READY",
+			channel: "feed",
+			score: 80,
+			dedupeKey: `all-ready:${payload.readyPlayerIds.slice().sort().join(",")}`,
+			budgetKey: "none",
+			budgetType: "none",
+			meta: { lobbyId: event.lobbyId, readyCount: payload.readyPlayerIds.length },
+			comment: {
+				lobbyId: event.lobbyId,
+				type: "SUMMARY",
+				rendered: "All athletes ready. Bell rings soon.",
+				payload: { type: "ALL_READY", readyPlayerIds: payload.readyPlayerIds },
+				visibility: "feed",
+			},
+		},
+	];
+}
+
+function punishmentResolvedRule(event: CommentaryEventRecord<"PUNISHMENT_RESOLVED">, ctx: CommentaryRuleContext): CommentaryDispatchOutput[] {
+	const payload = event.payload as CommentaryEventPayloadByType["PUNISHMENT_RESOLVED"];
+	if (!payload.playerId) return [];
+	const name = displayName(ctx, payload.playerId);
+	return [
+		{
+			ruleId: "punishment_resolved_feed",
+			eventType: "PUNISHMENT_RESOLVED",
+			channel: "feed",
+			score: 65,
+			dedupeKey: `punishment-resolved:${payload.punishmentId}`,
+			budgetKey: `${event.lobbyId}:punishment:${payload.punishmentId}`,
+			budgetType: "none",
+			meta: {
+				lobbyId: event.lobbyId,
+				punishmentId: payload.punishmentId,
+				playerId: payload.playerId,
+				userId: payload.userId ?? null,
+			},
+			comment: {
+				lobbyId: event.lobbyId,
+				type: "SUMMARY",
+				rendered: `${name} cleared a punishment.`,
+				payload: {
+					type: "PUNISHMENT_RESOLVED",
+					punishmentId: payload.punishmentId,
+					userId: payload.userId ?? null,
+				},
+				visibility: "feed",
+				primaryPlayerId: payload.playerId,
+			},
+		},
+	];
+}
+
 function weeklyMissedRule(event: CommentaryEventRecord<"WEEKLY_MISSED_TARGET_GROUP">): CommentaryDispatchOutput[] {
 	const payload = event.payload as CommentaryEventPayloadByType["WEEKLY_MISSED_TARGET_GROUP"];
 	const names = summarizeNames(payload.players.map((p) => p.name || "Athlete"));
@@ -318,6 +509,18 @@ export function buildRuleOutputs(event: CommentaryEventRecord, ctx: CommentaryRu
 			return activityRule(event as CommentaryEventRecord<"ACTIVITY_LOGGED">, ctx);
 		case "DAILY_REMINDER_DUE":
 			return dailyReminderRule(event as CommentaryEventRecord<"DAILY_REMINDER_DUE">, ctx);
+		case "VOTE_RESOLVED":
+			return voteResolvedRule(event as CommentaryEventRecord<"VOTE_RESOLVED">, ctx);
+		case "POT_CHANGED":
+			return potChangedRule(event as CommentaryEventRecord<"POT_CHANGED">);
+		case "SPIN_RESOLVED":
+			return spinResolvedRule(event as CommentaryEventRecord<"SPIN_RESOLVED">);
+		case "READY_CHANGED":
+			return readyChangedRule(event as CommentaryEventRecord<"READY_CHANGED">, ctx);
+		case "ALL_READY":
+			return allReadyRule(event as CommentaryEventRecord<"ALL_READY">);
+		case "PUNISHMENT_RESOLVED":
+			return punishmentResolvedRule(event as CommentaryEventRecord<"PUNISHMENT_RESOLVED">, ctx);
 		case "WEEKLY_MISSED_TARGET_GROUP":
 			return weeklyMissedRule(event as CommentaryEventRecord<"WEEKLY_MISSED_TARGET_GROUP">);
 		case "WEEKLY_HIT_TARGET_GROUP":
