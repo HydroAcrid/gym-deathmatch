@@ -5,7 +5,7 @@ import { getUserStravaTokens } from "./persistence";
 import {
 	onDailyReminder,
 	onGhostWeekGroup,
-	onPerfectWeek,
+	onPerfectWeekGroup,
 	onTightRace,
 	onWeeklyHype,
 	onWeeklyHitTargetGroup,
@@ -210,6 +210,7 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 			const missedByWeek = new Map<string, Array<{ id: string; name?: string | null; heartsLost: number; workouts: number }>>();
 			const hitByWeek = new Map<string, Array<{ id: string; name?: string | null; heartsGained: number; workouts: number }>>();
 			const ghostByWeek = new Map<string, Array<{ id: string; name?: string | null }>>();
+			const perfectByWeek = new Map<string, Array<{ id: string; name?: string | null; workouts: number }>>();
 			for (const player of players) {
 				const manualActs = manualByPlayer.get(player.id) ?? [];
 				const stravaActs = await fetchStravaActivitiesForPlayer(player);
@@ -250,10 +251,16 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 							workouts: Number(last.workouts || 0)
 						});
 					}
-					if (last.workouts >= weeklyTarget && weeklyTarget > 0) {
-						await onPerfectWeek(lobby.id, player.id, last.workouts, last.weekStart);
+						if (last.workouts >= weeklyTarget && weeklyTarget > 0) {
+							const key = String(last.weekStart);
+							if (!perfectByWeek.has(key)) perfectByWeek.set(key, []);
+							perfectByWeek.get(key)?.push({
+								id: player.id,
+								name: player.name ?? null,
+								workouts: Number(last.workouts || 0)
+							});
+						}
 					}
-				}
 
 				const currentWeek = (weekly.events || [])[weekly.events.length - 1];
 				currentWeekByPlayer.set(
@@ -296,6 +303,15 @@ export async function runWeeklyCommentaryJob(opts?: { now?: Date; lobbyId?: stri
 				if (!entries.length) continue;
 				const inserted = await onGhostWeekGroup(lobby.id, entries, weekStart, weeklyTarget);
 				if (inserted) ghostWarnings += 1;
+			}
+
+			for (const [weekStart, entries] of perfectByWeek.entries()) {
+				if (!entries.length) continue;
+				await onPerfectWeekGroup(lobby.id, {
+					weekStart,
+					weeklyTarget,
+					players: entries
+				});
 			}
 
 			if (weeklyTarget > 0 && now.getUTCDay() === 5) {

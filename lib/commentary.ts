@@ -569,7 +569,7 @@ export async function onWeeklyReset(lobbyId: string, weekStartIso: string): Prom
 		type: "SUMMARY",
 		rendered,
 		payload: { type: "WEEK_RESET", weekStart: weekStartIso },
-		visibility: "feed",
+		visibility: "both",
 		dedupeMs: 8 * 24 * 60 * 60 * 1000,
 		dedupeKey: { type: "WEEK_RESET", weekStart: weekStartIso }
 	});
@@ -627,7 +627,7 @@ export async function onGhostWeekGroup(
 		type: "SUMMARY",
 		rendered,
 		payload: { ghostWeekGroup: weekStart, weeklyTarget, players: players.map((p) => p.id) },
-		visibility: "both",
+		visibility: "feed",
 		dedupeMs: 8 * 24 * 60 * 60 * 1000,
 		dedupeKey: { ghostWeekGroup: weekStart, weeklyTarget, players: players.map((p) => p.id).sort() }
 	});
@@ -711,9 +711,43 @@ export async function onPerfectWeek(lobbyId: string, playerId: string, workouts:
 		rendered,
 		payload: { perfectWeek: workouts, weekStart: weekStart ?? null },
 		primaryPlayerId: playerId,
-		visibility: "both",
+		visibility: "feed",
 		dedupeMs: 8 * 24 * 60 * 60 * 1000,
 		dedupeKey: { perfectWeek: workouts, weekStart: weekStart ?? null }
+	});
+}
+
+export async function onPerfectWeekGroup(
+	lobbyId: string,
+	opts: {
+		weekStart: string;
+		weeklyTarget: number;
+		players: Array<{ id: string; name?: string | null; workouts: number }>;
+	}
+): Promise<boolean> {
+	if (!opts.players.length) return false;
+	const names = summarizeNames(opts.players);
+	const rendered = opts.players.length === 1
+		? `Perfect week badge: ${names} hit ${opts.weeklyTarget}/${opts.weeklyTarget}.`
+		: `Perfect week badges: ${names} hit ${opts.weeklyTarget}/${opts.weeklyTarget}.`;
+	return insertQuipOnce({
+		lobbyId,
+		type: "SUMMARY",
+		rendered,
+		payload: {
+			perfectWeekGroup: true,
+			weekStart: opts.weekStart,
+			weeklyTarget: opts.weeklyTarget,
+			players: opts.players.map((p) => ({ id: p.id, workouts: p.workouts }))
+		},
+		visibility: "feed",
+		dedupeMs: 14 * 24 * 60 * 60 * 1000,
+		dedupeKey: {
+			perfectWeekGroup: true,
+			weekStart: opts.weekStart,
+			weeklyTarget: opts.weeklyTarget,
+			players: opts.players.map((p) => p.id).sort()
+		}
 	});
 }
 
@@ -726,7 +760,7 @@ export async function onWeeklyHype(lobbyId: string, players: Array<{ id: string;
 		type: "SUMMARY",
 		rendered,
 		payload: { hype: true, weeklyTarget, players: players.map((p) => p.id) },
-		visibility: "both",
+		visibility: "feed",
 		dedupeMs: 24 * 60 * 60 * 1000,
 		dedupeKey: { hype: true, weeklyTarget, players: players.map((p) => p.id).sort() }
 	});
