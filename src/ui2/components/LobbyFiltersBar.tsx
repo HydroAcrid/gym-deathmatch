@@ -67,29 +67,37 @@ export function LobbyFiltersBar({
 	if (filters.showMoney) activeFilterLabels.push("Money");
 	if (filters.showChallenge) activeFilterLabels.push("Challenge");
 	if (searchQuery.trim()) activeFilterLabels.push(`Search: "${searchQuery.trim()}"`);
+	const hasActiveFilters = activeFilterLabels.length > 0;
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-center gap-2 text-xs font-display tracking-widest text-muted-foreground">
-				<span className="arena-badge px-2 py-1">SORT: {sortLabels[sortBy]}</span>
-				{activeFilterLabels.length > 0 ? (
-					activeFilterLabels.map((label) => (
-						<span key={label} className="arena-badge arena-badge-primary px-2 py-1">
-							{label}
-						</span>
-					))
-				) : (
-					<span className="arena-badge px-2 py-1">NO FILTERS</span>
-				)}
-				{activeFilterLabels.length > 0 && (
-					<button
-						type="button"
-						onClick={onResetAll}
-						className="arena-badge px-2 py-1 text-[10px] hover:border-primary/60"
-					>
-						CLEAR ALL
-					</button>
-				)}
+			<div className="space-y-2">
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<div className="font-display text-[11px] tracking-widest text-muted-foreground">
+						ACTIVE FILTERS {hasActiveFilters ? `(${activeFilterLabels.length})` : "(0)"}
+					</div>
+					{hasActiveFilters ? (
+						<button
+							type="button"
+							onClick={onResetAll}
+							className="arena-badge px-2 py-1 text-[10px] hover:border-primary/60"
+						>
+							CLEAR ALL
+						</button>
+					) : null}
+				</div>
+				<div className="flex flex-wrap items-center gap-2 text-xs font-display tracking-widest text-muted-foreground">
+					<span className="arena-badge px-2 py-1">SORT: {sortLabels[sortBy]}</span>
+					{hasActiveFilters ? (
+						activeFilterLabels.map((label) => (
+							<span key={label} className="arena-badge arena-badge-primary px-2 py-1">
+								{label}
+							</span>
+						))
+					) : (
+						<span className="arena-badge px-2 py-1">ALL LOBBIES</span>
+					)}
+				</div>
 			</div>
 
 			<div className="flex flex-col sm:flex-row gap-3">

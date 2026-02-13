@@ -32,7 +32,7 @@ export function MobileBottomNav() {
 	const historyHref = resolvedLobbyId ? `/lobby/${resolvedLobbyId}/history` : "/history";
 
 	const isActive = (href: string) => pathname === href;
-	const isHomeActive = isActive("/home") || /^\/lobby\/[^/]+$/.test(pathname ?? "");
+	const isHomeActive = isActive("/home");
 	const isLobbiesActive = isActive("/lobbies");
 	const isHistoryActive = isActive(historyHref);
 	const isRulesActive = pathname?.startsWith("/rules");

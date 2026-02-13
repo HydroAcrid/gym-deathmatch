@@ -14,7 +14,6 @@ import { ChallengeHero } from "./ChallengeHero";
 import { WeekSetup } from "./WeekSetup";
 import { LAST_LOBBY_STORAGE_KEY } from "@/lib/localStorageKeys";
 import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
-import { ActiveSeasonHeader } from "@/src/ui2/components/ActiveSeasonHeader";
 import { ArenaCommandCenter } from "@/src/ui2/components/ArenaCommandCenter";
 import { LiveFeed } from "@/src/ui2/components/LiveFeed";
 import { HeartsStatusBoard, type AthleteHeartStatus } from "@/src/ui2/components/HeartsStatusBoard";
@@ -445,6 +444,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			stage,
 			seasonStatus,
 			mode,
+			modeLabel,
+			hostName: ownerName,
+			athleteCount: players.length,
+			challengePunishment: activePunishmentMeta,
 			myPlayerId,
 			myPlayerName,
 			standings: standingsData,
@@ -462,6 +465,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		stage,
 		seasonStatus,
 		mode,
+		modeLabel,
+		ownerName,
+		players.length,
+		activePunishmentMeta,
 		myPlayerId,
 		myPlayerName,
 		standingsData,
@@ -483,22 +490,6 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		<div className="min-h-screen">
 			<div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
 				<ArenaCommandCenter vm={commandCenterVm} />
-
-				<ActiveSeasonHeader
-					seasonName={lobbyData.name}
-					seasonNumber={lobbyData.seasonNumber}
-					gameMode={modeLabel}
-					hostName={ownerName}
-					athleteCount={players.length}
-					currentPot={potAmount}
-					weeklyAnte={weeklyAnte}
-					showMoneyInfo={isMoneyMode && stage !== "COMPLETED"}
-					seasonStart={lobbyData.seasonStart}
-					seasonEnd={lobbyData.seasonEnd}
-					showCountdown={stage !== "COMPLETED"}
-					showChallengeInfo={mode === "CHALLENGE_ROULETTE" && stage !== "COMPLETED"}
-					challengePunishment={activePunishmentMeta}
-				/>
 
 				{/* Weekly Cycle Indicator */}
 				{stage !== "COMPLETED" && (

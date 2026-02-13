@@ -5,6 +5,7 @@ import { ChevronDown, Loader2, Swords } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/clientAuth";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/src/ui2/ui/sheet";
+import { Button } from "@/src/ui2/ui/button";
 
 type LobbyListItem = {
 	id: string;
@@ -91,6 +92,9 @@ export function LobbyQuickSwitchSheet({ currentLobbyId, currentLobbyName }: Lobb
 			>
 				<SheetHeader className="border-b-2 border-border px-4 py-3 text-left">
 					<SheetTitle className="font-display text-base tracking-widest text-primary">SWITCH LOBBY</SheetTitle>
+					<div className="font-mono text-[11px] text-muted-foreground">
+						Quick switch between lobbies without leaving the arena.
+					</div>
 				</SheetHeader>
 				<div className="px-3 py-3">
 					{loading ? (
@@ -140,6 +144,19 @@ export function LobbyQuickSwitchSheet({ currentLobbyId, currentLobbyName }: Lobb
 							})}
 						</div>
 					)}
+				</div>
+				<div className="border-t-2 border-border px-3 py-3">
+					<Button
+						variant="outline"
+						size="sm"
+						className="w-full font-display text-xs tracking-widest"
+						onClick={() => {
+							setOpen(false);
+							router.push("/lobbies");
+						}}
+					>
+						OPEN FULL LOBBY LIST
+					</Button>
 				</div>
 			</SheetContent>
 		</Sheet>

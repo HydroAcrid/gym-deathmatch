@@ -1,22 +1,129 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { IntroGuide } from "@/components/IntroGuide";
 import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
+import { authFetch } from "@/lib/clientAuth";
+import type { LiveLobbyResponse } from "@/types/api";
+import { calculatePoints, compareByPointsDesc } from "@/lib/points";
+
+type HomeSnapshot = {
+	rank: number | null;
+	points: number;
+	hearts: number;
+	weekText: string;
+	stageLabel: string;
+	athleteCount: number;
+};
+
+function formatStageLabel(stage?: string | null, seasonStatus?: string | null): string {
+	if (stage === "COMPLETED" || seasonStatus === "completed") return "COMPLETED";
+	if (stage === "PRE_STAGE" || seasonStatus === "pending" || seasonStatus === "scheduled") return "PRE-STAGE";
+	return "ACTIVE";
+}
+
+function formatWeekRemaining(weekEndMs: number, nowMs: number): string {
+	if (!Number.isFinite(weekEndMs)) return "--";
+	const diff = Math.max(0, weekEndMs - nowMs);
+	const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+	const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+	if (days > 0) return `${days}D ${hours}H`;
+	if (hours > 0) return `${hours}H`;
+	const minutes = Math.max(1, Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000)));
+	return `${minutes}M`;
+}
 
 export default function HomePage() {
-	const router = useRouter();
 	const { user, isHydrated, signInWithGoogle } = useAuth();
 	const lastLobby = useLastLobbySnapshot();
 	const [isSigningIn, setIsSigningIn] = useState(false);
+	const [liveData, setLiveData] = useState<LiveLobbyResponse | null>(null);
+	const [liveLoading, setLiveLoading] = useState(false);
 
 	useEffect(() => {
-		if (!isHydrated || !user || !lastLobby?.id) return;
-		router.replace(`/lobby/${encodeURIComponent(lastLobby.id)}`);
-	}, [isHydrated, user, lastLobby?.id, router]);
+		let cancelled = false;
+		if (!isHydrated || !user || !lastLobby?.id) {
+			setLiveData(null);
+			setLiveLoading(false);
+			return () => {
+				cancelled = true;
+			};
+		}
+
+		(async () => {
+			setLiveLoading(true);
+			try {
+				const response = await authFetch(`/api/lobby/${encodeURIComponent(lastLobby.id)}/live`, {
+					cache: "no-store",
+				});
+				if (!response.ok) {
+					if (!cancelled) setLiveData(null);
+					return;
+				}
+				const payload = (await response.json()) as LiveLobbyResponse;
+				if (!cancelled) setLiveData(payload);
+			} catch {
+				if (!cancelled) setLiveData(null);
+			} finally {
+				if (!cancelled) setLiveLoading(false);
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [isHydrated, user, lastLobby?.id]);
+
+	const mySnapshot = useMemo<HomeSnapshot | null>(() => {
+		if (!user?.id || !liveData?.lobby?.players?.length) return null;
+		const players = liveData.lobby.players;
+		const me = players.find((player) => player.userId === user.id);
+		if (!me) return null;
+
+		const standings = [...players]
+			.map((player) => ({
+				id: player.id,
+				points: calculatePoints({
+					workouts: player.totalWorkouts ?? 0,
+					streak: player.currentStreak ?? 0,
+					penalties: 0,
+				}),
+				workouts: player.totalWorkouts ?? 0,
+				streak: player.currentStreak ?? 0,
+			}))
+			.sort(compareByPointsDesc);
+
+		const rankIndex = standings.findIndex((entry) => entry.id === me.id);
+		const rank = rankIndex >= 0 ? rankIndex + 1 : null;
+		const nowMs = Date.now();
+		const seasonStartMs = new Date(liveData.lobby.seasonStart).getTime();
+		const seasonEndMs = new Date(liveData.lobby.seasonEnd).getTime();
+		const weekMs = 7 * 24 * 60 * 60 * 1000;
+
+		let weekText = "--";
+		if (Number.isFinite(seasonStartMs) && Number.isFinite(seasonEndMs) && seasonEndMs > seasonStartMs) {
+			const totalWeeks = Math.max(1, Math.ceil((seasonEndMs - seasonStartMs) / weekMs));
+			const rawWeek = Math.ceil((nowMs - seasonStartMs) / weekMs);
+			const currentWeek = Math.min(totalWeeks, Math.max(1, rawWeek));
+			const weekEndMs = seasonStartMs + currentWeek * weekMs;
+			weekText = `WEEK ${currentWeek}/${totalWeeks} • ${formatWeekRemaining(weekEndMs, nowMs)} LEFT`;
+		}
+
+		return {
+			rank,
+			points: calculatePoints({
+				workouts: me.totalWorkouts ?? 0,
+				streak: me.currentStreak ?? 0,
+				penalties: 0,
+			}),
+			hearts: me.livesRemaining ?? 0,
+			weekText,
+			stageLabel: formatStageLabel(liveData.stage, liveData.seasonStatus),
+			athleteCount: players.length,
+		};
+	}, [liveData, user?.id]);
 
 	async function handleGoogleSignIn() {
 		if (isSigningIn) return;
@@ -32,31 +139,7 @@ export default function HomePage() {
 		return (
 			<div className="min-h-screen">
 				<div className="container mx-auto max-w-3xl py-10 px-4">
-					<div className="scoreboard-panel p-6 text-sm text-muted-foreground">Loading your arena...</div>
-				</div>
-			</div>
-		);
-	}
-
-	if (user && lastLobby?.id) {
-		return (
-			<div className="min-h-screen">
-				<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
-					<div className="scoreboard-panel p-6 space-y-3">
-						<div className="arena-badge arena-badge-primary text-[10px]">RESUMING LOBBY</div>
-						<h1 className="font-display text-2xl tracking-widest text-primary">{lastLobby.name}</h1>
-						<p className="text-sm text-muted-foreground">
-							Taking you back to your most recent lobby.
-						</p>
-						<div className="flex gap-3 flex-wrap">
-							<Link href={`/lobby/${encodeURIComponent(lastLobby.id)}`} className="arena-badge arena-badge-primary px-4 py-2">
-								OPEN NOW
-							</Link>
-							<Link href="/lobbies" className="arena-badge px-4 py-2">
-								CHOOSE ANOTHER
-							</Link>
-						</div>
-					</div>
+					<div className="scoreboard-panel p-6 text-sm text-muted-foreground">Loading command hub...</div>
 				</div>
 			</div>
 		);
@@ -102,19 +185,96 @@ export default function HomePage() {
 
 	return (
 		<div className="min-h-screen">
-			<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
-				<div className="scoreboard-panel p-6 space-y-3">
-					<h2 className="font-display text-2xl tracking-widest text-primary">WELCOME BACK</h2>
-					<p className="text-sm text-muted-foreground">
-						Pick a lobby to see live stats, history, and season progress. Once you join a lobby it will show up in your list automatically.
+			<div className="container mx-auto max-w-5xl py-6 px-4 sm:py-10 space-y-6">
+				<div className="scoreboard-panel p-5 sm:p-6">
+					<div className="font-display text-2xl sm:text-3xl tracking-widest text-primary">COMMAND HUB</div>
+					<p className="mt-2 text-sm text-muted-foreground">
+						Resume your arena fast, then jump to full lobby management when needed.
 					</p>
-					<div className="flex gap-3 flex-wrap">
-						<Link href="/lobbies" className="arena-badge arena-badge-primary px-4 py-2">
-							VIEW LOBBIES
+				</div>
+
+				<div className="grid gap-6 lg:grid-cols-3">
+					<div className="scoreboard-panel p-5 space-y-4 lg:col-span-2">
+						<div className="flex items-center justify-between gap-2">
+							<div className="font-display text-lg tracking-widest text-foreground">CONTINUE LOBBY</div>
+							{mySnapshot?.stageLabel ? (
+								<span className="arena-badge arena-badge-primary text-[10px]">{mySnapshot.stageLabel}</span>
+							) : null}
+						</div>
+
+						{lastLobby?.id ? (
+							<>
+								<div className="font-display text-2xl tracking-widest text-primary">{lastLobby.name}</div>
+								{liveLoading ? (
+									<div className="text-xs text-muted-foreground">Syncing live snapshot...</div>
+								) : mySnapshot ? (
+									<div className="grid gap-2 sm:grid-cols-2">
+										<div className="border-2 border-border bg-muted/20 px-3 py-2">
+											<div className="text-[10px] font-display tracking-widest text-muted-foreground">YOUR RANK</div>
+											<div className="font-display text-lg text-arena-gold">
+												{mySnapshot.rank ? `#${mySnapshot.rank}` : "--"}
+											</div>
+											<div className="text-[10px] font-display tracking-widest text-muted-foreground">
+												{mySnapshot.points} PTS
+											</div>
+										</div>
+										<div className="border-2 border-border bg-muted/20 px-3 py-2">
+											<div className="text-[10px] font-display tracking-widest text-muted-foreground">HEARTS</div>
+											<div className="font-display text-lg text-foreground">{mySnapshot.hearts}/3</div>
+											<div className="text-[10px] font-display tracking-widest text-muted-foreground">
+												{mySnapshot.athleteCount} ATHLETES
+											</div>
+										</div>
+										<div className="border-2 border-border bg-muted/20 px-3 py-2 sm:col-span-2">
+											<div className="text-[10px] font-display tracking-widest text-muted-foreground">SEASON CLOCK</div>
+											<div className="font-display text-sm tracking-wider text-foreground">{mySnapshot.weekText}</div>
+										</div>
+									</div>
+								) : (
+									<div className="text-xs text-muted-foreground">
+										No live snapshot yet. Open the lobby to refresh current standings.
+									</div>
+								)}
+								<div className="flex flex-wrap gap-2">
+									<Link href={`/lobby/${encodeURIComponent(lastLobby.id)}`} className="arena-badge arena-badge-primary px-4 py-2">
+										OPEN LOBBY
+									</Link>
+									<Link href={`/lobby/${encodeURIComponent(lastLobby.id)}/history`} className="arena-badge px-4 py-2">
+										RECENT ACTIVITY
+									</Link>
+									<Link href="/lobbies" className="arena-badge px-4 py-2">
+										VIEW ALL LOBBIES
+									</Link>
+								</div>
+							</>
+						) : (
+							<>
+								<p className="text-sm text-muted-foreground">
+									No recent lobby yet. Browse your lobbies to pick one and start tracking.
+								</p>
+								<div className="flex flex-wrap gap-2">
+									<Link href="/lobbies" className="arena-badge arena-badge-primary px-4 py-2">
+										GO TO LOBBIES
+									</Link>
+								</div>
+							</>
+						)}
+					</div>
+
+					<div className="scoreboard-panel p-5 space-y-3">
+						<div className="font-display text-base tracking-widest text-foreground">QUICK ROUTES</div>
+						<Link href="/lobbies" className="arena-badge arena-badge-primary w-full justify-center px-4 py-2">
+							LOBBIES
 						</Link>
-						<Link href="/rules" className="arena-badge px-4 py-2">
-							READ THE RULES
+						<Link href="/rules" className="arena-badge w-full justify-center px-4 py-2">
+							RULES
 						</Link>
+						<Link href={lastLobby?.id ? `/lobby/${encodeURIComponent(lastLobby.id)}/history` : "/history"} className="arena-badge w-full justify-center px-4 py-2">
+							HISTORY
+						</Link>
+						<p className="text-xs text-muted-foreground">
+							Lobbies is your full directory and management view. This hub is your fast resume surface.
+						</p>
 					</div>
 				</div>
 			</div>

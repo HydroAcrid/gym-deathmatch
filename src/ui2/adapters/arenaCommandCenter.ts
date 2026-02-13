@@ -49,13 +49,24 @@ export interface ArenaPotSummary {
 	weeklyAnte: number;
 }
 
+export interface ArenaChallengePunishmentSummary {
+	text: string;
+	week?: number | null;
+	submittedByName?: string | null;
+	submittedByAvatarUrl?: string | null;
+}
+
 export interface ArenaCommandCenterVM {
 	currentLobby: {
 		id: string;
 		name: string;
 	};
 	seasonNumber: number;
+	modeLabel: string;
+	hostName: string;
+	athleteCount: number;
 	stageBadge: ArenaStageBadge;
+	challengePunishment: ArenaChallengePunishmentSummary | null;
 	myPlayerSummary: ArenaMyPlayerSummary | null;
 	standingsPreview: {
 		top: ArenaStandingsPreviewEntry[];
@@ -73,6 +84,10 @@ export interface ArenaCommandCenterInput {
 	stage?: LobbyStage | null;
 	seasonStatus?: ArenaSeasonStatus;
 	mode?: string | null;
+	modeLabel?: string | null;
+	hostName?: string | null;
+	athleteCount?: number | null;
+	challengePunishment?: ArenaChallengePunishmentSummary | null;
 	myPlayerId?: string | null;
 	myPlayerName?: string | null;
 	standings: Standing[];
@@ -205,6 +220,15 @@ export function buildArenaCommandCenterVM(input: ArenaCommandCenterInput): Arena
 	const standingsPreview = buildStandingsPreviewEntries(input.standings, input.myPlayerId, input.myPlayerName);
 	const myHearts = input.myPlayerId ? input.hearts.find((athlete) => athlete.id === input.myPlayerId) : null;
 	const myRankEntry = standingsPreview.myRank;
+	const isChallengeRoulette = String(input.mode ?? "").startsWith("CHALLENGE_ROULETTE");
+	const challengePunishment = isChallengeRoulette && input.challengePunishment?.text
+		? {
+			text: input.challengePunishment.text,
+			week: input.challengePunishment.week ?? null,
+			submittedByName: input.challengePunishment.submittedByName ?? null,
+			submittedByAvatarUrl: input.challengePunishment.submittedByAvatarUrl ?? null,
+		}
+		: null;
 
 	const myPlayerSummary: ArenaMyPlayerSummary | null =
 		myHearts && input.myPlayerId
@@ -243,7 +267,14 @@ export function buildArenaCommandCenterVM(input: ArenaCommandCenterInput): Arena
 			name: input.lobbyName,
 		},
 		seasonNumber: Math.max(1, toNumber(input.seasonNumber, 1)),
+		modeLabel: String(input.modeLabel ?? input.mode ?? "MONEY_SURVIVAL").replace(/_/g, " "),
+		hostName: input.hostName?.trim() ? input.hostName.trim() : "Host",
+		athleteCount: Math.max(
+			0,
+			toNumber(input.athleteCount, Math.max(input.standings.length, input.hearts.length))
+		),
 		stageBadge,
+		challengePunishment,
 		myPlayerSummary,
 		standingsPreview,
 		weekSummary,

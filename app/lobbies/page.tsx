@@ -58,7 +58,7 @@ export default function LobbiesPage() {
 	}, [allLobbies, lastLobby]);
 	const recentLobbyId = effectiveRecentLobby?.id ?? null;
 	const [filters, setFilters] = useState<LobbyFilters>({
-		showRecent: true,
+		showRecent: false,
 		showMine: false, // Default to false so users see all lobbies they're a member of or own
 		showActive: false,
 		showCompleted: false,

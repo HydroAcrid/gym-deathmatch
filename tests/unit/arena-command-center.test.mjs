@@ -119,6 +119,9 @@ test("command center VM includes pot only for money modes", async () => {
 		seasonNumber: 1,
 		stage: "ACTIVE",
 		seasonStatus: "active",
+		modeLabel: "MONEY SURVIVAL",
+		hostName: "Kevin",
+		athleteCount: 6,
 		myPlayerId: "me",
 		myPlayerName: "Me",
 		standings: [makeStanding({ athleteId: "me", athleteName: "Me", points: 9 })],
@@ -137,4 +140,39 @@ test("command center VM includes pot only for money modes", async () => {
 	assert.equal(moneyVm.potSummary?.amount, 250);
 	assert.equal(challengeVm.potSummary, null);
 	assert.equal(moneyVm.myPlayerSummary?.rank, 1);
+	assert.equal(moneyVm.hostName, "Kevin");
+	assert.equal(moneyVm.athleteCount, 6);
+});
+
+test("command center VM includes roulette punishment only for roulette mode", async () => {
+	const adapter = await loadAdapter();
+	const baseInput = {
+		lobbyId: "arena-lobby",
+		lobbyName: "Arena Lobby",
+		seasonNumber: 2,
+		stage: "ACTIVE",
+		seasonStatus: "active",
+		myPlayerId: "me",
+		myPlayerName: "Me",
+		standings: [makeStanding({ athleteId: "me", athleteName: "Me", points: 11 })],
+		hearts: [makeHeart({ id: "me", name: "Me" })],
+		currentWeek: 2,
+		totalWeeks: 8,
+		weekEndDate: new Date("2026-02-20T00:00:00.000Z"),
+		potAmount: 0,
+		weeklyAnte: 0,
+		nowMs: new Date("2026-02-15T00:00:00.000Z").getTime(),
+		challengePunishment: {
+			text: "Do 1 muscle up",
+			week: 1,
+			submittedByName: "Alec",
+		},
+	};
+
+	const rouletteVm = adapter.buildArenaCommandCenterVM({ ...baseInput, mode: "CHALLENGE_ROULETTE" });
+	const cumulativeVm = adapter.buildArenaCommandCenterVM({ ...baseInput, mode: "CHALLENGE_CUMULATIVE" });
+
+	assert.equal(rouletteVm.modeLabel, "CHALLENGE ROULETTE");
+	assert.equal(rouletteVm.challengePunishment?.text, "Do 1 muscle up");
+	assert.equal(cumulativeVm.challengePunishment, null);
 });
