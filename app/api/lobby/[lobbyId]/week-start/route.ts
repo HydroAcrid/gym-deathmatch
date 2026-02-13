@@ -53,8 +53,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			return jsonError("NOT_FOUND", "Lobby not found", 404);
 		}
 		
-		// If this is the first week, set season_start
-		if (week === 1 && !lobby.season_start) {
+		// If season_start is missing, initialize it when a week is activated.
+		if (!lobby.season_start) {
 			await supabase
 				.from("lobby")
 				.update({ season_start: new Date().toISOString(), status: "active", stage: "ACTIVE" })

@@ -30,6 +30,7 @@ type StravaComparableActivity = RawStravaActivity & {
 };
 
 type ManualJoinedRow = ManualActivityRow & {
+	status?: string | null;
 	player?: { user_id?: string | null } | Array<{ user_id?: string | null }> | null;
 };
 
@@ -64,6 +65,16 @@ function normalizeStravaActivities(raw: unknown[]): StravaComparableActivity[] {
 			__source: "strava" as const,
 		}))
 		.filter((activity) => !!(activity.start_date || activity.start_date_local || activity.startDate));
+}
+
+function normalizeManualStatus(value: unknown): string {
+	return String(value ?? "").trim().toLowerCase();
+}
+
+function includeInStatsByStatus(value: unknown): boolean {
+	const status = normalizeManualStatus(value);
+	if (!status) return true;
+	return status === "approved" || status === "pending";
 }
 
 function mapManualActivities(rows: ManualActivityRow[]): StravaComparableActivity[] {
@@ -157,11 +168,11 @@ export async function prefetchManualActivities(lobbyId: string): Promise<{
 			.from("manual_activities")
 			.select("*, player:player_id(user_id)")
 			.eq("lobby_id", lobbyId)
-			.in("status", ["approved", "pending"])
 			.order("date", { ascending: false })
 			.limit(500);
 
 		for (const row of (data ?? []) as ManualJoinedRow[]) {
+			if (!includeInStatsByStatus(row.status)) continue;
 			const playerId = row.player_id;
 			if (!manualByPlayer[playerId]) manualByPlayer[playerId] = [];
 			manualByPlayer[playerId].push(row);
@@ -229,13 +240,29 @@ export async function hydrateLobbyPlayers(input: {
 				let legacyWeeklyEvents: Array<{ weekStart: string; met: boolean; count: number }> = [];
 				let seasonActivities: StravaComparableActivity[] = [];
 
-				if (input.seasonStart && input.stage !== "PRE_STAGE") {
+				if (input.stage !== "PRE_STAGE") {
 					const seasonCalcEndIso = input.stage === "COMPLETED" ? input.seasonEnd : new Date().toISOString();
-					seasonActivities = filterSeasonActivities(combined, input.seasonStart, seasonCalcEndIso);
-					const seasonStartDate = new Date(input.seasonStart);
+					const seasonEndDate = new Date(seasonCalcEndIso);
+					const seasonEndTs = seasonEndDate.getTime();
+					const hasSeasonStart = !!input.seasonStart;
+
+					if (hasSeasonStart) {
+						seasonActivities = filterSeasonActivities(combined, input.seasonStart as string, seasonCalcEndIso);
+					} else {
+						seasonActivities = Number.isFinite(seasonEndTs)
+							? combined.filter((activity) => activityTimestamp(activity) <= seasonEndTs)
+							: combined;
+					}
+
+					const fallbackStartDate = (() => {
+						const oldest = seasonActivities[seasonActivities.length - 1];
+						const oldestTs = oldest ? activityTimestamp(oldest) : Number.NaN;
+						return Number.isFinite(oldestTs) && oldestTs > 0 ? new Date(oldestTs) : new Date();
+					})();
+					const seasonStartDate = hasSeasonStart ? new Date(input.seasonStart as string) : fallbackStartDate;
 					const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
 					const startForCalc =
-						seasonActivities.length === 0 && Date.now() - seasonStartDate.getTime() > twoDaysMs
+						hasSeasonStart && seasonActivities.length === 0 && Date.now() - seasonStartDate.getTime() > twoDaysMs
 							? new Date()
 							: seasonStartDate;
 
@@ -247,23 +274,23 @@ export async function hydrateLobbyPlayers(input: {
 						timezoneOffsetMinutes: input.requestTimezoneOffsetMinutes,
 					});
 					averageWorkoutsPerWeek = calculateAverageWorkoutsPerWeek(combined, input.seasonStart, seasonCalcEndIso);
-						const weekly = computeWeeklyHearts(combined, startForCalc, {
-							weeklyTarget: input.weeklyTarget,
-							maxHearts: input.initialLives,
-							seasonEnd: new Date(seasonCalcEndIso),
-						});
-						livesRemaining = weekly.heartsRemaining;
-						heartsTimeline = weekly.events;
-						const nowTs = Date.now();
-						legacyWeeklyEvents = weekly.events
-							.filter((event) => new Date(event.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs)
-							.map((event) => ({
-								weekStart: event.weekStart,
-								met: event.workouts >= input.weeklyTarget,
-								count: event.workouts,
-							}))
-							.slice(-4);
-					}
+					const weekly = computeWeeklyHearts(combined, startForCalc, {
+						weeklyTarget: input.weeklyTarget,
+						maxHearts: input.initialLives,
+						seasonEnd: seasonEndDate,
+					});
+					livesRemaining = weekly.heartsRemaining;
+					heartsTimeline = weekly.events;
+					const nowTs = Date.now();
+					legacyWeeklyEvents = weekly.events
+						.filter((event) => new Date(event.weekStart).getTime() + 7 * 24 * 60 * 60 * 1000 <= nowTs)
+						.map((event) => ({
+							weekStart: event.weekStart,
+							met: event.workouts >= input.weeklyTarget,
+							count: event.workouts,
+						}))
+						.slice(-4);
+				}
 
 				const recentActivities = seasonActivities.slice(0, 5).map((activity) => {
 					const summary = toActivitySummary(activity);
