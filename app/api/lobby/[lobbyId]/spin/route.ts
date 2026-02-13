@@ -107,7 +107,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	await supabase.from("lobby_punishments").update({ active: false, week_status: null }).eq("lobby_id", lobbyId).eq("week", week);
 	await supabase.from("lobby_punishments").update({ active: true, week_status: "ACTIVE" }).eq("id", chosen.id);
 	const lobbyPatch: Record<string, unknown> = { status: "active", stage: "ACTIVE" };
-	if (week === 1 && !(lobby as any).season_start) {
+	if (!(lobby as any).season_start) {
 		lobbyPatch.season_start = new Date().toISOString();
 	}
 	await supabase.from("lobby").update(lobbyPatch).eq("id", lobbyId);

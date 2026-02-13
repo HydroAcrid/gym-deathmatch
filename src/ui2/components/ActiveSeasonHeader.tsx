@@ -97,7 +97,7 @@ export function ActiveSeasonHeader({
 	}, [showCountdown, seasonEnd, nowMs, seasonStart]);
 
 	return (
-		<div className="scoreboard-panel p-6 sm:p-8 text-center relative overflow-hidden">
+		<div className="scoreboard-panel p-4 sm:p-6 text-center relative overflow-hidden">
 			<div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
 
 			<div className="absolute top-3 sm:top-4 right-3 sm:right-4 flex items-center gap-2">
@@ -108,7 +108,7 @@ export function ActiveSeasonHeader({
 			</div>
 
 			<div className="relative z-10">
-				<div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+				<div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
 					<Swords className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
 					<h1 className="font-display text-xl sm:text-2xl md:text-3xl font-bold tracking-widest text-primary animate-marquee">
 						THE ARENA IS LIVE
@@ -116,7 +116,7 @@ export function ActiveSeasonHeader({
 					<Swords className="w-5 h-5 sm:w-6 sm:h-6 text-primary transform scale-x-[-1]" />
 				</div>
 
-				<div className="inline-block mb-4 sm:mb-6">
+				<div className="inline-block mb-3 sm:mb-4">
 					<div className="arena-badge arena-badge-primary px-4 py-1.5 text-[10px] sm:text-xs">
 						SEASON {seasonNumber} — {seasonName}
 					</div>
@@ -147,7 +147,7 @@ export function ActiveSeasonHeader({
 				</div>
 
 				{showChallengeInfo && (
-					<div className="mt-5 sm:mt-6 mx-auto max-w-3xl border border-primary/35 bg-[linear-gradient(180deg,hsl(var(--primary)/0.12),transparent)] px-4 sm:px-6 py-4 text-left">
+					<div className="mt-4 sm:mt-5 mx-auto max-w-3xl border border-primary/35 bg-[linear-gradient(180deg,hsl(var(--primary)/0.12),transparent)] px-4 sm:px-6 py-3.5 sm:py-4 text-left">
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex items-center gap-2 text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground font-display">
 								<AlertTriangle className="w-3.5 h-3.5 text-primary" />
@@ -180,7 +180,7 @@ export function ActiveSeasonHeader({
 				)}
 
 				{(showMoneyInfo || showCountdown) && (
-					<div className="mt-5 sm:mt-6 mx-auto max-w-3xl border border-border/80 bg-card/50 px-4 sm:px-6 py-4">
+					<div className="mt-4 sm:mt-5 mx-auto max-w-3xl border border-border/80 bg-card/50 px-4 sm:px-6 py-3.5 sm:py-4">
 						<div className="grid gap-4 sm:grid-cols-3 sm:items-stretch">
 							{showMoneyInfo && (
 								<div className="sm:col-span-1 border border-arena-gold/40 bg-[radial-gradient(circle_at_20%_15%,hsl(var(--arena-gold)/0.16),transparent_60%)] px-3 py-3 text-left relative overflow-hidden">
