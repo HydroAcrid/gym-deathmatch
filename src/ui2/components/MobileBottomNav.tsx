@@ -95,7 +95,8 @@ export function MobileBottomNav() {
 								<button
 									key="log"
 									onClick={handleLogClick}
-									className="flex flex-col items-center justify-center flex-1 -mt-4"
+									aria-label="Log workout"
+									className="flex flex-col items-center justify-center flex-1 -mt-2"
 								>
 									<div
 										className="w-14 h-14 bg-primary flex items-center justify-center border-2 border-primary/60 touch-target-xl"
@@ -103,6 +104,9 @@ export function MobileBottomNav() {
 									>
 										<Plus className="w-6 h-6 text-primary-foreground" />
 									</div>
+									<span className="mt-1 text-[10px] font-display tracking-widest font-bold text-foreground">
+										LOG
+									</span>
 								</button>
 							);
 						}
