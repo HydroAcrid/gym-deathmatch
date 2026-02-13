@@ -1,10 +1,10 @@
 import { useState } from "react";
-import Image from "next/image";
 import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { POINTS_FORMULA_TEXT } from "@/lib/points";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/ui2/ui/dialog";
 
 export interface Standing {
+  athleteId?: string;
   rank: number;
   previousRank?: number;
   athleteName: string;
@@ -67,7 +67,7 @@ export function Standings({ standings }: StandingsProps) {
           
           return (
             <div 
-              key={standing.athleteName}
+              key={standing.athleteId ?? standing.athleteName}
               className={`p-4 transition-colors hover:bg-muted/20 active:bg-muted/30 ${
                 isTop3 ? 'bg-muted/10' : ''
               }`}
@@ -88,11 +88,9 @@ export function Standings({ standings }: StandingsProps) {
                   </span>
                   <div className="w-9 h-9 bg-muted border-2 border-border flex items-center justify-center overflow-hidden">
                     {standing.avatarUrl ? (
-                      <Image
+                      <img
                         src={standing.avatarUrl}
                         alt={standing.athleteName}
-                        width={36}
-                        height={36}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -140,11 +138,9 @@ export function Standings({ standings }: StandingsProps) {
                 <div className="col-span-5 flex items-center gap-2">
                   <div className="w-9 h-9 bg-muted border-2 border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {standing.avatarUrl ? (
-                      <Image
+                      <img
                         src={standing.avatarUrl}
                         alt={standing.athleteName}
-                        width={36}
-                        height={36}
                         className="h-full w-full object-cover"
                       />
                     ) : (

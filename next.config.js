@@ -9,6 +9,10 @@ const nextConfig = {
 				protocol: "https",
 				hostname: "**.supabase.co",
 			},
+			{
+				protocol: "https",
+				hostname: "i.guim.co.uk",
+			},
 		],
 	},
 	// Ensure service worker and manifest are served correctly
@@ -41,4 +45,3 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-

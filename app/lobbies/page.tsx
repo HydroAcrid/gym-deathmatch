@@ -9,6 +9,7 @@ import { LobbyCard } from "@/src/ui2/components/LobbyCard";
 import { LobbyFiltersBar, type LobbySortBy, type LobbyFilters } from "@/src/ui2/components/LobbyFiltersBar";
 import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
 import { authFetch } from "@/lib/clientAuth";
+import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 
 type LobbyRow = {
 	id: string; 
@@ -27,14 +28,37 @@ type LobbyRow = {
 	player_count?: number;
 };
 
+function toMs(value?: string): number {
+	if (!value) return 0;
+	const ms = new Date(value).getTime();
+	return Number.isFinite(ms) ? ms : 0;
+}
+
 export default function LobbiesPage() {
 	const [allLobbies, setAllLobbies] = useState<LobbyRow[]>([]);
 	const [editLobby, setEditLobby] = useState<LobbyRow | null>(null);
+	const [nowMs] = useState<number>(() => Date.now());
 	const { user, isHydrated } = useAuth();
+	const userId = user?.id ?? null;
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [debouncedSearch, setDebouncedSearch] = useState<string>("");
 	const [sortBy, setSortBy] = useState<LobbySortBy>("newest");
+	const lastLobby = useLastLobbySnapshot();
+	const effectiveRecentLobby = useMemo(() => {
+		if (!allLobbies.length) return null;
+		if (lastLobby?.id) {
+			const exact = allLobbies.find((lobby) => lobby.id === lastLobby.id);
+			if (exact) return exact;
+		}
+		return [...allLobbies].sort((a, b) => {
+			const aMs = Math.max(toMs(a.created_at), toMs(a.season_start));
+			const bMs = Math.max(toMs(b.created_at), toMs(b.season_start));
+			return bMs - aMs;
+		})[0] ?? null;
+	}, [allLobbies, lastLobby]);
+	const recentLobbyId = effectiveRecentLobby?.id ?? null;
 	const [filters, setFilters] = useState<LobbyFilters>({
+		showRecent: true,
 		showMine: false, // Default to false so users see all lobbies they're a member of or own
 		showActive: false,
 		showCompleted: false,
@@ -50,13 +74,13 @@ export default function LobbiesPage() {
 			return;
 		}
 		
-		if (!user?.id) {
+		if (!userId) {
 			console.log("[lobbies] No user ID - user not signed in");
 			setAllLobbies([]);
 			return;
 		}
 		
-		console.log("[lobbies] Fetching lobbies for user:", user.id);
+		console.log("[lobbies] Fetching lobbies for user:", userId);
 		const url = `/api/lobbies`;
 		try {
 			const res = await authFetch(url);
@@ -66,12 +90,15 @@ export default function LobbiesPage() {
 			console.error("[lobbies] Fetch error:", err);
 			setAllLobbies([]);
 		}
-	}, [isHydrated, user?.id]);
+	}, [isHydrated, userId]);
 
 	// Only fetch lobbies after auth is hydrated AND user exists
 	useEffect(() => {
 		if (!isHydrated) return; // Wait for auth hydration
-		reloadLobbies();
+		const timer = setTimeout(() => {
+			void reloadLobbies();
+		}, 0);
+		return () => clearTimeout(timer);
 	}, [isHydrated, reloadLobbies]);
 
 	// Poll for lobby updates every 10 seconds
@@ -100,9 +127,14 @@ export default function LobbiesPage() {
 			filtered = filtered.filter(l => l.name.toLowerCase().includes(query));
 		}
 
+		// Default to the most recently accessed lobby when available.
+		if (filters.showRecent && recentLobbyId) {
+			filtered = filtered.filter((lobby) => lobby.id === recentLobbyId);
+		}
+
 		// Apply "show mine" filter - filter to only owned lobbies
-		if (filters.showMine && user?.id) {
-			filtered = filtered.filter(l => user.id === l.owner_user_id);
+		if (filters.showMine && userId) {
+			filtered = filtered.filter(l => userId === l.owner_user_id);
 		}
 
 		// Apply status filters
@@ -150,21 +182,20 @@ export default function LobbiesPage() {
 		});
 
 		return filtered;
-	}, [allLobbies, debouncedSearch, filters, sortBy, user?.id]);
+	}, [allLobbies, debouncedSearch, filters, recentLobbyId, sortBy, userId]);
 
 	// Calculate days ago
 	const getDaysAgo = (createdAt?: string) => {
 		if (!createdAt) return null;
 		const created = new Date(createdAt).getTime();
-		const now = Date.now();
-		const diffMs = now - created;
+		const diffMs = nowMs - created;
 		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 		if (diffDays === 0) return "Today";
 		if (diffDays === 1) return "1 day ago";
 		return `${diffDays} days ago`;
 	};
 
-	const isOwner = (l: LobbyRow) => Boolean(user?.id && l.owner_user_id === user.id);
+	const isOwner = (l: LobbyRow) => Boolean(userId && l.owner_user_id === userId);
 
 	return (
 		<div className="min-h-screen">
@@ -195,6 +226,19 @@ export default function LobbiesPage() {
 					onSortChange={setSortBy}
 					filters={filters}
 					onFiltersChange={setFilters}
+					onResetAll={() => {
+						setSearchQuery("");
+						setFilters({
+							showRecent: false,
+							showMine: false,
+							showActive: false,
+							showCompleted: false,
+							showMoney: false,
+							showChallenge: false,
+						});
+						setSortBy("newest");
+					}}
+					recentLobbyName={effectiveRecentLobby?.name ?? null}
 					totalCount={allLobbies.length}
 					filteredCount={filteredAndSortedLobbies.length}
 				/>
@@ -215,20 +259,20 @@ export default function LobbiesPage() {
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
 						{filteredAndSortedLobbies.map((l) => {
 							const daysAgo = getDaysAgo(l.created_at);
-							const card = mapLobbyRowToCard(l, { userId: user?.id, createdAgo: daysAgo });
+							const card = mapLobbyRowToCard(l, { userId: userId ?? undefined, createdAgo: daysAgo });
 							return (
 								<LobbyCard
 									key={l.id}
 									lobby={card}
 									onEdit={() => setEditLobby(l)}
 									onLeave={async (lobbyId) => {
-										if (!user?.id) return;
+										if (!userId) return;
 										await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/leave`, {
 											method: "POST",
 										});
 										reloadLobbies();
 									}}
-									showLeave={Boolean(user?.id)}
+									showLeave={Boolean(userId)}
 								/>
 							);
 						})}

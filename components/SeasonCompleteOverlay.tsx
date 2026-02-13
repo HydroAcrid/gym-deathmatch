@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import type { SeasonSummary, GameMode } from "@/types/game";
-import Image from "next/image";
 import { useState } from "react";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { authFetch } from "@/lib/clientAuth";
@@ -145,13 +144,7 @@ export function SeasonCompleteOverlay({
 											)}
 											<div className="h-12 w-12 rounded-full overflow-hidden border-2 border-border flex-shrink-0">
 												{player.avatarUrl ? (
-													<Image 
-														src={player.avatarUrl} 
-														alt={player.name} 
-														width={48} 
-														height={48} 
-														className="object-cover"
-													/>
+													<img src={player.avatarUrl} alt={player.name} className="h-full w-full object-cover" />
 												) : (
 													<div className="h-full w-full flex items-center justify-center bg-muted">
 														<Dumbbell className="h-5 w-5 text-primary" />

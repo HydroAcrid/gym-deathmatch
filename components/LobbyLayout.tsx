@@ -15,6 +15,7 @@ import { WeekSetup } from "./WeekSetup";
 import { LAST_LOBBY_STORAGE_KEY } from "@/lib/localStorageKeys";
 import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
 import { ActiveSeasonHeader } from "@/src/ui2/components/ActiveSeasonHeader";
+import { ArenaCommandCenter } from "@/src/ui2/components/ArenaCommandCenter";
 import { LiveFeed } from "@/src/ui2/components/LiveFeed";
 import { HeartsStatusBoard, type AthleteHeartStatus } from "@/src/ui2/components/HeartsStatusBoard";
 import { Standings, type Standing } from "@/src/ui2/components/Standings";
@@ -25,6 +26,7 @@ import { authFetch } from "@/lib/clientAuth";
 import { calculatePoints, compareByPointsDesc, POINTS_FORMULA_TEXT } from "@/lib/points";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/ui2/ui/dialog";
 import { ManualActivityModal } from "./ManualActivityModal";
+import { buildArenaCommandCenterVM } from "@/src/ui2/adapters/arenaCommandCenter";
 
 type LobbyLayoutProps = {
 	lobby: Lobby;
@@ -400,6 +402,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const streak = p.currentStreak ?? 0;
 			const penalties = 0;
 			return {
+				athleteId: p.id,
 				athleteName: p.name,
 				avatarUrl: p.avatarUrl || null,
 				workouts,
@@ -433,6 +436,42 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)));
 	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((Date.now() - seasonStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000))));
 	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * 7 * 24 * 60 * 60 * 1000);
+	const myPlayerName = myPlayerId ? players.find((player) => player.id === myPlayerId)?.name ?? null : null;
+	const commandCenterVm = useMemo(() => {
+		return buildArenaCommandCenterVM({
+			lobbyId: lobbyData.id,
+			lobbyName: lobbyData.name,
+			seasonNumber: lobbyData.seasonNumber,
+			stage,
+			seasonStatus,
+			mode,
+			myPlayerId,
+			myPlayerName,
+			standings: standingsData,
+			hearts: heartsData,
+			currentWeek,
+			totalWeeks,
+			weekEndDate,
+			potAmount,
+			weeklyAnte,
+		});
+	}, [
+		lobbyData.id,
+		lobbyData.name,
+		lobbyData.seasonNumber,
+		stage,
+		seasonStatus,
+		mode,
+		myPlayerId,
+		myPlayerName,
+		standingsData,
+		heartsData,
+		currentWeek,
+		totalWeeks,
+		weekEndDate,
+		potAmount,
+		weeklyAnte,
+	]);
 
 	// Determine host controls match status
 	const matchStatus: "AWAITING_HOST" | "ARMED" | "ACTIVE" | "COMPLETED" = 
@@ -443,6 +482,8 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	return (
 		<div className="min-h-screen">
 			<div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
+				<ArenaCommandCenter vm={commandCenterVm} />
+
 				<ActiveSeasonHeader
 					seasonName={lobbyData.name}
 					seasonNumber={lobbyData.seasonNumber}
@@ -461,12 +502,14 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 				{/* Weekly Cycle Indicator */}
 				{stage !== "COMPLETED" && (
-					<WeeklyCycleIndicator
-						currentWeek={currentWeek}
-						totalWeeks={totalWeeks}
-						weekEndDate={weekEndDate}
-						resetDay="MONDAY"
-					/>
+					<div className="hidden sm:block">
+						<WeeklyCycleIndicator
+							currentWeek={currentWeek}
+							totalWeeks={totalWeeks}
+							weekEndDate={weekEndDate}
+							resetDay="MONDAY"
+						/>
+					</div>
 				)}
 
 				<div className="flex flex-wrap items-center gap-2">

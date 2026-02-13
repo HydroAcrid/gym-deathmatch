@@ -85,10 +85,10 @@ export function MobileBottomNav() {
 		<>
 			<div className="mobile-bottom-nav lg:hidden h-[calc(76px+env(safe-area-inset-bottom))]" />
 			<nav
-				className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-[90] border-t-2 border-border safe-area-inset-bottom shadow-[0_-10px_24px_-14px_hsl(0_0%_0%/0.95)]"
+				className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-[90] overflow-hidden border-t-2 border-border safe-area-inset-bottom shadow-[0_-10px_24px_-14px_hsl(0_0%_0%/0.95)]"
 				style={{ backgroundColor: "hsl(var(--background))" }}
 			>
-				<div className="flex items-stretch justify-around h-16 safe-area-pb">
+				<div className="flex h-16 items-center justify-around gap-1 safe-area-pb">
 					{navItems.map((item) => {
 						if (item.isLog) {
 							return (
@@ -96,10 +96,10 @@ export function MobileBottomNav() {
 									key="log"
 									onClick={handleLogClick}
 									aria-label="Log workout"
-									className="flex flex-col items-center justify-center flex-1 -mt-2"
+									className="flex flex-1 flex-col items-center justify-center pt-1"
 								>
 									<div
-										className="w-14 h-14 bg-primary flex items-center justify-center border-2 border-primary/60 touch-target-xl"
+										className="h-12 w-12 bg-primary flex items-center justify-center border-2 border-primary/60 touch-target-xl"
 										style={{ boxShadow: "0 0 20px hsl(var(--primary) / 0.4), 0 4px 0 hsl(0 0% 0% / 0.3)" }}
 									>
 										<Plus className="w-6 h-6 text-primary-foreground" />
@@ -117,7 +117,7 @@ export function MobileBottomNav() {
 									<SheetTrigger asChild>
 										<button
 											aria-expanded={moreOpen}
-											className={`relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors border-t-2 -mt-0.5 touch-target ${
+											className={`relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors border-t-2 touch-target ${
 												item.active
 													? "text-primary border-primary"
 													: "text-muted-foreground border-transparent"
@@ -235,7 +235,7 @@ export function MobileBottomNav() {
 							<Link
 								key={item.label}
 								href={item.href!}
-								className={`flex flex-col items-center justify-center flex-1 gap-1 transition-colors border-t-2 -mt-0.5 touch-target ${
+								className={`flex flex-col items-center justify-center flex-1 gap-1 transition-colors border-t-2 touch-target ${
 									item.active ? "text-primary border-primary" : "text-muted-foreground border-transparent"
 								}`}
 							>

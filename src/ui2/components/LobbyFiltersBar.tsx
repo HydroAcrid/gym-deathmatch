@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Search } from "lucide-react";
 
 export type LobbyFilters = {
+	showRecent: boolean;
 	showMine: boolean;
 	showActive: boolean;
 	showCompleted: boolean;
@@ -26,6 +27,8 @@ export interface LobbyFiltersBarProps {
 	onSortChange: (sort: LobbySortBy) => void;
 	filters: LobbyFilters;
 	onFiltersChange: (filters: LobbyFilters) => void;
+	onResetAll: () => void;
+	recentLobbyName?: string | null;
 	totalCount: number;
 	filteredCount: number;
 }
@@ -37,15 +40,58 @@ export function LobbyFiltersBar({
 	onSortChange,
 	filters,
 	onFiltersChange,
+	onResetAll,
+	recentLobbyName,
 	totalCount,
 	filteredCount,
 }: LobbyFiltersBarProps) {
 	const toggleFilter = (key: keyof LobbyFilters) => {
 		onFiltersChange({ ...filters, [key]: !filters[key] });
 	};
+	const recentFilterActive = filters.showRecent;
+
+	const sortLabels: Record<LobbySortBy, string> = {
+		newest: "Date created (newest)",
+		oldest: "Date created (oldest)",
+		season_latest: "Season start (latest)",
+		season_earliest: "Season start (earliest)",
+		name_az: "Name (A -> Z)",
+		name_za: "Name (Z -> A)",
+	};
+
+	const activeFilterLabels: string[] = [];
+	if (recentFilterActive) activeFilterLabels.push(`Recent lobby${recentLobbyName ? `: ${recentLobbyName}` : ""}`);
+	if (filters.showMine) activeFilterLabels.push("My lobbies");
+	if (filters.showActive) activeFilterLabels.push("Active");
+	if (filters.showCompleted) activeFilterLabels.push("Completed");
+	if (filters.showMoney) activeFilterLabels.push("Money");
+	if (filters.showChallenge) activeFilterLabels.push("Challenge");
+	if (searchQuery.trim()) activeFilterLabels.push(`Search: "${searchQuery.trim()}"`);
 
 	return (
 		<div className="space-y-4">
+			<div className="flex flex-wrap items-center gap-2 text-xs font-display tracking-widest text-muted-foreground">
+				<span className="arena-badge px-2 py-1">SORT: {sortLabels[sortBy]}</span>
+				{activeFilterLabels.length > 0 ? (
+					activeFilterLabels.map((label) => (
+						<span key={label} className="arena-badge arena-badge-primary px-2 py-1">
+							{label}
+						</span>
+					))
+				) : (
+					<span className="arena-badge px-2 py-1">NO FILTERS</span>
+				)}
+				{activeFilterLabels.length > 0 && (
+					<button
+						type="button"
+						onClick={onResetAll}
+						className="arena-badge px-2 py-1 text-[10px] hover:border-primary/60"
+					>
+						CLEAR ALL
+					</button>
+				)}
+			</div>
+
 			<div className="flex flex-col sm:flex-row gap-3">
 				<div className="relative flex-1 min-w-0">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -57,8 +103,8 @@ export function LobbyFiltersBar({
 					/>
 				</div>
 				<Select value={sortBy} onValueChange={(v) => onSortChange(v as LobbySortBy)}>
-					<SelectTrigger className="w-full sm:w-44">
-						<SelectValue placeholder="Sort by" />
+					<SelectTrigger className="w-full sm:w-56">
+						<SelectValue placeholder="Sort order" />
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="newest">Date created (newest)</SelectItem>
@@ -72,6 +118,14 @@ export function LobbyFiltersBar({
 			</div>
 
 			<div className="flex flex-wrap gap-2">
+				<Button
+					variant={recentFilterActive ? "arenaPrimary" : "outline"}
+					size="sm"
+					onClick={() => toggleFilter("showRecent")}
+					className="font-display text-xs"
+				>
+					Recent
+				</Button>
 				<Button
 					variant={filters.showMine ? "arenaPrimary" : "outline"}
 					size="sm"
