@@ -442,7 +442,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 	return (
 		<div className="min-h-screen">
-			<div className="container mx-auto px-4 py-8 space-y-8">
+			<div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
 				<ActiveSeasonHeader
 					seasonName={lobbyData.name}
 					seasonNumber={lobbyData.seasonNumber}
