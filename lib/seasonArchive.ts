@@ -55,6 +55,7 @@ export async function archiveCurrentLobbySeason(lobbyId: string): Promise<{ ok: 
 		.map((p): ArchivedPlayerBase => {
 			const workouts = Number(p.totalWorkouts ?? 0);
 			const streak = Number(p.currentStreak ?? 0);
+			const longestStreak = Number(p.longestStreak ?? streak);
 			const penalties = 0;
 			return {
 				playerId: String(p.id ?? ""),
@@ -63,20 +64,36 @@ export async function archiveCurrentLobbySeason(lobbyId: string): Promise<{ ok: 
 				avatarUrl: p.avatarUrl ? String(p.avatarUrl) : null,
 				workouts,
 				streak,
-				longestStreak: Number(p.longestStreak ?? 0),
+				longestStreak,
 				hearts: Number(p.livesRemaining ?? 0),
 				weeklyTarget: Number(p.weeklyTarget ?? lobby.weeklyTarget ?? 3),
 				weeklyProgress: readWeeklyProgress(p),
-				points: calculatePoints({ workouts, streak, penalties }),
+				points: calculatePoints({ workouts, streak, longestStreak, penalties }),
 			};
 		})
 		.filter((p: ArchivedPlayerBase) => !!p.playerId)
-		.sort((a, b) =>
-			compareByPointsDesc(
-				{ rank: 0, athleteName: a.name, workouts: a.workouts, streak: a.streak, penalties: 0, points: a.points },
-				{ rank: 0, athleteName: b.name, workouts: b.workouts, streak: b.streak, penalties: 0, points: b.points }
+			.sort((a, b) =>
+				compareByPointsDesc(
+					{
+						rank: 0,
+						athleteName: a.name,
+						workouts: a.workouts,
+						streak: a.streak,
+						longestStreak: a.longestStreak,
+						penalties: 0,
+						points: a.points,
+					},
+					{
+						rank: 0,
+						athleteName: b.name,
+						workouts: b.workouts,
+						streak: b.streak,
+						longestStreak: b.longestStreak,
+						penalties: 0,
+						points: b.points,
+					}
+				)
 			)
-		)
 		.map((p: ArchivedPlayerBase, idx): ArchivedPlayer => {
 			const rank = idx + 1;
 			return {

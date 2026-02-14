@@ -88,10 +88,12 @@ export default function HomePage() {
 				points: calculatePoints({
 					workouts: player.totalWorkouts ?? 0,
 					streak: player.currentStreak ?? 0,
+					longestStreak: player.longestStreak ?? player.currentStreak ?? 0,
 					penalties: 0,
 				}),
 				workouts: player.totalWorkouts ?? 0,
 				streak: player.currentStreak ?? 0,
+				longestStreak: player.longestStreak ?? player.currentStreak ?? 0,
 			}))
 			.sort(compareByPointsDesc);
 
@@ -116,6 +118,7 @@ export default function HomePage() {
 			points: calculatePoints({
 				workouts: me.totalWorkouts ?? 0,
 				streak: me.currentStreak ?? 0,
+				longestStreak: me.longestStreak ?? me.currentStreak ?? 0,
 				penalties: 0,
 			}),
 			hearts: me.livesRemaining ?? 0,

@@ -9,7 +9,12 @@ function toSummaryPlayer(player: Player) {
 		hearts: player.livesRemaining,
 		totalWorkouts: player.totalWorkouts,
 		currentStreak: player.currentStreak,
-		points: calculatePoints({ workouts: player.totalWorkouts, streak: player.currentStreak }),
+		longestStreak: player.longestStreak,
+		points: calculatePoints({
+			workouts: player.totalWorkouts,
+			streak: player.currentStreak,
+			longestStreak: player.longestStreak,
+		}),
 	};
 }
 
@@ -89,4 +94,3 @@ export function generateSeasonSummary(
 		highlights,
 	};
 }
-

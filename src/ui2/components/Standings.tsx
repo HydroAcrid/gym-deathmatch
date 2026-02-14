@@ -222,6 +222,9 @@ export function Standings({ standings }: StandingsProps) {
               `STK` = current streak.
             </p>
             <p>
+              Points bank the best streak reached this season, so a broken streak won&apos;t reduce total points.
+            </p>
+            <p>
               Penalties subtract from total when enabled.
             </p>
           </div>

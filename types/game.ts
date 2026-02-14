@@ -55,6 +55,7 @@ export interface SeasonSummary {
 		hearts: number;
 		totalWorkouts: number;
 		currentStreak?: number;
+		longestStreak?: number;
 		points?: number;
 	}>;
 	losers: Array<{
@@ -64,6 +65,7 @@ export interface SeasonSummary {
 		hearts: number;
 		totalWorkouts: number;
 		currentStreak?: number;
+		longestStreak?: number;
 		points?: number;
 	}>;
 	finalPot: number;

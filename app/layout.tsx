@@ -10,6 +10,7 @@ import { DebugFooter } from "@/components/DebugFooter";
 import { PWARegister } from "@/components/PWARegister";
 import { PWAMeta } from "@/components/PWAMeta";
 import { GlobalLoadingOverlay } from "@/components/GlobalLoadingOverlay";
+import { LegalFooter } from "@/components/LegalFooter";
 
 export const metadata: Metadata = {
 	title: "Gym Deathmatch",
@@ -42,14 +43,15 @@ export default function RootLayout({
 					<ToastProvider>
 						<ArenaNav />
 						<GlobalLoadingOverlay />
-						{/* Main content with bottom padding to reserve space for fixed mobile nav */}
-						<main className="relative z-20 px-3 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-24 sm:pb-6">
-							<PageMotion>{children}</PageMotion>
-						</main>
-						{/* Mobile bottom nav - fixed to viewport, doesn't affect layout */}
-						<MobileBottomNav />
-					</ToastProvider>
-				</AuthProvider>
+							{/* Main content with bottom padding to reserve space for fixed mobile nav */}
+							<main className="relative z-20 px-3 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-24 sm:pb-6">
+								<PageMotion>{children}</PageMotion>
+							</main>
+							<LegalFooter />
+							{/* Mobile bottom nav - fixed to viewport, doesn't affect layout */}
+							<MobileBottomNav />
+						</ToastProvider>
+					</AuthProvider>
 				<Analytics />
 				<DebugFooter />
 				<PWARegister />

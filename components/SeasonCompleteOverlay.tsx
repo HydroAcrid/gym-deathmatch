@@ -76,12 +76,20 @@ export function SeasonCompleteOverlay({
 		...seasonSummary.winners.map(p => ({
 			...p,
 			isWinner: true,
-			points: p.points ?? calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak ?? 0 })
+			points: p.points ?? calculatePoints({
+				workouts: p.totalWorkouts,
+				streak: p.currentStreak ?? 0,
+				longestStreak: p.longestStreak ?? p.currentStreak ?? 0,
+			})
 		})),
 		...seasonSummary.losers.map(p => ({
 			...p,
 			isWinner: false,
-			points: p.points ?? calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak ?? 0 })
+			points: p.points ?? calculatePoints({
+				workouts: p.totalWorkouts,
+				streak: p.currentStreak ?? 0,
+				longestStreak: p.longestStreak ?? p.currentStreak ?? 0,
+			})
 		}))
 	].sort((a, b) => {
 		if ((b.points ?? 0) !== (a.points ?? 0)) return (b.points ?? 0) - (a.points ?? 0);

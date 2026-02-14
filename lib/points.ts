@@ -1,16 +1,17 @@
 export type PointsInput = {
 	workouts?: number | null;
 	streak?: number | null;
+	longestStreak?: number | null;
 	penalties?: number | null;
 };
 
-export const POINTS_FORMULA_TEXT = "Points = workouts + streak - penalties";
+export const POINTS_FORMULA_TEXT = "Points = workouts + best streak - penalties";
 
 export function calculatePoints(input: PointsInput): number {
 	const workouts = Number(input.workouts ?? 0);
-	const streak = Number(input.streak ?? 0);
+	const streak = Number(input.longestStreak ?? input.streak ?? 0);
 	const penalties = Number(input.penalties ?? 0);
-	return workouts + streak - penalties;
+	return workouts + Math.max(0, streak) - penalties;
 }
 
 export function compareByPointsDesc<T extends PointsInput>(a: T, b: T): number {

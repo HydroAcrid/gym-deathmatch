@@ -178,20 +178,21 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						lowRaw: lives.filter(l => l.lives === min)
 					};
 				}
-				if (livePlayers.length > 0) {
-					const leaderboard = [...livePlayers]
-						.map((p: any) => {
-							const workouts = Number(p.totalWorkouts ?? 0);
-							const streak = Number(p.currentStreak ?? 0);
-							return {
-								name: p.name ?? "Athlete",
-								workouts,
-								streak,
-								points: calculatePoints({ workouts, streak })
-							};
-						})
-						.sort(compareByPointsDesc)
-						.slice(0, 3);
+					if (livePlayers.length > 0) {
+						const leaderboard = [...livePlayers]
+							.map((p: any) => {
+								const workouts = Number(p.totalWorkouts ?? 0);
+								const streak = Number(p.currentStreak ?? 0);
+								const longestStreak = Number(p.longestStreak ?? streak);
+								return {
+									name: p.name ?? "Athlete",
+									workouts,
+									streak,
+									points: calculatePoints({ workouts, streak, longestStreak })
+								};
+							})
+							.sort(compareByPointsDesc)
+							.slice(0, 3);
 					data.points = {
 						formula: `Season ${POINTS_FORMULA_TEXT.toLowerCase()}`,
 						leaderboard
@@ -399,6 +400,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		.map((p) => {
 			const workouts = p.totalWorkouts ?? 0;
 			const streak = p.currentStreak ?? 0;
+			const longestStreak = p.longestStreak ?? streak;
 			const penalties = 0;
 			return {
 				athleteId: p.id,
@@ -406,8 +408,9 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				avatarUrl: p.avatarUrl || null,
 				workouts,
 				streak,
+				longestStreak,
 				penalties,
-				points: calculatePoints({ workouts, streak, penalties }),
+				points: calculatePoints({ workouts, streak, longestStreak, penalties }),
 			};
 		})
 		.sort(compareByPointsDesc)
