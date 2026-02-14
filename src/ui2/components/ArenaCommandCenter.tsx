@@ -197,21 +197,27 @@ export function ArenaCommandCenter({ vm }: ArenaCommandCenterProps) {
 					)}
 				</div>
 
-				<div className="mt-3 h-2 overflow-hidden border border-[hsl(var(--arena-gold)/0.35)] bg-[hsl(var(--arena-gold)/0.08)]">
-					<div
-						className="h-full transition-all duration-700"
-						style={{
+					<div className="mt-3 h-2 overflow-hidden border border-[hsl(var(--arena-gold)/0.35)] bg-[hsl(var(--arena-gold)/0.08)]">
+						<div
+							className="h-full transition-all duration-700"
+							style={{
 							width: `${vm.weekSummary.progressPercent}%`,
 							background:
 								"linear-gradient(90deg, hsl(var(--arena-gold) / 0.85), hsl(var(--arena-gold)))",
 							boxShadow: "0 0 10px hsl(var(--arena-gold) / 0.55)",
-						}}
-					/>
-				</div>
+							}}
+						/>
+					</div>
+					<div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground font-display tracking-widest">
+						<span>
+							WEEK {vm.weekSummary.currentWeek} OF {vm.weekSummary.totalWeeks}
+						</span>
+						<span>RESETS MONDAY</span>
+					</div>
 
-				<div className="mt-3">
-					<StandingsPreview
-						entries={vm.standingsPreview.top}
+					<div className="mt-3">
+						<StandingsPreview
+							entries={vm.standingsPreview.top}
 						myRank={vm.standingsPreview.myRank}
 						totalAthletes={vm.standingsPreview.totalAthletes}
 					/>

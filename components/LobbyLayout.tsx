@@ -19,7 +19,6 @@ import { LiveFeed } from "@/src/ui2/components/LiveFeed";
 import { HeartsStatusBoard, type AthleteHeartStatus } from "@/src/ui2/components/HeartsStatusBoard";
 import { Standings, type Standing } from "@/src/ui2/components/Standings";
 import { HostControls } from "@/src/ui2/components/HostControls";
-import { WeeklyCycleIndicator } from "@/src/ui2/components/WeeklyCycleIndicator";
 import { Button } from "@/src/ui2/ui/button";
 import { authFetch } from "@/lib/clientAuth";
 import { calculatePoints, compareByPointsDesc, POINTS_FORMULA_TEXT } from "@/lib/points";
@@ -491,22 +490,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 	return (
 		<div className="min-h-screen">
-			<div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
-				<ArenaCommandCenter vm={commandCenterVm} />
+				<div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
+					<ArenaCommandCenter vm={commandCenterVm} />
 
-				{/* Weekly Cycle Indicator */}
-				{stage !== "COMPLETED" && (
-					<div className="hidden sm:block">
-						<WeeklyCycleIndicator
-							currentWeek={currentWeek}
-							totalWeeks={totalWeeks}
-							weekEndDate={weekEndDate}
-							resetDay="MONDAY"
-						/>
-					</div>
-				)}
-
-				<div className="flex flex-wrap items-center gap-2">
+					<div className="flex flex-wrap items-center gap-2">
 					{myPlayerId && stage !== "COMPLETED" && (
 						<Button variant="arenaPrimary" size="sm" onClick={() => setOpenManual(true)}>
 							Log Workout
