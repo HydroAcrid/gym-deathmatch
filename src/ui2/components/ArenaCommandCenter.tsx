@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Coins, Crown, Heart, Radio, Swords, Target, Trophy, Users } from "lucide-react";
-import type { ArenaCommandCenterVM } from "@/src/ui2/adapters/arenaCommandCenter";
+import {
+	computeWeekProgressPercent,
+	type ArenaCommandCenterVM,
+} from "@/src/ui2/adapters/arenaCommandCenter";
 import { StandingsPreview } from "@/src/ui2/components/StandingsPreview";
 
 interface ArenaCommandCenterProps {
@@ -15,9 +18,58 @@ function stageToneClass(tone: "muted" | "primary" | "neutral"): string {
 	return "arena-badge";
 }
 
+function formatLiveCountdown(targetMs: number, nowMs: number): string {
+	if (!Number.isFinite(targetMs)) return "--";
+	const diff = targetMs - nowMs;
+	if (diff <= 0) return "RESETTING...";
+
+	const totalSeconds = Math.floor(diff / 1000);
+	const days = Math.floor(totalSeconds / 86400);
+	const hours = Math.floor((totalSeconds % 86400) / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	const pad = (value: number) => String(value).padStart(2, "0");
+
+	if (days > 0) return `${days}D ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+	return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+
 export function ArenaCommandCenter({ vm }: ArenaCommandCenterProps) {
 	const fullHeaderRef = useRef<HTMLDivElement | null>(null);
 	const [showStickyStrip, setShowStickyStrip] = useState(false);
+	const [nowMs, setNowMs] = useState(() => Date.now());
+
+	const weekEndMs = useMemo(() => {
+		if (!vm.weekSummary.weekEndIso) return Number.NaN;
+		const parsed = new Date(vm.weekSummary.weekEndIso).getTime();
+		return Number.isFinite(parsed) ? parsed : Number.NaN;
+	}, [vm.weekSummary.weekEndIso]);
+
+	const liveCountdown = useMemo(
+		() => formatLiveCountdown(weekEndMs, nowMs),
+		[weekEndMs, nowMs]
+	);
+
+	const liveProgressPercent = useMemo(() => {
+		if (!Number.isFinite(weekEndMs)) return vm.weekSummary.progressPercent;
+		return computeWeekProgressPercent(
+			vm.weekSummary.currentWeek,
+			vm.weekSummary.totalWeeks,
+			new Date(weekEndMs),
+			nowMs
+		);
+	}, [
+		vm.weekSummary.currentWeek,
+		vm.weekSummary.totalWeeks,
+		vm.weekSummary.progressPercent,
+		weekEndMs,
+		nowMs,
+	]);
+
+	useEffect(() => {
+		const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+		return () => window.clearInterval(timer);
+	}, []);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -60,7 +112,7 @@ export function ArenaCommandCenter({ vm }: ArenaCommandCenterProps) {
 								{vm.currentLobby.name}
 							</div>
 							<div className="shrink-0 font-display text-[10px] tracking-widest text-muted-foreground">
-								{rankText} • {heartsText} HEARTS • {vm.weekSummary.timeRemaining}
+								{rankText} • {heartsText} HEARTS • {liveCountdown}
 							</div>
 						</div>
 					</div>
@@ -171,7 +223,7 @@ export function ArenaCommandCenter({ vm }: ArenaCommandCenterProps) {
 							{vm.weekSummary.currentWeek}/{vm.weekSummary.totalWeeks}
 						</div>
 						<div className="font-display text-[10px] tracking-wider text-muted-foreground">
-							{vm.weekSummary.timeRemaining}
+							{liveCountdown}
 						</div>
 					</div>
 
@@ -201,7 +253,7 @@ export function ArenaCommandCenter({ vm }: ArenaCommandCenterProps) {
 						<div
 							className="h-full transition-all duration-700"
 							style={{
-							width: `${vm.weekSummary.progressPercent}%`,
+							width: `${liveProgressPercent}%`,
 							background:
 								"linear-gradient(90deg, hsl(var(--arena-gold) / 0.85), hsl(var(--arena-gold)))",
 							boxShadow: "0 0 10px hsl(var(--arena-gold) / 0.55)",

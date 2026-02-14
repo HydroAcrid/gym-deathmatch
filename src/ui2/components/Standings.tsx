@@ -227,6 +227,16 @@ export function Standings({ standings }: StandingsProps) {
             <p>
               Penalties subtract from total when enabled.
             </p>
+            <div className="pt-1">
+              <p className="text-foreground font-display tracking-wider text-xs uppercase">Tie-break order</p>
+              <ol className="list-decimal pl-5 space-y-1 mt-1">
+                <li>Higher points</li>
+                <li>More workouts</li>
+                <li>Higher current streak</li>
+                <li>Earlier approved workout timestamp this week (if needed)</li>
+                <li>Athlete name alphabetical (final fallback)</li>
+              </ol>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

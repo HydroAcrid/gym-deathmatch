@@ -323,6 +323,16 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		}
 	}, [joined, connectedPlayerId, toast]);
 
+	const weekMs = 7 * 24 * 60 * 60 * 1000;
+	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
+	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / weekMs));
+	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((Date.now() - seasonStartDate.getTime()) / weekMs)));
+	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * weekMs);
+	const currentWeekStartMs = seasonStartDate.getTime() + (currentWeek - 1) * weekMs;
+	const currentWeekEndMs = currentWeekStartMs + weekMs;
+	const myPlayerName = myPlayerId ? players.find((player) => player.id === myPlayerId)?.name ?? null : null;
+
 	// Build hearts status data from live players
 	const heartsData: AthleteHeartStatus[] = players.map((p) => {
 		const initials = (p.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -401,6 +411,16 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const streak = p.currentStreak ?? 0;
 			const longestStreak = p.longestStreak ?? streak;
 			const penalties = 0;
+			const recentActivities = Array.isArray((p as any).recentActivities) ? (p as any).recentActivities : [];
+			const earliestApprovedThisWeekMs = recentActivities.reduce((earliest: number | null, activity: any) => {
+				const raw = activity?.startDate ?? activity?.date ?? activity?.start_date_local ?? activity?.start_date ?? null;
+				if (!raw) return earliest;
+				const ts = new Date(raw).getTime();
+				if (!Number.isFinite(ts)) return earliest;
+				if (ts < currentWeekStartMs || ts >= currentWeekEndMs) return earliest;
+				if (earliest === null) return ts;
+				return Math.min(earliest, ts);
+			}, null);
 			return {
 				athleteId: p.id,
 				athleteName: p.name,
@@ -409,6 +429,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				streak,
 				longestStreak,
 				penalties,
+				tieBreakTimestamp: earliestApprovedThisWeekMs,
 				points: calculatePoints({ workouts, streak, longestStreak, penalties }),
 			};
 		})
@@ -431,13 +452,6 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 	const selectedPlayer = selectedPlayerId ? players.find((p) => p.id === selectedPlayerId) ?? null : null;
 
-	// Calculate week info for cycle indicator
-	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
-	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)));
-	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((Date.now() - seasonStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000))));
-	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * 7 * 24 * 60 * 60 * 1000);
-	const myPlayerName = myPlayerId ? players.find((player) => player.id === myPlayerId)?.name ?? null : null;
 	const commandCenterVm = useMemo(() => {
 		return buildArenaCommandCenterVM({
 			lobbyId: lobbyData.id,

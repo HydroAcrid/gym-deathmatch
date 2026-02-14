@@ -42,6 +42,7 @@ export interface ArenaWeekSummary {
 	totalWeeks: number;
 	progressPercent: number;
 	timeRemaining: string;
+	weekEndIso: string | null;
 }
 
 export interface ArenaPotSummary {
@@ -251,6 +252,7 @@ export function buildArenaCommandCenterVM(input: ArenaCommandCenterInput): Arena
 		totalWeeks: Math.max(1, toNumber(input.totalWeeks, 1)),
 		progressPercent: computeWeekProgressPercent(input.currentWeek, input.totalWeeks, input.weekEndDate, nowMs),
 		timeRemaining: formatTimeRemaining(input.weekEndDate, nowMs),
+		weekEndIso: Number.isFinite(input.weekEndDate.getTime()) ? input.weekEndDate.toISOString() : null,
 	};
 
 	const showPot = String(input.mode ?? "").startsWith("MONEY_");
