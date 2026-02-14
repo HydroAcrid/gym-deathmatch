@@ -12,7 +12,7 @@ import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { useAuth } from "./AuthProvider";
 import { ChallengeHero } from "./ChallengeHero";
 import { WeekSetup } from "./WeekSetup";
-import { LAST_LOBBY_STORAGE_KEY } from "@/lib/localStorageKeys";
+import { LAST_LOBBY_STORAGE_KEY, LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
 import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
 import { ArenaCommandCenter } from "@/src/ui2/components/ArenaCommandCenter";
 import { LiveFeed } from "@/src/ui2/components/LiveFeed";
@@ -272,13 +272,22 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		try {
+			const nowIso = new Date().toISOString();
 			const snapshot = {
 				id: lobbyData.id,
 				name: lobbyData.name,
 				mode: modeValue,
-				updatedAt: new Date().toISOString()
+				updatedAt: nowIso
 			};
 			window.localStorage.setItem(LAST_LOBBY_STORAGE_KEY, JSON.stringify(snapshot));
+			const rawInteractions = window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY);
+			const parsedInteractions: LobbyInteractionsSnapshot =
+				rawInteractions ? (JSON.parse(rawInteractions) as LobbyInteractionsSnapshot) : {};
+			const nextInteractions: LobbyInteractionsSnapshot = {
+				...(parsedInteractions && typeof parsedInteractions === "object" ? parsedInteractions : {}),
+				[lobbyData.id]: nowIso,
+			};
+			window.localStorage.setItem(LOBBY_INTERACTIONS_STORAGE_KEY, JSON.stringify(nextInteractions));
 			window.dispatchEvent(new CustomEvent("gymdm:last-lobby"));
 		} catch {
 			// ignore storage errors (private mode, etc.)

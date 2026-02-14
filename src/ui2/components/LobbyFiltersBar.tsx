@@ -60,7 +60,7 @@ export function LobbyFiltersBar({
 	};
 
 	const activeFilterLabels: string[] = [];
-	if (recentFilterActive) activeFilterLabels.push(`Recent lobby${recentLobbyName ? `: ${recentLobbyName}` : ""}`);
+	if (recentFilterActive) activeFilterLabels.push(`Recent activity${recentLobbyName ? `: ${recentLobbyName}` : ""}`);
 	if (filters.showMine) activeFilterLabels.push("My lobbies");
 	if (filters.showActive) activeFilterLabels.push("Active");
 	if (filters.showCompleted) activeFilterLabels.push("Completed");
@@ -132,7 +132,7 @@ export function LobbyFiltersBar({
 					onClick={() => toggleFilter("showRecent")}
 					className="font-display text-xs"
 				>
-					Recent
+					Recent Activity
 				</Button>
 				<Button
 					variant={filters.showMine ? "arenaPrimary" : "outline"}

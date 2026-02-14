@@ -10,6 +10,7 @@ import { LobbyFiltersBar, type LobbySortBy, type LobbyFilters } from "@/src/ui2/
 import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
 import { authFetch } from "@/lib/clientAuth";
 import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
+import { LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
 
 type LobbyRow = {
 	id: string; 
@@ -38,14 +39,24 @@ export default function LobbiesPage() {
 	const [allLobbies, setAllLobbies] = useState<LobbyRow[]>([]);
 	const [editLobby, setEditLobby] = useState<LobbyRow | null>(null);
 	const [nowMs] = useState<number>(() => Date.now());
+	const [interactionSnapshot, setInteractionSnapshot] = useState<LobbyInteractionsSnapshot>({});
 	const { user, isHydrated } = useAuth();
 	const userId = user?.id ?? null;
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [debouncedSearch, setDebouncedSearch] = useState<string>("");
 	const [sortBy, setSortBy] = useState<LobbySortBy>("newest");
 	const lastLobby = useLastLobbySnapshot();
+	const interactionMsByLobby = useMemo(() => {
+		const entries = Object.entries(interactionSnapshot || {}).map(([id, iso]) => [id, toMs(iso)] as const);
+		return new Map(entries);
+	}, [interactionSnapshot]);
+
 	const effectiveRecentLobby = useMemo(() => {
 		if (!allLobbies.length) return null;
+		const byInteraction = [...allLobbies]
+			.sort((a, b) => (interactionMsByLobby.get(b.id) ?? 0) - (interactionMsByLobby.get(a.id) ?? 0))
+			.find((lobby) => (interactionMsByLobby.get(lobby.id) ?? 0) > 0);
+		if (byInteraction) return byInteraction;
 		if (lastLobby?.id) {
 			const exact = allLobbies.find((lobby) => lobby.id === lastLobby.id);
 			if (exact) return exact;
@@ -55,16 +66,40 @@ export default function LobbiesPage() {
 			const bMs = Math.max(toMs(b.created_at), toMs(b.season_start));
 			return bMs - aMs;
 		})[0] ?? null;
-	}, [allLobbies, lastLobby]);
-	const recentLobbyId = effectiveRecentLobby?.id ?? null;
+	}, [allLobbies, interactionMsByLobby, lastLobby]);
 	const [filters, setFilters] = useState<LobbyFilters>({
-		showRecent: false,
+		showRecent: true,
 		showMine: false, // Default to false so users see all lobbies they're a member of or own
 		showActive: false,
 		showCompleted: false,
 		showMoney: false,
 		showChallenge: false,
 	});
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const read = () => {
+			try {
+				const raw = window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY);
+				if (!raw) {
+					setInteractionSnapshot({});
+					return;
+				}
+				const parsed = JSON.parse(raw) as LobbyInteractionsSnapshot;
+				setInteractionSnapshot(parsed && typeof parsed === "object" ? parsed : {});
+			} catch {
+				setInteractionSnapshot({});
+			}
+		};
+		read();
+		const handle = () => read();
+		window.addEventListener("storage", handle);
+		window.addEventListener("gymdm:last-lobby", handle as EventListener);
+		return () => {
+			window.removeEventListener("storage", handle);
+			window.removeEventListener("gymdm:last-lobby", handle as EventListener);
+		};
+	}, []);
 
 	const reloadLobbies = useCallback(async () => {
 		// CRITICAL: Only fetch if auth is hydrated and user exists
@@ -127,11 +162,6 @@ export default function LobbiesPage() {
 			filtered = filtered.filter(l => l.name.toLowerCase().includes(query));
 		}
 
-		// Default to the most recently accessed lobby when available.
-		if (filters.showRecent && recentLobbyId) {
-			filtered = filtered.filter((lobby) => lobby.id === recentLobbyId);
-		}
-
 		// Apply "show mine" filter - filter to only owned lobbies
 		if (filters.showMine && userId) {
 			filtered = filtered.filter(l => userId === l.owner_user_id);
@@ -153,25 +183,16 @@ export default function LobbiesPage() {
 			filtered = filtered.filter(l => String(l.mode || "").startsWith("CHALLENGE_"));
 		}
 
-		// Apply sorting
-		filtered.sort((a, b) => {
+		const sortBySelectedMode = (a: LobbyRow, b: LobbyRow) => {
 			switch (sortBy) {
 				case "newest":
-					const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
-					const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
-					return bCreated - aCreated;
+					return toMs(b.created_at) - toMs(a.created_at);
 				case "oldest":
-					const aCreatedOld = a.created_at ? new Date(a.created_at).getTime() : 0;
-					const bCreatedOld = b.created_at ? new Date(b.created_at).getTime() : 0;
-					return aCreatedOld - bCreatedOld;
+					return toMs(a.created_at) - toMs(b.created_at);
 				case "season_latest":
-					const aStart = a.season_start ? new Date(a.season_start).getTime() : 0;
-					const bStart = b.season_start ? new Date(b.season_start).getTime() : 0;
-					return bStart - aStart;
+					return toMs(b.season_start) - toMs(a.season_start);
 				case "season_earliest":
-					const aStartEarly = a.season_start ? new Date(a.season_start).getTime() : 0;
-					const bStartEarly = b.season_start ? new Date(b.season_start).getTime() : 0;
-					return aStartEarly - bStartEarly;
+					return toMs(a.season_start) - toMs(b.season_start);
 				case "name_az":
 					return (a.name || "").localeCompare(b.name || "");
 				case "name_za":
@@ -179,10 +200,21 @@ export default function LobbiesPage() {
 				default:
 					return 0;
 			}
-		});
+		};
+
+		// Recent now means "most recently interacted lobbies first", not "single recent lobby only".
+		if (filters.showRecent) {
+			filtered.sort((a, b) => {
+				const interactionDiff = (interactionMsByLobby.get(b.id) ?? 0) - (interactionMsByLobby.get(a.id) ?? 0);
+				if (interactionDiff !== 0) return interactionDiff;
+				return sortBySelectedMode(a, b);
+			});
+		} else {
+			filtered.sort(sortBySelectedMode);
+		}
 
 		return filtered;
-	}, [allLobbies, debouncedSearch, filters, recentLobbyId, sortBy, userId]);
+	}, [allLobbies, debouncedSearch, filters, interactionMsByLobby, sortBy, userId]);
 
 	// Calculate days ago
 	const getDaysAgo = (createdAt?: string) => {
@@ -229,7 +261,7 @@ export default function LobbiesPage() {
 					onResetAll={() => {
 						setSearchQuery("");
 						setFilters({
-							showRecent: false,
+							showRecent: true,
 							showMine: false,
 							showActive: false,
 							showCompleted: false,

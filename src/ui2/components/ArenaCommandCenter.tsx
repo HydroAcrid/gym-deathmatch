@@ -27,11 +27,9 @@ function formatLiveCountdown(targetMs: number, nowMs: number): string {
 	const days = Math.floor(totalSeconds / 86400);
 	const hours = Math.floor((totalSeconds % 86400) / 3600);
 	const minutes = Math.floor((totalSeconds % 3600) / 60);
-	const seconds = totalSeconds % 60;
-	const pad = (value: number) => String(value).padStart(2, "0");
-
-	if (days > 0) return `${days}D ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-	return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+	if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+	if (hours > 0) return `${hours}h ${minutes}m`;
+	return `${Math.max(1, minutes)}m`;
 }
 
 export function ArenaCommandCenter({ vm }: ArenaCommandCenterProps) {
