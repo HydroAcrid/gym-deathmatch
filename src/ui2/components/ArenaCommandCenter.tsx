@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Coins, Crown, Heart, Radio, Swords, Target, Trophy, Users } from "lucide-react";
 import type { ArenaCommandCenterVM } from "@/src/ui2/adapters/arenaCommandCenter";
-import { LobbyQuickSwitchSheet } from "@/src/ui2/components/LobbyQuickSwitchSheet";
 import { StandingsPreview } from "@/src/ui2/components/StandingsPreview";
 
 interface ArenaCommandCenterProps {
@@ -99,14 +98,8 @@ export function ArenaCommandCenter({ vm }: ArenaCommandCenterProps) {
 					</div>
 				</div>
 
-				<div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-					<LobbyQuickSwitchSheet
-						currentLobbyId={vm.currentLobby.id}
-						currentLobbyName={vm.currentLobby.name}
-					/>
-					<div className="font-display text-[10px] tracking-widest text-muted-foreground">
-						{vm.currentLobby.name}
-					</div>
+				<div className="mt-3 font-display text-[10px] tracking-widest text-muted-foreground">
+					LOBBY: {vm.currentLobby.name}
 				</div>
 
 				{showRoulettePunishment ? (

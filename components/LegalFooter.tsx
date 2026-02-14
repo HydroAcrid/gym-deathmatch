@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function LegalFooter() {
 	return (
-		<footer className="relative z-20 border-t border-border/70 bg-background/80">
+		<footer className="relative z-20 hidden sm:block border-t border-border/70 bg-background/80">
 			<div className="container mx-auto px-3 sm:px-5 py-3">
 				<nav
 					aria-label="Legal links"

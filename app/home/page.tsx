@@ -8,6 +8,24 @@ import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 import { authFetch } from "@/lib/clientAuth";
 import type { LiveLobbyResponse } from "@/types/api";
 import { calculatePoints, compareByPointsDesc } from "@/lib/points";
+import { LobbyCard } from "@/src/ui2/components/LobbyCard";
+import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
+
+type LobbyRow = {
+	id: string;
+	name: string;
+	season_number: number;
+	cash_pool: number;
+	season_start?: string;
+	season_end?: string;
+	weekly_target?: number;
+	initial_lives?: number;
+	owner_user_id?: string;
+	created_at?: string;
+	status?: string;
+	mode?: string;
+	player_count?: number;
+};
 
 type HomeSnapshot = {
 	rank: number | null;
@@ -41,6 +59,9 @@ export default function HomePage() {
 	const [isSigningIn, setIsSigningIn] = useState(false);
 	const [liveData, setLiveData] = useState<LiveLobbyResponse | null>(null);
 	const [liveLoading, setLiveLoading] = useState(false);
+	const [allLobbies, setAllLobbies] = useState<LobbyRow[]>([]);
+	const [lobbiesLoading, setLobbiesLoading] = useState(false);
+	const [nowMs] = useState<number>(() => Date.now());
 
 	useEffect(() => {
 		let cancelled = false;
@@ -75,6 +96,64 @@ export default function HomePage() {
 			cancelled = true;
 		};
 	}, [isHydrated, user, lastLobby?.id]);
+
+	useEffect(() => {
+		let cancelled = false;
+		if (!isHydrated || !user?.id) {
+			setAllLobbies([]);
+			setLobbiesLoading(false);
+			return () => {
+				cancelled = true;
+			};
+		}
+
+		(async () => {
+			setLobbiesLoading(true);
+			try {
+				const response = await authFetch("/api/lobbies", { cache: "no-store" });
+				const body = await response.json().catch(() => ({ lobbies: [] }));
+				if (!response.ok) {
+					if (!cancelled) setAllLobbies([]);
+					return;
+				}
+				if (!cancelled) {
+					const list = Array.isArray(body?.lobbies) ? (body.lobbies as LobbyRow[]) : [];
+					setAllLobbies(list);
+				}
+			} catch {
+				if (!cancelled) setAllLobbies([]);
+			} finally {
+				if (!cancelled) setLobbiesLoading(false);
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [isHydrated, user?.id]);
+
+	const orderedLobbies = useMemo(() => {
+		return [...allLobbies].sort((a, b) => {
+			if (lastLobby?.id) {
+				if (a.id === lastLobby.id) return -1;
+				if (b.id === lastLobby.id) return 1;
+			}
+			const aMs = a.created_at ? new Date(a.created_at).getTime() : 0;
+			const bMs = b.created_at ? new Date(b.created_at).getTime() : 0;
+			return bMs - aMs;
+		});
+	}, [allLobbies, lastLobby?.id]);
+
+	function getDaysAgo(createdAt?: string): string | null {
+		if (!createdAt) return null;
+		const created = new Date(createdAt).getTime();
+		if (!Number.isFinite(created)) return null;
+		const diffMs = nowMs - created;
+		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+		if (diffDays <= 0) return "Today";
+		if (diffDays === 1) return "1 day ago";
+		return `${diffDays} days ago`;
+	}
 
 	const mySnapshot = useMemo<HomeSnapshot | null>(() => {
 		if (!user?.id || !liveData?.lobby?.players?.length) return null;
@@ -196,8 +275,8 @@ export default function HomePage() {
 					</p>
 				</div>
 
-				<div className="grid gap-6 lg:grid-cols-3">
-					<div className="scoreboard-panel p-5 space-y-4 lg:col-span-2">
+					<div className="grid gap-6 lg:grid-cols-3">
+						<div className="scoreboard-panel p-5 space-y-4 lg:col-span-2">
 						<div className="flex items-center justify-between gap-2">
 							<div className="font-display text-lg tracking-widest text-foreground">CONTINUE LOBBY</div>
 							{mySnapshot?.stageLabel ? (
@@ -264,8 +343,8 @@ export default function HomePage() {
 						)}
 					</div>
 
-					<div className="scoreboard-panel p-5 space-y-3">
-						<div className="font-display text-base tracking-widest text-foreground">QUICK ROUTES</div>
+						<div className="scoreboard-panel p-5 space-y-3">
+							<div className="font-display text-base tracking-widest text-foreground">QUICK ROUTES</div>
 						<Link href="/lobbies" className="arena-badge arena-badge-primary w-full justify-center px-4 py-2">
 							LOBBIES
 						</Link>
@@ -275,12 +354,39 @@ export default function HomePage() {
 						<Link href={lastLobby?.id ? `/lobby/${encodeURIComponent(lastLobby.id)}/history` : "/history"} className="arena-badge w-full justify-center px-4 py-2">
 							HISTORY
 						</Link>
-						<p className="text-xs text-muted-foreground">
-							Lobbies is your full directory and management view. This hub is your fast resume surface.
-						</p>
+							<p className="text-xs text-muted-foreground">
+								Lobbies is your full directory and management view. This hub is your fast resume surface.
+							</p>
+						</div>
+					</div>
+
+					<div className="scoreboard-panel p-5 space-y-4">
+						<div className="flex items-center justify-between gap-2">
+							<div className="font-display text-lg tracking-widest text-foreground">QUICK SWITCH LOBBIES</div>
+							<span className="text-xs text-muted-foreground font-display tracking-wider">
+								{orderedLobbies.length} TOTAL
+							</span>
+						</div>
+
+						{lobbiesLoading ? (
+							<div className="text-sm text-muted-foreground">Loading your lobby list...</div>
+						) : orderedLobbies.length === 0 ? (
+							<div className="text-sm text-muted-foreground">
+								No joined lobbies yet. Create one or join from the lobbies directory.
+							</div>
+						) : (
+							<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+								{orderedLobbies.map((lobby) => {
+									const card = mapLobbyRowToCard(lobby, {
+										userId: user?.id ?? undefined,
+										createdAgo: getDaysAgo(lobby.created_at),
+									});
+									return <LobbyCard key={lobby.id} lobby={card} showLeave={false} />;
+								})}
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
-		</div>
-	);
+		);
 }
