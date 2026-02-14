@@ -77,9 +77,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				notes,
 			},
 		});
-		void processCommentaryQueue({ lobbyId, limit: 25, maxMs: 250 }).catch((err) => {
-			console.error("manual activity commentary tail-process failed", err);
-		});
+		// Process commentary synchronously so workout push notifications fire immediately.
+		// Keep failures non-blocking for the workout post itself.
+		try {
+			await processCommentaryQueue({ lobbyId, limit: 50, maxMs: 2000 });
+		} catch (err) {
+			console.error("manual activity commentary process failed", err);
+		}
 
 		void refreshLobbyLiveSnapshot(lobbyId, requestTimezoneOffsetMinutes);
 		return NextResponse.json({

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/clientAuth";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/src/ui2/ui/sheet";
 import { Button } from "@/src/ui2/ui/button";
+import { LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
 
 type LobbyListItem = {
 	id: string;
@@ -21,6 +22,26 @@ interface LobbyQuickSwitchSheetProps {
 	currentLobbyName: string;
 }
 
+function toMs(value?: string): number {
+	if (!value) return 0;
+	const ms = new Date(value).getTime();
+	return Number.isFinite(ms) ? ms : 0;
+}
+
+function readInteractionSnapshot(raw: string | null): LobbyInteractionsSnapshot {
+	if (!raw) return {};
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+		const entries = Object.entries(parsed as Record<string, unknown>).filter(
+			([id, ts]) => typeof id === "string" && typeof ts === "string" && Number.isFinite(toMs(ts))
+		);
+		return Object.fromEntries(entries);
+	} catch {
+		return {};
+	}
+}
+
 function mapStatusLabel(status?: string): string {
 	if (status === "completed") return "COMPLETED";
 	if (status === "active") return "ACTIVE";
@@ -34,7 +55,25 @@ export function LobbyQuickSwitchSheet({ currentLobbyId, currentLobbyName }: Lobb
 	const [open, setOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [items, setItems] = useState<LobbyListItem[]>([]);
+	const [interactionSnapshot, setInteractionSnapshot] = useState<LobbyInteractionsSnapshot>({});
 	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const read = () => {
+			setInteractionSnapshot(
+				readInteractionSnapshot(window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY))
+			);
+		};
+		read();
+		const handle = () => read();
+		window.addEventListener("storage", handle);
+		window.addEventListener("gymdm:last-lobby", handle as EventListener);
+		return () => {
+			window.removeEventListener("storage", handle);
+			window.removeEventListener("gymdm:last-lobby", handle as EventListener);
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!open) return;
@@ -67,12 +106,17 @@ export function LobbyQuickSwitchSheet({ currentLobbyId, currentLobbyName }: Lobb
 	}, [open]);
 
 	const sortedItems = useMemo(() => {
+		const interactionMsByLobby = new Map(
+			Object.entries(interactionSnapshot).map(([id, iso]) => [id, toMs(iso)] as const)
+		);
 		return [...items].sort((a, b) => {
 			if (a.id === currentLobbyId) return -1;
 			if (b.id === currentLobbyId) return 1;
+			const interactionDiff = (interactionMsByLobby.get(b.id) ?? 0) - (interactionMsByLobby.get(a.id) ?? 0);
+			if (interactionDiff !== 0) return interactionDiff;
 			return a.name.localeCompare(b.name);
 		});
-	}, [items, currentLobbyId]);
+	}, [items, interactionSnapshot, currentLobbyId]);
 
 	return (
 		<Sheet open={open} onOpenChange={setOpen}>

@@ -9,7 +9,6 @@ import { LobbyCard } from "@/src/ui2/components/LobbyCard";
 import { LobbyFiltersBar, type LobbySortBy, type LobbyFilters } from "@/src/ui2/components/LobbyFiltersBar";
 import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
 import { authFetch } from "@/lib/clientAuth";
-import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 import { LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
 
 type LobbyRow = {
@@ -35,6 +34,27 @@ function toMs(value?: string): number {
 	return Number.isFinite(ms) ? ms : 0;
 }
 
+function readInteractionSnapshot(raw: string | null): LobbyInteractionsSnapshot {
+	if (!raw) return {};
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+		const entries = Object.entries(parsed as Record<string, unknown>).filter(
+			([id, ts]) => typeof id === "string" && typeof ts === "string" && Number.isFinite(toMs(ts))
+		);
+		return Object.fromEntries(entries);
+	} catch {
+		return {};
+	}
+}
+
+function pruneInteractionSnapshot(
+	snapshot: LobbyInteractionsSnapshot,
+	validLobbyIds: Set<string>
+): LobbyInteractionsSnapshot {
+	return Object.fromEntries(Object.entries(snapshot).filter(([id]) => validLobbyIds.has(id)));
+}
+
 export default function LobbiesPage() {
 	const [allLobbies, setAllLobbies] = useState<LobbyRow[]>([]);
 	const [editLobby, setEditLobby] = useState<LobbyRow | null>(null);
@@ -44,31 +64,12 @@ export default function LobbiesPage() {
 	const userId = user?.id ?? null;
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [debouncedSearch, setDebouncedSearch] = useState<string>("");
-	const [sortBy, setSortBy] = useState<LobbySortBy>("newest");
-	const lastLobby = useLastLobbySnapshot();
+	const [sortBy, setSortBy] = useState<LobbySortBy>("last_interacted");
 	const interactionMsByLobby = useMemo(() => {
 		const entries = Object.entries(interactionSnapshot || {}).map(([id, iso]) => [id, toMs(iso)] as const);
 		return new Map(entries);
 	}, [interactionSnapshot]);
-
-	const effectiveRecentLobby = useMemo(() => {
-		if (!allLobbies.length) return null;
-		const byInteraction = [...allLobbies]
-			.sort((a, b) => (interactionMsByLobby.get(b.id) ?? 0) - (interactionMsByLobby.get(a.id) ?? 0))
-			.find((lobby) => (interactionMsByLobby.get(lobby.id) ?? 0) > 0);
-		if (byInteraction) return byInteraction;
-		if (lastLobby?.id) {
-			const exact = allLobbies.find((lobby) => lobby.id === lastLobby.id);
-			if (exact) return exact;
-		}
-		return [...allLobbies].sort((a, b) => {
-			const aMs = Math.max(toMs(a.created_at), toMs(a.season_start));
-			const bMs = Math.max(toMs(b.created_at), toMs(b.season_start));
-			return bMs - aMs;
-		})[0] ?? null;
-	}, [allLobbies, interactionMsByLobby, lastLobby]);
 	const [filters, setFilters] = useState<LobbyFilters>({
-		showRecent: true,
 		showMine: false, // Default to false so users see all lobbies they're a member of or own
 		showActive: false,
 		showCompleted: false,
@@ -79,17 +80,8 @@ export default function LobbiesPage() {
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		const read = () => {
-			try {
-				const raw = window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY);
-				if (!raw) {
-					setInteractionSnapshot({});
-					return;
-				}
-				const parsed = JSON.parse(raw) as LobbyInteractionsSnapshot;
-				setInteractionSnapshot(parsed && typeof parsed === "object" ? parsed : {});
-			} catch {
-				setInteractionSnapshot({});
-			}
+			const raw = window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY);
+			setInteractionSnapshot(readInteractionSnapshot(raw));
 		};
 		read();
 		const handle = () => read();
@@ -102,25 +94,27 @@ export default function LobbiesPage() {
 	}, []);
 
 	const reloadLobbies = useCallback(async () => {
-		// CRITICAL: Only fetch if auth is hydrated and user exists
-		// This prevents race conditions where we fetch before auth is ready
 		if (!isHydrated) {
-			console.log("[lobbies] Skipping fetch - auth not hydrated yet");
 			return;
 		}
-		
+
 		if (!userId) {
-			console.log("[lobbies] No user ID - user not signed in");
 			setAllLobbies([]);
 			return;
 		}
-		
-		console.log("[lobbies] Fetching lobbies for user:", userId);
+
 		const url = `/api/lobbies`;
 		try {
 			const res = await authFetch(url);
 			const data = await res.json();
-			setAllLobbies(data.lobbies ?? []);
+			const list = Array.isArray(data?.lobbies) ? (data.lobbies as LobbyRow[]) : [];
+			setAllLobbies(list);
+			if (typeof window !== "undefined") {
+				const parsed = readInteractionSnapshot(window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY));
+				const pruned = pruneInteractionSnapshot(parsed, new Set(list.map((lobby) => lobby.id)));
+				setInteractionSnapshot(pruned);
+				window.localStorage.setItem(LOBBY_INTERACTIONS_STORAGE_KEY, JSON.stringify(pruned));
+			}
 		} catch (err) {
 			console.error("[lobbies] Fetch error:", err);
 			setAllLobbies([]);
@@ -183,10 +177,16 @@ export default function LobbiesPage() {
 			filtered = filtered.filter(l => String(l.mode || "").startsWith("CHALLENGE_"));
 		}
 
+		const sortByNewest = (a: LobbyRow, b: LobbyRow) => toMs(b.created_at) - toMs(a.created_at);
 		const sortBySelectedMode = (a: LobbyRow, b: LobbyRow) => {
 			switch (sortBy) {
+				case "last_interacted": {
+					const interactionDiff = (interactionMsByLobby.get(b.id) ?? 0) - (interactionMsByLobby.get(a.id) ?? 0);
+					if (interactionDiff !== 0) return interactionDiff;
+					return sortByNewest(a, b);
+				}
 				case "newest":
-					return toMs(b.created_at) - toMs(a.created_at);
+					return sortByNewest(a, b);
 				case "oldest":
 					return toMs(a.created_at) - toMs(b.created_at);
 				case "season_latest":
@@ -202,16 +202,7 @@ export default function LobbiesPage() {
 			}
 		};
 
-		// Recent now means "most recently interacted lobbies first", not "single recent lobby only".
-		if (filters.showRecent) {
-			filtered.sort((a, b) => {
-				const interactionDiff = (interactionMsByLobby.get(b.id) ?? 0) - (interactionMsByLobby.get(a.id) ?? 0);
-				if (interactionDiff !== 0) return interactionDiff;
-				return sortBySelectedMode(a, b);
-			});
-		} else {
-			filtered.sort(sortBySelectedMode);
-		}
+		filtered.sort(sortBySelectedMode);
 
 		return filtered;
 	}, [allLobbies, debouncedSearch, filters, interactionMsByLobby, sortBy, userId]);
@@ -261,16 +252,14 @@ export default function LobbiesPage() {
 					onResetAll={() => {
 						setSearchQuery("");
 						setFilters({
-							showRecent: true,
 							showMine: false,
 							showActive: false,
 							showCompleted: false,
 							showMoney: false,
 							showChallenge: false,
 						});
-						setSortBy("newest");
+						setSortBy("last_interacted");
 					}}
-					recentLobbyName={effectiveRecentLobby?.name ?? null}
 					totalCount={allLobbies.length}
 					filteredCount={filteredAndSortedLobbies.length}
 				/>

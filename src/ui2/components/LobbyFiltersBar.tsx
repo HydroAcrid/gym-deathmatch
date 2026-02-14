@@ -4,7 +4,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Search } from "lucide-react";
 
 export type LobbyFilters = {
-	showRecent: boolean;
 	showMine: boolean;
 	showActive: boolean;
 	showCompleted: boolean;
@@ -13,6 +12,7 @@ export type LobbyFilters = {
 };
 
 export type LobbySortBy =
+	| "last_interacted"
 	| "newest"
 	| "oldest"
 	| "season_latest"
@@ -28,7 +28,6 @@ export interface LobbyFiltersBarProps {
 	filters: LobbyFilters;
 	onFiltersChange: (filters: LobbyFilters) => void;
 	onResetAll: () => void;
-	recentLobbyName?: string | null;
 	totalCount: number;
 	filteredCount: number;
 }
@@ -41,16 +40,15 @@ export function LobbyFiltersBar({
 	filters,
 	onFiltersChange,
 	onResetAll,
-	recentLobbyName,
 	totalCount,
 	filteredCount,
 }: LobbyFiltersBarProps) {
 	const toggleFilter = (key: keyof LobbyFilters) => {
 		onFiltersChange({ ...filters, [key]: !filters[key] });
 	};
-	const recentFilterActive = filters.showRecent;
 
 	const sortLabels: Record<LobbySortBy, string> = {
+		last_interacted: "Last interacted",
 		newest: "Date created (newest)",
 		oldest: "Date created (oldest)",
 		season_latest: "Season start (latest)",
@@ -60,7 +58,6 @@ export function LobbyFiltersBar({
 	};
 
 	const activeFilterLabels: string[] = [];
-	if (recentFilterActive) activeFilterLabels.push(`Recent activity${recentLobbyName ? `: ${recentLobbyName}` : ""}`);
 	if (filters.showMine) activeFilterLabels.push("My lobbies");
 	if (filters.showActive) activeFilterLabels.push("Active");
 	if (filters.showCompleted) activeFilterLabels.push("Completed");
@@ -115,6 +112,7 @@ export function LobbyFiltersBar({
 						<SelectValue placeholder="Sort order" />
 					</SelectTrigger>
 					<SelectContent>
+						<SelectItem value="last_interacted">Last interacted</SelectItem>
 						<SelectItem value="newest">Date created (newest)</SelectItem>
 						<SelectItem value="oldest">Date created (oldest)</SelectItem>
 						<SelectItem value="season_latest">Season start (latest)</SelectItem>
@@ -126,14 +124,6 @@ export function LobbyFiltersBar({
 			</div>
 
 			<div className="flex flex-wrap gap-2">
-				<Button
-					variant={recentFilterActive ? "arenaPrimary" : "outline"}
-					size="sm"
-					onClick={() => toggleFilter("showRecent")}
-					className="font-display text-xs"
-				>
-					Recent Activity
-				</Button>
 				<Button
 					variant={filters.showMine ? "arenaPrimary" : "outline"}
 					size="sm"

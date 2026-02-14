@@ -10,6 +10,7 @@ import type { LiveLobbyResponse } from "@/types/api";
 import { calculatePoints, compareByPointsDesc } from "@/lib/points";
 import { LobbyCard } from "@/src/ui2/components/LobbyCard";
 import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
+import { LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
 
 type LobbyRow = {
 	id: string;
@@ -53,6 +54,26 @@ function formatWeekRemaining(weekEndMs: number, nowMs: number): string {
 	return `${minutes}M`;
 }
 
+function toMs(value?: string): number {
+	if (!value) return 0;
+	const ms = new Date(value).getTime();
+	return Number.isFinite(ms) ? ms : 0;
+}
+
+function readInteractionSnapshot(raw: string | null): LobbyInteractionsSnapshot {
+	if (!raw) return {};
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+		const entries = Object.entries(parsed as Record<string, unknown>).filter(
+			([id, ts]) => typeof id === "string" && typeof ts === "string" && Number.isFinite(toMs(ts))
+		);
+		return Object.fromEntries(entries);
+	} catch {
+		return {};
+	}
+}
+
 export default function HomePage() {
 	const { user, isHydrated, signInWithGoogle } = useAuth();
 	const lastLobby = useLastLobbySnapshot();
@@ -60,8 +81,26 @@ export default function HomePage() {
 	const [liveData, setLiveData] = useState<LiveLobbyResponse | null>(null);
 	const [liveLoading, setLiveLoading] = useState(false);
 	const [allLobbies, setAllLobbies] = useState<LobbyRow[]>([]);
+	const [interactionSnapshot, setInteractionSnapshot] = useState<LobbyInteractionsSnapshot>({});
 	const [lobbiesLoading, setLobbiesLoading] = useState(false);
 	const [nowMs] = useState<number>(() => Date.now());
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const read = () => {
+			setInteractionSnapshot(
+				readInteractionSnapshot(window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY))
+			);
+		};
+		read();
+		const handle = () => read();
+		window.addEventListener("storage", handle);
+		window.addEventListener("gymdm:last-lobby", handle as EventListener);
+		return () => {
+			window.removeEventListener("storage", handle);
+			window.removeEventListener("gymdm:last-lobby", handle as EventListener);
+		};
+	}, []);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -133,16 +172,19 @@ export default function HomePage() {
 	}, [isHydrated, user?.id]);
 
 	const orderedLobbies = useMemo(() => {
+		const interactionMsByLobby = new Map(
+			Object.entries(interactionSnapshot).map(([id, iso]) => [id, toMs(iso)] as const)
+		);
 		return [...allLobbies].sort((a, b) => {
 			if (lastLobby?.id) {
 				if (a.id === lastLobby.id) return -1;
 				if (b.id === lastLobby.id) return 1;
 			}
-			const aMs = a.created_at ? new Date(a.created_at).getTime() : 0;
-			const bMs = b.created_at ? new Date(b.created_at).getTime() : 0;
-			return bMs - aMs;
+			const interactionDiff = (interactionMsByLobby.get(b.id) ?? 0) - (interactionMsByLobby.get(a.id) ?? 0);
+			if (interactionDiff !== 0) return interactionDiff;
+			return toMs(b.created_at) - toMs(a.created_at);
 		});
-	}, [allLobbies, lastLobby?.id]);
+	}, [allLobbies, interactionSnapshot, lastLobby?.id]);
 
 	function getDaysAgo(createdAt?: string): string | null {
 		if (!createdAt) return null;
