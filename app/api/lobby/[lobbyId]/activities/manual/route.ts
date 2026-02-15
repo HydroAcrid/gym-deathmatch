@@ -80,7 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		// Process commentary synchronously so workout push notifications fire immediately.
 		// Keep failures non-blocking for the workout post itself.
 		try {
-			await processCommentaryQueue({ lobbyId, limit: 50, maxMs: 2000 });
+			await processCommentaryQueue({ lobbyId, limit: 50, maxMs: 2000, newestFirst: true });
 		} catch (err) {
 			console.error("manual activity commentary process failed", err);
 		}

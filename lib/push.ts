@@ -17,6 +17,23 @@ export type PushPayload = {
 	badge?: string;
 };
 
+type StoredSubscription = {
+	id: string;
+	endpoint: string | null;
+	p256dh: string | null;
+	auth: string | null;
+	subscription: {
+		keys?: {
+			p256dh?: string;
+			auth?: string;
+		};
+	} | null;
+};
+
+type LobbyPlayerUserIdRow = {
+	user_id: string | null;
+};
+
 export async function sendPushToUser(userId: string, payload: PushPayload) {
 	if (!vapidPublic || !vapidPrivate) return;
 	const supabase = getServerSupabase();
@@ -25,23 +42,33 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
 		.from("push_subscriptions")
 		.select("id, endpoint, p256dh, auth, subscription")
 		.eq("user_id", userId);
-	if (!subs || !subs.length) return;
+	const rows = (subs ?? []) as StoredSubscription[];
+	if (!rows.length) return;
 
-	const notifications = subs.map(async (sub) => {
+	const notifications = rows.map(async (sub) => {
+		const endpoint = sub.endpoint || "";
+		const p256dh = sub.p256dh || sub.subscription?.keys?.p256dh || "";
+		const auth = sub.auth || sub.subscription?.keys?.auth || "";
+		if (!endpoint || !p256dh || !auth) return;
 		try {
 			await webpush.sendNotification(
 				{
-					endpoint: sub.endpoint as string,
+					endpoint,
 					keys: {
-						p256dh: (sub.p256dh as string) || (sub.subscription as any)?.keys?.p256dh,
-						auth: (sub.auth as string) || (sub.subscription as any)?.keys?.auth
+						p256dh,
+						auth,
 					}
 				},
 				JSON.stringify(payload)
 			);
-		} catch (err: any) {
+		} catch (err: unknown) {
 			// Cleanup dead subscriptions
-			const status = err?.statusCode || err?.status;
+			const status =
+				typeof err === "object" && err !== null && "statusCode" in err
+					? Number((err as { statusCode?: unknown }).statusCode)
+					: typeof err === "object" && err !== null && "status" in err
+						? Number((err as { status?: unknown }).status)
+						: undefined;
 			if (status === 410 || status === 404) {
 				await supabase.from("push_subscriptions").delete().eq("id", sub.id);
 			}
@@ -58,10 +85,10 @@ export async function sendPushToLobby(lobbyId: string, payload: PushPayload, opt
 		.from("player")
 		.select("user_id")
 		.eq("lobby_id", lobbyId);
-	const userIds = (players ?? []).map((p: any) => p.user_id as string | null).filter(Boolean) as string[];
+	const userIds = ((players ?? []) as LobbyPlayerUserIdRow[])
+		.map((p) => p.user_id)
+		.filter((id): id is string => Boolean(id));
 	const unique = Array.from(new Set(userIds));
 	const targets = opts?.excludeUserId ? unique.filter(u => u !== opts.excludeUserId) : unique;
-	for (const userId of targets) {
-		await sendPushToUser(userId, payload);
-	}
+	await Promise.all(targets.map((userId) => sendPushToUser(userId, payload)));
 }

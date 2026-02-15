@@ -304,6 +304,7 @@ export async function processCommentaryQueue(opts?: {
 	lobbyId?: string;
 	limit?: number;
 	maxMs?: number;
+	newestFirst?: boolean;
 }): Promise<CommentaryProcessStats> {
 	await ensureCommentaryQueueReady();
 	const supabase = getServerSupabase();
@@ -327,12 +328,13 @@ export async function processCommentaryQueue(opts?: {
 	while (stats.processed < limit && Date.now() < deadline) {
 		const batchLimit = Math.min(25, limit - stats.processed);
 		const nowIso = new Date().toISOString();
+		const ascending = !opts?.newestFirst;
 		let query = supabase
 			.from("commentary_events")
 			.select("*")
 			.in("status", ["queued", "failed"])
 			.lte("next_attempt_at", nowIso)
-			.order("created_at", { ascending: true })
+			.order("created_at", { ascending })
 			.limit(batchLimit);
 		if (opts?.lobbyId) query = query.eq("lobby_id", opts.lobbyId);
 		const { data: rows, error } = await query;
