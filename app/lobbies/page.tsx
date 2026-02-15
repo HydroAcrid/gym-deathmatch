@@ -39,10 +39,10 @@ function readInteractionSnapshot(raw: string | null): LobbyInteractionsSnapshot 
 	try {
 		const parsed = JSON.parse(raw) as unknown;
 		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-		const entries = Object.entries(parsed as Record<string, unknown>).filter(
-			([id, ts]) => typeof id === "string" && typeof ts === "string" && Number.isFinite(toMs(ts))
+		const entries: Array<[string, string]> = Object.entries(parsed as Record<string, unknown>).flatMap(
+			([id, ts]) => (typeof ts === "string" && Number.isFinite(toMs(ts)) ? [[id, ts]] : [])
 		);
-		return Object.fromEntries(entries);
+		return Object.fromEntries(entries) as LobbyInteractionsSnapshot;
 	} catch {
 		return {};
 	}
@@ -52,7 +52,9 @@ function pruneInteractionSnapshot(
 	snapshot: LobbyInteractionsSnapshot,
 	validLobbyIds: Set<string>
 ): LobbyInteractionsSnapshot {
-	return Object.fromEntries(Object.entries(snapshot).filter(([id]) => validLobbyIds.has(id)));
+	return Object.fromEntries(
+		Object.entries(snapshot).filter(([id]) => validLobbyIds.has(id))
+	) as LobbyInteractionsSnapshot;
 }
 
 export default function LobbiesPage() {
