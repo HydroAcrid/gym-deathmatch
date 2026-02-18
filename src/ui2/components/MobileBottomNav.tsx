@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Home, Trophy, Plus, History, Menu, BarChart3, BookOpen, HelpCircle, LogIn, LogOut, User } from "lucide-react";
+import { Home, Trophy, Plus, History, Menu, BarChart3, BookOpen, HelpCircle, LogIn, LogOut, User, Shield } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { ManualActivityModal } from "@/components/ManualActivityModal";
 import { useToast } from "@/components/ToastProvider";
@@ -193,6 +193,18 @@ export function MobileBottomNav() {
 											>
 												<Trophy className="w-5 h-5" />
 												<span className="font-display text-xs tracking-widest font-bold">RECORDS</span>
+											</Link>
+											<Link
+												href="/privacy"
+												onClick={() => setMoreOpen(false)}
+												className={`flex items-center gap-4 px-6 py-4 transition-colors active:bg-muted/30 border-l-2 touch-target ${
+													isActive("/privacy")
+														? "text-primary bg-primary/10 border-primary"
+														: "text-foreground border-transparent"
+												}`}
+											>
+												<Shield className="w-5 h-5" />
+												<span className="font-display text-xs tracking-widest font-bold">PRIVACY</span>
 											</Link>
 											<Link
 												href="/profile"

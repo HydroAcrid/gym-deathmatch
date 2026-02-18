@@ -7,6 +7,25 @@ import { useAuth } from "@/components/AuthProvider";
 import { IntroGuide } from "@/components/IntroGuide";
 import { useLastLobbySnapshot } from "@/hooks/useLastLobby";
 
+function HomepageCompliancePanel() {
+	return (
+		<div className="scoreboard-panel p-4 sm:p-5 space-y-2">
+			<div className="font-display text-sm tracking-widest text-primary">ABOUT THIS APP</div>
+			<p className="text-xs sm:text-sm text-muted-foreground">
+				Gym Deathmatch tracks workouts, season standings, and challenge outcomes across your lobbies.
+			</p>
+			<p className="text-xs sm:text-sm text-muted-foreground">
+				When you sign in with Google, we use your account identity (name/email/profile) to create your player profile and manage lobby membership.
+			</p>
+			<div className="pt-1">
+				<Link href="/privacy" className="arena-badge px-4 py-2 text-xs">
+					PRIVACY POLICY
+				</Link>
+			</div>
+		</div>
+	);
+}
+
 export default function HomePage() {
 	const router = useRouter();
 	const { user, isHydrated, signInWithGoogle } = useAuth();
@@ -31,8 +50,9 @@ export default function HomePage() {
 	if (!isHydrated) {
 		return (
 			<div className="min-h-screen">
-				<div className="container mx-auto max-w-3xl py-10 px-4">
+				<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
 					<div className="scoreboard-panel p-6 text-sm text-muted-foreground">Loading your arena...</div>
+					<HomepageCompliancePanel />
 				</div>
 			</div>
 		);
@@ -57,6 +77,7 @@ export default function HomePage() {
 							</Link>
 						</div>
 					</div>
+					<HomepageCompliancePanel />
 				</div>
 			</div>
 		);
@@ -93,8 +114,12 @@ export default function HomePage() {
 							<Link href="/rules" className="arena-badge px-4 py-2">
 								READ RULES
 							</Link>
+							<Link href="/privacy" className="arena-badge px-4 py-2">
+								PRIVACY POLICY
+							</Link>
 						</div>
 					</div>
+					<HomepageCompliancePanel />
 				</div>
 			</div>
 		);
@@ -115,8 +140,12 @@ export default function HomePage() {
 						<Link href="/rules" className="arena-badge px-4 py-2">
 							READ THE RULES
 						</Link>
+						<Link href="/privacy" className="arena-badge px-4 py-2">
+							PRIVACY POLICY
+						</Link>
 					</div>
 				</div>
+				<HomepageCompliancePanel />
 			</div>
 		</div>
 	);
