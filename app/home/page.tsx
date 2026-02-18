@@ -140,9 +140,6 @@ export default function HomePage() {
 						<Link href="/rules" className="arena-badge px-4 py-2">
 							READ THE RULES
 						</Link>
-						<Link href="/privacy" className="arena-badge px-4 py-2">
-							PRIVACY POLICY
-						</Link>
 					</div>
 				</div>
 				<HomepageCompliancePanel />
