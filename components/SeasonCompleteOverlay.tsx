@@ -10,6 +10,8 @@ import { calculatePoints, POINTS_FORMULA_TEXT } from "@/lib/points";
 import { Coins, Dumbbell, Flame, Heart, Trophy, TrendingUp } from "lucide-react";
 
 export function SeasonCompleteOverlay({
+	open,
+	onClose,
 	lobbyId,
 	seasonNumber,
 	mode,
@@ -21,6 +23,8 @@ export function SeasonCompleteOverlay({
 	onNextSeason,
 	ownerPlayerId
 }: {
+	open: boolean;
+	onClose: () => void;
 	lobbyId: string;
 	seasonNumber: number;
 	mode?: GameMode;
@@ -96,11 +100,17 @@ export function SeasonCompleteOverlay({
 		if (b.hearts !== a.hearts) return b.hearts - a.hearts;
 		return b.totalWorkouts - a.totalWorkouts;
 	});
+	const podium = [
+		allPlayers[1] ?? null, // 2nd
+		allPlayers[0] ?? null, // 1st
+		allPlayers[2] ?? null, // 3rd
+	];
 
 	return (
 		<>
 			<AnimatePresence>
-				<motion.div
+				{open && (
+					<motion.div
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
@@ -118,6 +128,14 @@ export function SeasonCompleteOverlay({
 						className="scoreboard-panel w-full h-[100dvh] sm:h-auto sm:max-w-5xl sm:max-h-[90vh] overflow-y-auto arena-scrollbar border-2 p-4 sm:p-8 pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-8"
 						onClick={(e) => e.stopPropagation()}
 					>
+						<div className="flex items-center justify-end mb-2">
+							<button
+								onClick={onClose}
+								className="arena-badge px-3 py-2 text-xs"
+							>
+								Close
+							</button>
+						</div>
 						{/* Header */}
 						<div className="text-center mb-6">
 							<div className="font-display tracking-widest text-primary text-3xl sm:text-4xl md:text-5xl mb-2">
@@ -125,6 +143,43 @@ export function SeasonCompleteOverlay({
 							</div>
 							<div className="text-muted-foreground text-sm sm:text-base">
 								{subheading}
+							</div>
+						</div>
+
+						{/* Podium */}
+						<div className="mb-6">
+							<div className="font-display tracking-widest text-primary text-lg mb-3 text-center">FINAL PODIUM</div>
+							<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+								{podium.map((player, idx) => {
+									const rank = idx === 1 ? 1 : idx === 0 ? 2 : 3;
+									const rankLabel = rank === 1 ? "1ST" : rank === 2 ? "2ND" : "3RD";
+									const isChampion = rank === 1;
+									return (
+										<div
+											key={`${player?.id ?? "empty"}-${rank}`}
+											className={`p-4 border rounded-md ${isChampion ? "border-primary bg-muted/25" : "border-border bg-muted/10"} text-center`}
+										>
+											<div className={`text-xs tracking-widest mb-2 ${isChampion ? "text-primary" : "text-muted-foreground"}`}>{rankLabel}</div>
+											{player ? (
+												<>
+													<div className="h-14 w-14 mx-auto rounded-full overflow-hidden border border-border mb-2">
+														{player.avatarUrl ? (
+															<img src={player.avatarUrl} alt={player.name} className="h-full w-full object-cover" />
+														) : (
+															<div className="h-full w-full flex items-center justify-center bg-muted">
+																<Dumbbell className="h-5 w-5 text-primary" />
+															</div>
+														)}
+													</div>
+													<div className="font-display tracking-widest text-sm sm:text-base">{player.name}</div>
+													<div className="mt-1 text-xs text-muted-foreground">{player.points ?? 0} pts • {player.totalWorkouts} workouts</div>
+												</>
+											) : (
+												<div className="text-xs text-muted-foreground">—</div>
+											)}
+										</div>
+									);
+								})}
 							</div>
 						</div>
 
@@ -265,7 +320,10 @@ export function SeasonCompleteOverlay({
 						{!isOwner && (
 							<div className="pt-6 border-t border-border text-center">
 								<button
-									onClick={() => router.push("/lobbies")}
+									onClick={() => {
+										onClose();
+										router.push("/lobbies");
+									}}
 									className="arena-badge px-6 py-3 rounded-md text-sm"
 								>
 									Return to lobbies
@@ -274,6 +332,7 @@ export function SeasonCompleteOverlay({
 						)}
 					</motion.div>
 				</motion.div>
+				)}
 			</AnimatePresence>
 
 			{/* Edit Modal */}

@@ -2,6 +2,7 @@ import { computeEffectiveWeeklyAnte, weeksSince } from "@/lib/pot";
 import { runWeeklyRouletteJob } from "@/lib/rouletteJobs";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 import { logError } from "@/lib/logger";
+import { archiveCurrentLobbySeason } from "@/lib/seasonArchive";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import type { LobbyStage } from "@/types/game";
 
@@ -289,6 +290,25 @@ export const ReconcileService = {
 			);
 			await supabase.from("lobby").update({ season_summary: summary }).eq("id", lobbyId);
 			actions.push("SEASON_SUMMARY_WRITTEN");
+		}
+
+		if (
+			stage === "COMPLETED" &&
+			(actions.includes("SEASON_SUMMARY_WRITTEN") ||
+				actions.includes("SEASON_END_COMPLETED") ||
+				actions.includes("SEASON_KO_COMPLETED") ||
+				actions.includes("SEASON_WINNER_COMPLETED"))
+		) {
+			try {
+				const archived = await archiveCurrentLobbySeason(lobbyId);
+				if (archived.ok) {
+					actions.push("SEASON_ARCHIVED");
+				} else {
+					actions.push(`SEASON_ARCHIVE_WARNING:${archived.reason ?? "unknown"}`);
+				}
+			} catch (err) {
+				logError({ route: "POST /api/lobby/[id]/reconcile", code: "SEASON_ARCHIVE_RECONCILE_FAILED", err, lobbyId });
+			}
 		}
 
 		void refreshLobbyLiveSnapshot(lobbyId);

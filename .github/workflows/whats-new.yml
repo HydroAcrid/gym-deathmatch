@@ -1,0 +1,57 @@
+name: Whats New Changelog
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "data/whats-new.json"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-whats-new:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate changelog artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: node scripts/generate-whats-new.mjs
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if git diff --quiet -- data/whats-new.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR
+        if: ${{ steps.changes.outputs.changed == 'true' }}
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(changelog): update what's new for ${{ github.sha }}"
+          title: "chore(changelog): update What's New for ${{ github.sha }}"
+          body: |
+            Automated changelog update for `${{ github.sha }}`.
+
+            - Updates `data/whats-new.json`
+            - Source: merged PR titles and labels
+          branch: chore/whats-new-${{ github.sha }}
+          delete-branch: true
+          add-paths: |
+            data/whats-new.json

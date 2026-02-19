@@ -10,7 +10,13 @@ import type { LiveLobbyResponse } from "@/types/api";
 import { calculatePoints, compareByPointsDesc } from "@/lib/points";
 import { LobbyCard } from "@/src/ui2/components/LobbyCard";
 import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
-import { LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
+import {
+	LOBBY_INTERACTIONS_STORAGE_KEY,
+	WHATS_NEW_SEEN_RELEASE_KEY,
+	type LobbyInteractionsSnapshot,
+} from "@/lib/localStorageKeys";
+import { WhatsNewDialog } from "@/components/WhatsNewDialog";
+import { getLatestWhatsNewEntry, getWhatsNewData, type WhatsNewEntry } from "@/lib/whatsNew";
 
 type LobbyRow = {
 	id: string;
@@ -93,6 +99,43 @@ function HomepageCompliancePanel() {
 	);
 }
 
+function LatestUpdatePanel({
+	entry,
+	onOpen,
+}: {
+	entry: WhatsNewEntry | null;
+	onOpen: () => void;
+}) {
+	return (
+		<div className="scoreboard-panel p-4 sm:p-5 space-y-3" id="whats-new">
+			<div className="flex items-center justify-between gap-3">
+				<div className="font-display text-sm tracking-widest text-primary">LATEST UPDATE</div>
+				<button
+					type="button"
+					onClick={onOpen}
+					className="arena-badge arena-badge-primary px-3 py-2 text-xs"
+				>
+					WHAT&apos;S NEW
+				</button>
+			</div>
+			{entry ? (
+				<>
+					<div className="font-display text-sm sm:text-base tracking-wider text-foreground">{entry.title}</div>
+					<ul className="space-y-1">
+						{entry.bullets.slice(0, 3).map((bullet, idx) => (
+							<li key={`${entry.releaseId}-${idx}`} className="text-xs sm:text-sm text-muted-foreground">
+								• {bullet}
+							</li>
+						))}
+					</ul>
+				</>
+			) : (
+				<div className="text-xs sm:text-sm text-muted-foreground">No release notes available yet.</div>
+			)}
+		</div>
+	);
+}
+
 export default function HomePage() {
 	const { user, isHydrated, signInWithGoogle } = useAuth();
 	const lastLobby = useLastLobbySnapshot();
@@ -103,6 +146,24 @@ export default function HomePage() {
 	const [interactionSnapshot, setInteractionSnapshot] = useState<LobbyInteractionsSnapshot>({});
 	const [lobbiesLoading, setLobbiesLoading] = useState(false);
 	const [nowMs] = useState<number>(() => Date.now());
+	const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+	const whatsNewData = useMemo(() => getWhatsNewData(), []);
+	const latestWhatsNew = useMemo(() => getLatestWhatsNewEntry(whatsNewData), [whatsNewData]);
+
+	useEffect(() => {
+		if (!isHydrated || typeof window === "undefined") return;
+		const latestReleaseId = whatsNewData.latestReleaseId;
+		if (!latestReleaseId) return;
+		const seen = window.localStorage.getItem(WHATS_NEW_SEEN_RELEASE_KEY);
+		if (seen !== latestReleaseId) setWhatsNewOpen(true);
+	}, [isHydrated, whatsNewData]);
+
+	function handleWhatsNewOpenChange(open: boolean) {
+		setWhatsNewOpen(open);
+		if (!open && typeof window !== "undefined" && whatsNewData.latestReleaseId) {
+			window.localStorage.setItem(WHATS_NEW_SEEN_RELEASE_KEY, whatsNewData.latestReleaseId);
+		}
+	}
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -283,8 +344,15 @@ export default function HomePage() {
 			<div className="min-h-screen">
 				<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
 					<div className="scoreboard-panel p-6 text-sm text-muted-foreground">Loading command hub...</div>
+					<LatestUpdatePanel entry={latestWhatsNew} onOpen={() => setWhatsNewOpen(true)} />
 					<HomepageCompliancePanel />
 				</div>
+				<WhatsNewDialog
+					open={whatsNewOpen}
+					onOpenChange={handleWhatsNewOpenChange}
+					entry={latestWhatsNew}
+					entries={whatsNewData.entries}
+				/>
 			</div>
 		);
 	}
@@ -308,8 +376,15 @@ export default function HomePage() {
 							</Link>
 						</div>
 					</div>
+					<LatestUpdatePanel entry={latestWhatsNew} onOpen={() => setWhatsNewOpen(true)} />
 					<HomepageCompliancePanel />
 				</div>
+				<WhatsNewDialog
+					open={whatsNewOpen}
+					onOpenChange={handleWhatsNewOpenChange}
+					entry={latestWhatsNew}
+					entries={whatsNewData.entries}
+				/>
 			</div>
 		);
 	}
@@ -345,13 +420,23 @@ export default function HomePage() {
 							<Link href="/rules" className="arena-badge px-4 py-2">
 								READ RULES
 							</Link>
+							<button type="button" onClick={() => setWhatsNewOpen(true)} className="arena-badge px-4 py-2">
+								WHAT&apos;S NEW
+							</button>
 							<Link href="/privacy" className="arena-badge px-4 py-2">
 								PRIVACY POLICY
 							</Link>
 						</div>
 					</div>
+					<LatestUpdatePanel entry={latestWhatsNew} onOpen={() => setWhatsNewOpen(true)} />
 					<HomepageCompliancePanel />
 				</div>
+				<WhatsNewDialog
+					open={whatsNewOpen}
+					onOpenChange={handleWhatsNewOpenChange}
+					entry={latestWhatsNew}
+					entries={whatsNewData.entries}
+				/>
 			</div>
 		);
 	}
@@ -445,11 +530,15 @@ export default function HomePage() {
 						<Link href={lastLobby?.id ? `/lobby/${encodeURIComponent(lastLobby.id)}/history` : "/history"} className="arena-badge w-full justify-center px-4 py-2">
 							HISTORY
 						</Link>
+						<button type="button" onClick={() => setWhatsNewOpen(true)} className="arena-badge w-full justify-center px-4 py-2">
+							WHAT&apos;S NEW
+						</button>
 							<p className="text-xs text-muted-foreground">
 								Lobbies is your full directory and management view. This hub is your fast resume surface.
 							</p>
 						</div>
 					</div>
+					<LatestUpdatePanel entry={latestWhatsNew} onOpen={() => setWhatsNewOpen(true)} />
 
 					<div className="scoreboard-panel p-5 space-y-4">
 						<div className="flex items-center justify-between gap-2">
@@ -479,6 +568,12 @@ export default function HomePage() {
 					</div>
 				</div>
 				<HomepageCompliancePanel />
+				<WhatsNewDialog
+					open={whatsNewOpen}
+					onOpenChange={handleWhatsNewOpenChange}
+					entry={latestWhatsNew}
+					entries={whatsNewData.entries}
+				/>
 			</div>
 		);
 }

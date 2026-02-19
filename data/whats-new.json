@@ -1,0 +1,22 @@
+{
+  "latestReleaseId": "0000000000000000000000000000000000000000",
+  "entries": [
+    {
+      "releaseId": "0000000000000000000000000000000000000000",
+      "title": "Initial release notes",
+      "deployedAt": "2026-02-19T00:00:00.000Z",
+      "bullets": [
+        "Welcome to Gym Deathmatch.",
+        "New releases will appear here automatically."
+      ],
+      "links": [
+        {
+          "label": "Project",
+          "href": "/home"
+        }
+      ],
+      "sourcePrs": []
+    }
+  ],
+  "generatedAt": "2026-02-19T00:00:00.000Z"
+}
