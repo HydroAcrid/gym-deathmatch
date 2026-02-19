@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/src/ui2/ui/button";
 import { Coins, Dumbbell, Flame, Heart, ScrollText, Swords, Trophy } from "lucide-react";
 
-type SummaryData = {
+export type PeriodSummaryData = {
 	daily?: {
 		dateKey: string;
 		totalWorkouts: number;
@@ -45,8 +45,8 @@ export function PeriodSummaryOverlay({
 }: {
 	open: boolean;
 onClose: () => void;
-data: SummaryData | null;
-period: "daily" | "weekly";
+	data: PeriodSummaryData | null;
+	period: "daily" | "weekly";
 }) {
 	const [showHeartsFull, setShowHeartsFull] = useState(false);
 

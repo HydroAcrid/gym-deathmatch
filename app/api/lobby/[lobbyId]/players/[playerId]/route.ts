@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
+import { getServerSupabase } from "@/lib/supabaseClient";
 
-async function hasRecordedHistory(supabase: any, lobbyId: string, playerId: string) {
+type SupabaseClient = NonNullable<ReturnType<typeof getServerSupabase>>;
+
+async function hasRecordedHistory(supabase: SupabaseClient, lobbyId: string, playerId: string) {
 	const [manual, actorEvents, targetEvents, comments] = await Promise.all([
 		supabase
 			.from("manual_activities")

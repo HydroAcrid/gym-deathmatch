@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { getRequestUserId } from "@/lib/requestAuth";
 
+type UserProfileUpsertRow = {
+	user_id: string;
+	display_name: string | null;
+	avatar_url: string | null;
+	location: string | null;
+	quip: string | null;
+};
+
 export async function GET(req: Request) {
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
@@ -28,16 +36,16 @@ export async function PUT(req: Request) {
 		const body = await req.json();
 
 		// Enforce sane limits server-side
-		const clamp = (v: any, max: number) => {
-			if (v === null || v === undefined) return null;
-			const s = String(v);
-			return s.length > max ? s.slice(0, max) : s;
+		const clamp = (value: unknown, max: number): string | null => {
+			if (value === null || value === undefined) return null;
+			const text = String(value);
+			return text.length > max ? text.slice(0, max) : text;
 		};
 
-		const row: any = {
+		const row: UserProfileUpsertRow = {
 			user_id: userId,
 			display_name: clamp(body?.displayName ?? null, 40),
-			avatar_url: body?.avatarUrl ?? null,
+			avatar_url: typeof body?.avatarUrl === "string" ? body.avatarUrl : null,
 			location: clamp(body?.location ?? null, 60),
 			quip: clamp(body?.quip ?? null, 140)
 		};
@@ -46,8 +54,8 @@ export async function PUT(req: Request) {
 		if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
 		return NextResponse.json({ ok: true });
-	} catch (e: any) {
-		return NextResponse.json({ error: String(e?.message ?? e) }, { status: 500 });
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		return NextResponse.json({ error: message }, { status: 500 });
 	}
 }
-

@@ -31,7 +31,7 @@ export function WeekSetup({
 	// Find current user's player
 	const myPlayer = useMemo(() => {
 		if (user?.id) {
-			const found = players.find(p => (p as any).userId === user.id);
+			const found = players.find((p) => (p.userId ?? p.user_id ?? null) === user.id);
 			if (found) return found;
 		}
 		return null;

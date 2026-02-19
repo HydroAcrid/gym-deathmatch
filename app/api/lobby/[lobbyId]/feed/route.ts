@@ -10,6 +10,13 @@ type FeedItem = {
 	player: { name: string | null; avatar_url?: string | null } | null;
 };
 
+type FeedCommentRow = {
+	id?: string;
+	type?: string;
+	rendered?: string;
+	created_at?: string;
+};
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
@@ -32,14 +39,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			includeComments: true,
 		});
 		const items: FeedItem[] = timelineData.comments
-			.filter((comment: any) => String(comment.type || "").toUpperCase() !== "ACTIVITY")
-			.map((comment: any) => ({
-				id: `comment-${comment.id}`,
+			.filter((comment: FeedCommentRow) => String(comment.type || "").toUpperCase() !== "ACTIVITY")
+			.map((comment: FeedCommentRow) => ({
+				id: `comment-${String(comment.id ?? "")}`,
 				type: "comment",
 				text: String(comment.rendered || "Comment"),
 				createdAt: String(comment.created_at || new Date().toISOString()),
 				player: null,
-			}));
+			}))
+			.filter((item) => item.id !== "comment-");
 
 		return NextResponse.json({ items });
 	} catch (e) {

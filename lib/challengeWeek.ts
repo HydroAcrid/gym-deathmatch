@@ -1,8 +1,12 @@
+import { getServerSupabase } from "@/lib/supabaseClient";
+
 type WeekContext = {
 	mode?: string | null;
 	status?: string | null;
 	seasonStart?: string | null;
 };
+
+type SupabaseClient = NonNullable<ReturnType<typeof getServerSupabase>>;
 
 export function currentWeekIndex(seasonStartIso?: string | null): number {
 	const fallback = new Date().toISOString();
@@ -20,7 +24,7 @@ export function currentWeekIndex(seasonStartIso?: string | null): number {
  * - If latest week is already ACTIVE/COMPLETE, transition targets the next week.
  */
 export async function resolvePunishmentWeek(
-	supabase: any,
+	supabase: SupabaseClient,
 	lobbyId: string,
 	ctx: WeekContext
 ): Promise<number> {
@@ -36,18 +40,18 @@ export async function resolvePunishmentWeek(
 		.limit(1)
 		.maybeSingle();
 
-	if (!latestWeekRow || typeof (latestWeekRow as any).week !== "number") {
+	if (!latestWeekRow || typeof latestWeekRow.week !== "number") {
 		return 1;
 	}
 
-	const latestWeek = Number((latestWeekRow as any).week);
+	const latestWeek = Number(latestWeekRow.week);
 	const { data: latestWeekRows } = await supabase
 		.from("lobby_punishments")
 		.select("week_status")
 		.eq("lobby_id", lobbyId)
 		.eq("week", latestWeek);
 
-	const started = (latestWeekRows || []).some((row: any) => {
+	const started = (latestWeekRows || []).some((row: { week_status?: string | null }) => {
 		const status = String(row?.week_status || "");
 		return status === "ACTIVE" || status === "COMPLETE";
 	});

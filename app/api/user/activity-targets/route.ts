@@ -33,11 +33,10 @@ function sanitizeLobbyIds(inputIds: string[], eligibleById: Map<string, string>)
 }
 
 async function loadEligibleLobbiesForUser(
-	supabase: ReturnType<typeof getServerSupabase>,
+	supabase: NonNullable<ReturnType<typeof getServerSupabase>>,
 	userId: string
 ): Promise<Map<string, string>> {
 	const eligibleById = new Map<string, string>();
-	if (!supabase) return eligibleById;
 
 	const [{ data: memberRows, error: memberError }, { data: ownerRows, error: ownerError }] = await Promise.all([
 		supabase.from("player").select("lobby_id").eq("user_id", userId).limit(500),
@@ -49,7 +48,7 @@ async function loadEligibleLobbiesForUser(
 
 	const memberLobbyIds = Array.from(new Set((memberRows ?? []).map((row: { lobby_id: string }) => row.lobby_id)));
 	const { data: memberLobbies, error: memberLobbiesError } = memberLobbyIds.length
-		? await supabase.from("lobby").select("id,status").in("id", memberLobbyIds as any).limit(1000)
+		? await supabase.from("lobby").select("id,status").in("id", memberLobbyIds).limit(1000)
 		: { data: [] as Array<{ id: string; status: string }>, error: null as unknown };
 	if (memberLobbiesError) throw memberLobbiesError;
 
@@ -101,8 +100,9 @@ export async function GET(req: Request) {
 		}
 
 		return NextResponse.json({ lobbyIds: sanitized });
-	} catch (error: any) {
-		return NextResponse.json({ error: String(error?.message ?? error) }, { status: 500 });
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		return NextResponse.json({ error: message }, { status: 500 });
 	}
 }
 
@@ -135,7 +135,8 @@ export async function PUT(req: Request) {
 		if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
 
 		return NextResponse.json({ ok: true, lobbyIds: sanitized });
-	} catch (error: any) {
-		return NextResponse.json({ error: String(error?.message ?? error) }, { status: 500 });
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		return NextResponse.json({ error: message }, { status: 500 });
 	}
 }

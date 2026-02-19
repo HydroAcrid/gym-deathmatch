@@ -13,6 +13,33 @@ type MockBody = {
 	winnerIndex?: number;
 };
 
+type MockLobbyRow = {
+	id: string;
+	mode: string | null;
+	status: string | null;
+	stage: string | null;
+	season_start: string | null;
+	season_end: string | null;
+};
+
+type MockPlayerRow = {
+	id: string;
+	name: string | null;
+};
+
+type MockPunishmentRow = {
+	id: string;
+	active: boolean | null;
+	text: string | null;
+	created_by: string | null;
+};
+
+type MockSpinEventRow = {
+	id: string;
+	started_at: string;
+	winner_item_id: string;
+};
+
 const SEED_TEXT = [
 	"50 burpees before next workout",
 	"Cold shower after training",
@@ -41,17 +68,18 @@ async function ensureSeededWeek(
 		.select("id,active,text,created_by")
 		.eq("lobby_id", lobbyId)
 		.eq("week", week);
-	if ((existing ?? []).length > 0) return existing as any[];
+	const existingRows = (existing as MockPunishmentRow[] | null) ?? [];
+	if (existingRows.length > 0) return existingRows;
 
 	const { data: players } = await supabase
 		.from("player")
 		.select("id,name")
 		.eq("lobby_id", lobbyId)
 		.order("id", { ascending: true });
-	const list = players ?? [];
+	const list = (players as MockPlayerRow[] | null) ?? [];
 	if (!list.length) return [];
 
-	const seedRows = list.map((p: any, idx: number) => ({
+	const seedRows = list.map((p, idx) => ({
 		lobby_id: lobbyId,
 		week,
 		text: `${SEED_TEXT[idx % SEED_TEXT.length]} (${p.name || "Athlete"})`,
@@ -60,13 +88,13 @@ async function ensureSeededWeek(
 		locked: true,
 		week_status: "PENDING_PUNISHMENT"
 	}));
-	await supabase.from("lobby_punishments").insert(seedRows as any);
+	await supabase.from("lobby_punishments").insert(seedRows);
 	const { data: inserted } = await supabase
 		.from("lobby_punishments")
 		.select("id,active,text,created_by")
 		.eq("lobby_id", lobbyId)
 		.eq("week", week);
-	return (inserted ?? []) as any[];
+	return (inserted as MockPunishmentRow[] | null) ?? [];
 }
 
 export async function GET() {
@@ -96,11 +124,12 @@ export async function POST(req: Request) {
 		return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 	}
 
-	const { data: lobby } = await supabase
+	const { data: lobbyData } = await supabase
 		.from("lobby")
 		.select("id,mode,status,stage,season_start,season_end")
 		.eq("id", lobbyId)
 		.maybeSingle();
+	const lobby = (lobbyData as MockLobbyRow | null) ?? null;
 	if (!lobby) return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
 
 	const nowIso = new Date().toISOString();
@@ -115,17 +144,17 @@ export async function POST(req: Request) {
 					mode: "CHALLENGE_ROULETTE",
 					status: "transition_spin",
 					stage: "ACTIVE",
-					season_start: (lobby as any).season_start ?? nowIso
+					season_start: lobby.season_start ?? nowIso
 				})
 				.eq("id", lobbyId);
 		}
 
-		const { data: players } = await supabase
+		const { data: playersData } = await supabase
 			.from("player")
 			.select("id,name")
 			.eq("lobby_id", lobbyId)
 			.order("id", { ascending: true });
-		const currentPlayers = players ?? [];
+		const currentPlayers = (playersData as MockPlayerRow[] | null) ?? [];
 		if (!currentPlayers.length) {
 			return NextResponse.json({ error: "No players in lobby" }, { status: 400 });
 		}
@@ -144,14 +173,14 @@ export async function POST(req: Request) {
 				hearts: 3,
 				lives_remaining: 3
 			}));
-			const { error: insertErr } = await supabase.from("player").insert(botRows as any);
+			const { error: insertErr } = await supabase.from("player").insert(botRows);
 			if (!insertErr) botsAdded = botRows.length;
 		}
 
 		const week = await resolvePunishmentWeek(supabase, lobbyId, {
 			mode: "CHALLENGE_ROULETTE",
 			status: "transition_spin",
-			seasonStart: ((lobby as any).season_start as string | null) ?? nowIso
+			seasonStart: lobby.season_start ?? nowIso
 		});
 		const seeded = await ensureSeededWeek(supabase, lobbyId, week);
 
@@ -168,21 +197,21 @@ export async function POST(req: Request) {
 	}
 
 	const week = await resolvePunishmentWeek(supabase, lobbyId, {
-		mode: String((lobby as any).mode || "CHALLENGE_ROULETTE"),
+		mode: String(lobby.mode || "CHALLENGE_ROULETTE"),
 		status: "transition_spin",
-		seasonStart: ((lobby as any).season_start as string | null) ?? nowIso
+		seasonStart: lobby.season_start ?? nowIso
 	});
 	const items = await ensureSeededWeek(supabase, lobbyId, week);
 	if (!items.length) {
 		return NextResponse.json({ error: "No seeded punishments to spin" }, { status: 400 });
 	}
 
-	const pool = items.filter((x: any) => !x.active);
+	const pool = items.filter((x) => !x.active);
 	const candidatePool = pool.length ? pool : items;
 	const winnerIdx = clampInt(body.winnerIndex, 0, 0, Math.max(0, candidatePool.length - 1));
 	const winner = candidatePool[winnerIdx];
 
-	let spinEvent: any = null;
+	let spinEvent: MockSpinEventRow | null = null;
 	const { data: existing } = await supabase
 		.from("lobby_spin_events")
 		.select("id,started_at,winner_item_id")
@@ -190,7 +219,7 @@ export async function POST(req: Request) {
 		.eq("week", week)
 		.maybeSingle();
 	if (existing) {
-		spinEvent = existing;
+		spinEvent = existing as MockSpinEventRow;
 	} else {
 		const { data: created, error } = await supabase
 			.from("lobby_spin_events")
@@ -204,7 +233,7 @@ export async function POST(req: Request) {
 			.select("id,started_at,winner_item_id")
 			.single();
 		if (error) return NextResponse.json({ error: "Failed to create spin event" }, { status: 500 });
-		spinEvent = created;
+		spinEvent = created as MockSpinEventRow;
 	}
 
 	await supabase.from("lobby_punishments").update({ active: false, week_status: null }).eq("lobby_id", lobbyId).eq("week", week);

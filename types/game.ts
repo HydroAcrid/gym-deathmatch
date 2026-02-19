@@ -30,6 +30,7 @@ export interface Player {
 	avatarUrl: string;
 	location?: string;
 	userId?: string; // auth user id when available
+	user_id?: string; // DB/raw alias used in some route payloads
 	currentStreak: number;
 	longestStreak: number;
 	livesRemaining: number; // 0–3
@@ -42,6 +43,19 @@ export interface Player {
 	taunt?: string | null;
 	inSuddenDeath?: boolean; // UI tag only; cannot win pot
 	ready?: boolean;
+	recentActivities?: Array<{
+		startDate?: string;
+		date?: string;
+		start_date_local?: string;
+		start_date?: string;
+	}>;
+	recent_activities?: Array<{
+		startDate?: string;
+		date?: string;
+		start_date_local?: string;
+		start_date?: string;
+	}>;
+	lives_remaining?: number; // DB/raw alias used in some route payloads
 }
 
 export type LobbyStage = "PRE_STAGE" | "ACTIVE" | "COMPLETED";

@@ -29,6 +29,9 @@ type SummaryPayload = {
 	quipsWeekly?: Array<{ text: string; created_at: string }>;
 };
 
+type SummaryPlayerRow = { id: string; name: string; lives_remaining?: number | null; hearts?: number | null };
+type SummaryCountRow = { player_id: string };
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
@@ -103,20 +106,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	if ((!playersData || playersData.length === 0) && playersRes.error) {
 		console.error("summary players error", playersRes.error);
 	}
-	if (!playersData || playersData.length === 0) {
-		// Defensive retry in case a policy blocked the first query
-		const { data: retry } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
-		playersData = retry as any[] ?? [];
-	}
+		if (!playersData || playersData.length === 0) {
+			// Defensive retry in case a policy blocked the first query
+			const { data: retry } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
+			playersData = (retry as SummaryPlayerRow[] | null) ?? [];
+		}
 	for (const p of playersData) {
 		const lives = Number(p.lives_remaining ?? p.hearts ?? 0);
 		playerMap.set(p.id as string, { name: p.name as string, lives });
 	}
 
-	const countMap = (rows: any[]) => {
-		const m = new Map<string, number>();
-		for (const r of rows ?? []) {
-			const pid = r.player_id as string;
+		const countMap = (rows: SummaryCountRow[]) => {
+			const m = new Map<string, number>();
+			for (const r of rows ?? []) {
+				const pid = r.player_id;
 			m.set(pid, (m.get(pid) ?? 0) + 1);
 		}
 		return m;

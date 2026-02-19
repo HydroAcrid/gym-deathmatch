@@ -5,10 +5,38 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
 import { ChallengeSettingsCard } from "./ChallengeSettingsCard";
-import type { ChallengeSettings } from "@/types/game";
+import type { ChallengeSettings, GameMode } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
 import { authFetch } from "@/lib/clientAuth";
 import { toIsoFromLocalDateTimeInput, toLocalDateTimeInputValue } from "@/lib/datetime";
+
+type OwnerModalMode = Extract<GameMode, "MONEY_SURVIVAL" | "MONEY_LAST_MAN" | "CHALLENGE_ROULETTE" | "CHALLENGE_CUMULATIVE">;
+
+type LivePlayerRow = {
+	id?: string;
+	name?: string;
+};
+
+type AdminWindow = Window & {
+	__gymdm_admin_token?: string;
+};
+
+const DEFAULT_CHALLENGE_SETTINGS: ChallengeSettings = {
+	selection: "ROULETTE",
+	spinFrequency: "WEEKLY",
+	visibility: "PUBLIC",
+	stackPunishments: false,
+	allowSuggestions: true,
+	requireLockBeforeSpin: true,
+	autoSpinAtWeekStart: false,
+	showLeaderboard: true,
+	profanityFilter: true,
+	suggestionCharLimit: 50,
+};
+
+function isOwnerModalMode(value: string): value is OwnerModalMode {
+	return value === "MONEY_SURVIVAL" || value === "MONEY_LAST_MAN" || value === "CHALLENGE_ROULETTE" || value === "CHALLENGE_CUMULATIVE";
+}
 
 export function OwnerSettingsModal({
 	lobbyId,
@@ -104,7 +132,7 @@ export function OwnerSettingsModal({
 		}
 	}, [open, defaultWeekly, defaultLives, defaultInitialPot, defaultWeeklyAnte, defaultScalingEnabled, defaultPerPlayerBoost, defaultSeasonEnd]);
 
-	const [mode, setMode] = useState<"MONEY_SURVIVAL"|"MONEY_LAST_MAN"|"CHALLENGE_ROULETTE"|"CHALLENGE_CUMULATIVE">("MONEY_SURVIVAL");
+	const [mode, setMode] = useState<OwnerModalMode>("MONEY_SURVIVAL");
 	const [suddenDeath, setSuddenDeath] = useState<boolean>(false);
 
 	useEffect(() => {
@@ -225,7 +253,9 @@ export function OwnerSettingsModal({
 			try {
 				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 				const data = await res.json();
-				const p = (data?.lobby?.players ?? []).map((x: any) => ({ id: x.id, name: x.name }));
+				const p = ((data?.lobby?.players ?? []) as LivePlayerRow[])
+					.map((player) => ({ id: String(player.id || ""), name: String(player.name || "Unknown") }))
+					.filter((player) => player.id.length > 0);
 				setPlayers(p);
 				// Prefer scheduledStart for preview; otherwise use seasonStart
 				const iso: string | undefined = (data?.lobby?.scheduledStart || data?.lobby?.seasonStart);
@@ -243,14 +273,14 @@ export function OwnerSettingsModal({
 	}, [open, lobbyId]);
 
 	async function adminHeaders() {
-		const token = typeof window !== "undefined" ? (window as any).__gymdm_admin_token : null;
+		const token = typeof window !== "undefined" ? (window as AdminWindow).__gymdm_admin_token : null;
 		return token ? { Authorization: `Bearer ${token}` } : {};
 	}
 
 	async function removePlayer() {
 		if (!removeId) return;
 		// owner path requires ownerPlayerId; admin path uses header
-		const headers: any = { "Content-Type": "application/json", ...(await adminHeaders()) };
+		const headers: Record<string, string> = { "Content-Type": "application/json", ...(await adminHeaders()) };
 		const isAdmin = !!headers.Authorization;
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}/player/${encodeURIComponent(removeId)}`
@@ -269,7 +299,7 @@ export function OwnerSettingsModal({
 
 	async function deleteLobby() {
 		if (!confirmName || confirmName.trim().length < 1) return;
-		const headers: any = { "Content-Type": "application/json", ...(await adminHeaders()) };
+		const headers: Record<string, string> = { "Content-Type": "application/json", ...(await adminHeaders()) };
 		const isAdmin = !!headers.Authorization;
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}`
@@ -302,6 +332,8 @@ export function OwnerSettingsModal({
 			toast.push("Failed to transfer ownership");
 		}
 	}
+
+	const resolvedChallengeSettings: ChallengeSettings = challengeSettings ?? DEFAULT_CHALLENGE_SETTINGS;
 
 	return (
 		<>
@@ -537,11 +569,15 @@ export function OwnerSettingsModal({
 										<div className="grid gap-3">
 											<label className="text-xs">
 												<span className="block mb-1">Mode</span>
-												<select
-													className="bg-input border border-border text-foreground w-full h-10 px-3 rounded-md"
-													value={mode}
-													onChange={e => setMode(e.target.value as any)}
-												>
+													<select
+														className="bg-input border border-border text-foreground w-full h-10 px-3 rounded-md"
+														value={mode}
+														onChange={(e) => {
+															if (isOwnerModalMode(e.target.value)) {
+																setMode(e.target.value);
+															}
+														}}
+													>
 													<option value="MONEY_SURVIVAL">Money: Survival (classic)</option>
 													<option value="MONEY_LAST_MAN">Money: Last Man Standing</option>
 													<option value="CHALLENGE_ROULETTE">Challenge: Roulette</option>
@@ -552,11 +588,11 @@ export function OwnerSettingsModal({
 												<input type="checkbox" checked={suddenDeath} onChange={e => setSuddenDeath(e.target.checked)} />
 												<span>Allow Sudden Death revive (1 heart, cannot win pot)</span>
 											</label>
-											{String(mode).startsWith("CHALLENGE_") && (
-												<div className="scoreboard-panel rounded-xl p-4 border">
-													<ChallengeSettingsCard mode={mode as any} value={(challengeSettings as any) ?? { selection: "ROULETTE", spinFrequency: "WEEKLY", visibility: "PUBLIC", stackPunishments: false, allowSuggestions: true, requireLockBeforeSpin: true, autoSpinAtWeekStart: false, showLeaderboard: true, profanityFilter: true, suggestionCharLimit: 50 }} onChange={setChallengeSettings as any} />
-												</div>
-											)}
+												{String(mode).startsWith("CHALLENGE_") && (
+													<div className="scoreboard-panel rounded-xl p-4 border">
+														<ChallengeSettingsCard mode={mode} value={resolvedChallengeSettings} onChange={(value) => setChallengeSettings(value)} />
+													</div>
+												)}
 										</div>
 									</div>
 								</div>

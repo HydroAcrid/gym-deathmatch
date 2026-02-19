@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
+type LobbyInviteTokenRow = {
+	invite_token: string | null;
+};
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
 	if (!access.ok) return NextResponse.json({ error: access.message }, { status: access.status });
 	if (!access.isOwner) return NextResponse.json({ error: "Owner only" }, { status: 403 });
-	const supabase = access.supabase;
-	try {
-		const body = await req.json();
-		const patch: any = {};
+		const supabase = access.supabase;
+		try {
+			const body = await req.json();
+			const patch: Record<string, unknown> = {};
 		if (typeof body.weeklyTarget === "number") patch.weekly_target = body.weeklyTarget;
 		if (typeof body.initialLives === "number") patch.initial_lives = body.initialLives;
 		if (typeof body.seasonStart === "string") {
@@ -44,19 +48,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 		if (body.rotateInviteToken === true) patch.invite_token = crypto.randomUUID().replace(/-/g, "");
 		if (body.inviteTokenRequired === true && patch.invite_token === undefined) {
 			// Ensure tokenized invites always have a token.
-			const { data: existing } = await supabase
-				.from("lobby")
-				.select("invite_token")
-				.eq("id", lobbyId)
-				.maybeSingle();
-			if (!existing || !(existing as any).invite_token) {
-				patch.invite_token = crypto.randomUUID().replace(/-/g, "");
+				const { data: existing } = await supabase
+					.from("lobby")
+					.select("invite_token")
+					.eq("id", lobbyId)
+					.maybeSingle();
+				const existingRow = (existing as LobbyInviteTokenRow | null) ?? null;
+				if (!existingRow || !existingRow.invite_token) {
+					patch.invite_token = crypto.randomUUID().replace(/-/g, "");
+				}
 			}
-		}
 		if (Object.keys(patch).length === 0) return NextResponse.json({ error: "No changes" }, { status: 400 });
-		// Update only provided fields; avoid upsert so NOT NULL columns (e.g. name) aren't required
-		let { error } = await supabase.from("lobby").update(patch).eq("id", lobbyId);
-		if (error && String((error as any)?.message || "").includes("invite_")) {
+			// Update only provided fields; avoid upsert so NOT NULL columns (e.g. name) aren't required
+			let { error } = await supabase.from("lobby").update(patch).eq("id", lobbyId);
+			if (error && String(error.message || "").includes("invite_")) {
 			// Backward compatibility: ignore invite controls if DB schema is older.
 			delete patch.invite_enabled;
 			delete patch.invite_expires_at;

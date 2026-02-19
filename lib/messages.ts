@@ -44,8 +44,9 @@ export function summarizeTypesThisWeek(activities: ActivitySummary[]): string {
 }
 
 function hour(iso: string) { return new Date(iso).getHours(); }
-function maxBy<T>(arr: T[], sel: (x: T)=>number) { return arr.reduce((m, x) => sel(x) > (m?sel(m):-Infinity) ? x : m, null as any); }
+function maxBy<T>(arr: T[], sel: (x: T) => number) {
+	return arr.reduce<T | null>((m, x) => (sel(x) > (m ? sel(m) : -Infinity) ? x : m), null);
+}
 function includesAny(hay: string, needles: string[]) { return needles.some(n => hay.includes(n)); }
 function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
 

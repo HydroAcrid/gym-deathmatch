@@ -4,6 +4,19 @@ import { jsonError } from "@/lib/logger";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
+type ChallengeSettingsPayload = {
+	selection: string;
+	spinFrequency: string;
+	visibility: string;
+	stackPunishments: boolean;
+	allowSuggestions: boolean;
+	requireLockBeforeSpin: boolean;
+	autoSpinAtWeekStart: boolean;
+	showLeaderboard: boolean;
+	profanityFilter: boolean;
+	suggestionCharLimit: number;
+};
+
 export async function POST(req: NextRequest) {
 	const supabase = getServerSupabase();
 	if (!supabase) return jsonError("SUPABASE_NOT_CONFIGURED", "Supabase not configured", 501);
@@ -29,7 +42,7 @@ export async function POST(req: NextRequest) {
 		}
 		const lobbyId = candidate;
 		// Validate challenge settings (optional)
-		let challengeSettings = null as any;
+			let challengeSettings: ChallengeSettingsPayload | null = null;
 		if (body.mode && String(body.mode).startsWith("CHALLENGE_")) {
 			const cs = body.challengeSettings || {};
 			const limit = Math.min(140, Math.max(1, Number(cs.suggestionCharLimit ?? 50)));
@@ -76,13 +89,13 @@ export async function POST(req: NextRequest) {
 			invite_token_required: true,
 			invite_token: crypto.randomUUID().replace(/-/g, "")
 		};
-		let { error: lerr } = await supabase.from("lobby").insert(lobby);
-		if (lerr && String((lerr as any)?.message || "").includes("invite_")) {
-			// Backward compatibility: some environments may not have invite columns yet.
-			const legacyLobby = { ...lobby } as any;
-			delete legacyLobby.invite_enabled;
-			delete legacyLobby.invite_expires_at;
-			delete legacyLobby.invite_token_required;
+			let { error: lerr } = await supabase.from("lobby").insert(lobby);
+			if (lerr && String(lerr.message || "").includes("invite_")) {
+				// Backward compatibility: some environments may not have invite columns yet.
+				const legacyLobby = { ...lobby } as Record<string, unknown>;
+				delete legacyLobby.invite_enabled;
+				delete legacyLobby.invite_expires_at;
+				delete legacyLobby.invite_token_required;
 			delete legacyLobby.invite_token;
 			const retry = await supabase.from("lobby").insert(legacyLobby);
 			lerr = retry.error;
@@ -101,7 +114,7 @@ export async function POST(req: NextRequest) {
 				if (!ownerName) ownerName = prof?.display_name ?? null;
 				if (!ownerAvatarUrl) ownerAvatarUrl = prof?.avatar_url ?? null;
 			} catch { /* ignore */ }
-			let playerErr: any = null;
+				let playerErr: unknown = null;
 			for (let attempt = 0; attempt < 3; attempt++) {
 				ownerId = crypto.randomUUID();
 				const { error } = await supabase.from("player").insert({
@@ -118,8 +131,8 @@ export async function POST(req: NextRequest) {
 					break;
 				}
 				playerErr = error;
-				if ((error as any)?.code !== "23505") break;
-			}
+					if (error?.code !== "23505") break;
+				}
 			if (playerErr || !ownerId) {
 				console.error("owner player insert error", playerErr);
 				return jsonError("CREATE_LOBBY_FAILED", "Failed to create lobby", 500);

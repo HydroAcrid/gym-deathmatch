@@ -10,6 +10,28 @@ import {
 import { emitSpinResolvedEvent } from "@/lib/commentaryProducers";
 import { processCommentaryQueue } from "@/lib/commentaryProcessor";
 
+type LobbySpinRow = {
+	season_start: string | null;
+	status: string | null;
+	mode: string | null;
+	challenge_settings?: {
+		requireLockBeforeSpin?: boolean;
+	} | null;
+};
+
+type PunishmentItemRow = {
+	id: string;
+	text: string | null;
+	active: boolean | null;
+	locked: boolean | null;
+};
+
+type SpinEventRow = {
+	id: string;
+	started_at: string;
+	winner_item_id: string;
+};
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
@@ -25,24 +47,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		return jsonError("COMMENTARY_QUEUE_INIT_FAILED", "Failed to initialize commentary queue", 500);
 	}
 
-	const { data: lobby } = await supabase
+	const { data: lobbyData } = await supabase
 		.from("lobby")
 		.select("season_start,status,mode,challenge_settings")
 		.eq("id", lobbyId)
 		.maybeSingle();
+	const lobby = (lobbyData as LobbySpinRow | null) ?? null;
 	if (!lobby) return jsonError("NOT_FOUND", "Lobby not found", 404);
-	if (String((lobby as any).mode || "") !== "CHALLENGE_ROULETTE") {
+	if (String(lobby.mode || "") !== "CHALLENGE_ROULETTE") {
 		return jsonError("INVALID_MODE", "Spin is only available in challenge roulette mode", 409);
 	}
 	const actorPlayerId = access.memberPlayerId || access.ownerPlayerId;
 	if (!actorPlayerId) return jsonError("OWNER_PLAYER_MISSING", "Owner player record missing", 409);
-	if (String((lobby as any).status || "") !== "transition_spin") {
+	if (String(lobby.status || "") !== "transition_spin") {
 		return jsonError("INVALID_PHASE", "Spin is only allowed during transition spin phase", 409);
 	}
 	const week = await resolvePunishmentWeek(supabase, lobbyId, {
-		mode: (lobby as any).mode,
-		status: (lobby as any).status,
-		seasonStart: (lobby as any).season_start
+		mode: lobby.mode,
+		status: lobby.status,
+		seasonStart: lobby.season_start
 	});
 	let spinEvent: { id: string; started_at: string; winner_item_id: string } | null = null;
 	let createdSpinEvent = false;
@@ -52,15 +75,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		.eq("lobby_id", lobbyId)
 		.eq("week", week)
 		.maybeSingle();
-	spinEvent = (existingSpinEvent as any) ?? null;
+	spinEvent = (existingSpinEvent as SpinEventRow | null) ?? null;
 	if (!spinEvent) {
-		const { data: items } = await supabase.from("lobby_punishments").select("*").eq("lobby_id", lobbyId).eq("week", week);
-		const challengeSettings = (lobby as any).challenge_settings || {};
+		const { data: itemsData } = await supabase.from("lobby_punishments").select("*").eq("lobby_id", lobbyId).eq("week", week);
+		const items = (itemsData as PunishmentItemRow[] | null) ?? [];
+		const challengeSettings = lobby.challenge_settings ?? {};
 		const requireLock = Boolean(challengeSettings.requireLockBeforeSpin ?? true);
-		if (requireLock && (items || []).some((x: any) => !x.locked)) {
+		if (requireLock && items.some((x) => !x.locked)) {
 			return jsonError("LOCK_REQUIRED", "Lock the punishment list before spinning", 409);
 		}
-		const pool = (items || []).filter((x: any) => !x.active);
+		const pool = items.filter((x) => !x.active);
 		if (!pool.length) return jsonError("NO_ITEMS", "Nothing to spin");
 		const candidateWinner = pool[Math.floor(Math.random() * pool.length)];
 		const startedAt = new Date(Date.now() + 1500).toISOString();
@@ -84,14 +108,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 						.eq("lobby_id", lobbyId)
 						.eq("week", week)
 						.maybeSingle();
-					spinEvent = (existing as any) ?? null;
+						spinEvent = (existing as SpinEventRow | null) ?? null;
+					} else {
+						throw error;
+					}
 				} else {
-					throw error;
+					spinEvent = (data as SpinEventRow | null) ?? null;
+					createdSpinEvent = true;
 				}
-			} else {
-				spinEvent = data as any;
-				createdSpinEvent = true;
-			}
 		} catch (e) {
 			logError({ route: "POST /api/lobby/[id]/spin", code: "SPIN_EVENT_WRITE_FAILED", err: e, lobbyId });
 		}
@@ -107,7 +131,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 	await supabase.from("lobby_punishments").update({ active: false, week_status: null }).eq("lobby_id", lobbyId).eq("week", week);
 	await supabase.from("lobby_punishments").update({ active: true, week_status: "ACTIVE" }).eq("id", chosen.id);
 	const lobbyPatch: Record<string, unknown> = { status: "active", stage: "ACTIVE" };
-	if (!(lobby as any).season_start) {
+	if (!lobby.season_start) {
 		lobbyPatch.season_start = new Date().toISOString();
 	}
 	await supabase.from("lobby").update(lobbyPatch).eq("id", lobbyId);

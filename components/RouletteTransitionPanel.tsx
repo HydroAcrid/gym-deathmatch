@@ -3,15 +3,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lobby, Player } from "@/types/game";
 import { motion } from "framer-motion";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useAuth } from "./AuthProvider";
 import { PunishmentWheel, type PunishmentEntry } from "./punishment/PunishmentWheel";
 import { authFetch } from "@/lib/clientAuth";
 import { hasSeenSpinReplay, markSpinReplaySeen } from "@/lib/spinReplay";
 
+type PunishmentItem = {
+	id: string;
+	text: string;
+	created_by?: string | null;
+	active?: boolean | null;
+};
+
+type PunishmentsResponse = {
+	items?: PunishmentItem[];
+	locked?: boolean;
+	active?: { text?: string } | null;
+	spinEvent?: { spinId: string; startedAt: string; winnerItemId: string } | null;
+};
+
 export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const { user } = useAuth();
 	const [players, setPlayers] = useState<Player[]>(lobby.players);
-	const [items, setItems] = useState<{ id: string; text: string; created_by?: string | null }[]>([]);
+	const [items, setItems] = useState<PunishmentItem[]>([]);
 	const [locked, setLocked] = useState<boolean>(false);
 	const [spinning, setSpinning] = useState<boolean>(false);
 	const [chosen, setChosen] = useState<string | null>(null);
@@ -30,8 +45,8 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const prevActiveRef = useRef<string | null>(null);
 	const lastSpinIdRef = useRef<string | null>(null);
 	const [spinRequesting, setSpinRequesting] = useState<boolean>(false);
-	const lobbyOwnerUserId = (lobby as any).ownerUserId;
-	const challengeSettings = ((lobby as any).challengeSettings || {}) as any;
+	const lobbyOwnerUserId = lobby.ownerUserId;
+	const challengeSettings: Partial<NonNullable<Lobby["challengeSettings"]>> = lobby.challengeSettings ?? {};
 	const suggestionCharLimit = Math.min(140, Math.max(1, Number(challengeSettings.suggestionCharLimit ?? 50)));
 	const allowSuggestions = Boolean(challengeSettings.allowSuggestions ?? true);
 	const canSuggest = allowSuggestions || isOwner;
@@ -60,26 +75,30 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 
 	const loadPunishments = useCallback(async () => {
 		try {
-			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
-			if (!res.ok) return;
-			const j = await res.json();
-			const newItems = j.items || [];
-			
-			// Update items if changed
-			const itemsHash = JSON.stringify(newItems.map((i: any) => ({ id: i.id, text: i.text, created_by: i.created_by })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
-			if (itemsHash !== itemsHashRef.current) {
-				itemsHashRef.current = itemsHash;
-				setItems(newItems);
+				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
+				if (!res.ok) return;
+				const j = (await res.json()) as PunishmentsResponse;
+				const newItems = j.items || [];
+				
+				// Update items if changed
+				const itemsHash = JSON.stringify(
+					newItems
+						.map((i) => ({ id: i.id, text: i.text, created_by: i.created_by }))
+						.sort((a, b) => a.id.localeCompare(b.id))
+				);
+				if (itemsHash !== itemsHashRef.current) {
+					itemsHashRef.current = itemsHash;
+					setItems(newItems);
 			}
 			
 			setLocked(!!j.locked);
 
 			const spinEvent = j.spinEvent as { spinId: string; startedAt: string; winnerItemId: string } | null;
-			if (spinEvent && spinEvent.spinId !== lastSpinIdRef.current) {
+				if (spinEvent && spinEvent.spinId !== lastSpinIdRef.current) {
 				lastSpinIdRef.current = spinEvent.spinId;
 				const currentEntries = computeEntries(newItems, players);
 				const idx = currentEntries.findIndex((e) => e.id === spinEvent.winnerItemId);
-				const winnerText = (newItems.find((it: any) => it.id === spinEvent.winnerItemId)?.text as string | undefined) || null;
+					const winnerText = newItems.find((it) => it.id === spinEvent.winnerItemId)?.text || null;
 				const alreadySeen = hasSeenSpinReplay(lobby.id, spinEvent.spinId);
 				const shouldAnimate = !alreadySeen && !chosen && idx >= 0;
 				if (shouldAnimate) {
@@ -138,18 +157,18 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		} catch { /* ignore */ }
 	}, [chosen, lobby.id, players]);
 
-	// Listen for realtime updates
-		useEffect(() => {
-		function onRefresh() { loadPunishments(); }
-		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
-		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
-	}, [lobby.id, loadPunishments]);
+		// Listen for realtime updates
+			useEffect(() => {
+			function onRefresh() { loadPunishments(); }
+			if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh);
+			return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh); };
+		}, [lobby.id, loadPunishments]);
 
 	// Realtime sync for wheel submissions + spin event broadcast.
 	useEffect(() => {
 		let cancelled = false;
-		let spinChannel: any = null;
-		let punishmentsChannel: any = null;
+		let spinChannel: RealtimeChannel | null = null;
+		let punishmentsChannel: RealtimeChannel | null = null;
 		(async () => {
 			const supabase = (await import("@/lib/supabaseBrowser")).getBrowserSupabase();
 			if (!supabase || cancelled) return;
@@ -199,10 +218,10 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	// Find current user's submission
 	const prevMySubmissionRef = useRef<{ id: string; text: string } | null>(null);
 	useEffect(() => {
-		if (justSubmittedRef.current) return;
-		if (!user?.id) return;
-		const mine = players.find(p => (p as any).userId === user.id);
-		if (!mine) return;
+			if (justSubmittedRef.current) return;
+			if (!user?.id) return;
+			const mine = players.find((p) => (p.userId ?? p.user_id ?? null) === user.id);
+			if (!mine) return;
 		const mySub = items.find(i => {
 			const createdBy = i.created_by;
 			return createdBy === mine.id || createdBy === user.id;
@@ -291,11 +310,11 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			if (!textToSubmit) return;
 			
 			// Find ID logic...
-			let meId: string | null = null;
-			if (user?.id) {
-				const mine = players.find(p => (p as any).userId === user.id);
-				if (mine) meId = mine.id;
-			}
+				let meId: string | null = null;
+				if (user?.id) {
+					const mine = players.find((p) => (p.userId ?? p.user_id ?? null) === user.id);
+					if (mine) meId = mine.id;
+				}
 			
 			if (!meId) {
 				setErrorMsg("Sign in to submit.");
@@ -366,11 +385,11 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 					<div>
 						<div className="text-xs text-muted-foreground mb-2">Submissions</div>
 						<ul className="space-y-2">
-							{players.map(p => {
-								const sub = items.find(i => {
-									const createdBy = i.created_by;
-									return createdBy === p.id || createdBy === (p as any).userId;
-								});
+								{players.map(p => {
+									const sub = items.find(i => {
+										const createdBy = i.created_by;
+										return createdBy === p.id || createdBy === (p.userId ?? p.user_id ?? null);
+									});
 								return (
 									<li key={p.id} className="flex items-start gap-2">
 										<div className="h-8 w-8 rounded-full overflow-hidden bg-muted border border-border">
@@ -485,9 +504,13 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	);
 }
 
-function computeEntries(items: any[], players: Player[]): PunishmentEntry[] {
+function computeEntries(items: PunishmentItem[], players: Player[]): PunishmentEntry[] {
 	const byId = new Map(players.map(p => [p.id, p]));
-	const byUserId = new Map(players.map(p => [(p as any).userId as string | undefined, p]).filter((x) => !!x[0]) as Array<[string, Player]>);
+	const byUserId = new Map(
+		players
+			.map((p) => [p.userId ?? p.user_id ?? undefined, p] as const)
+			.filter((x): x is readonly [string, Player] => typeof x[0] === "string" && x[0].length > 0)
+	);
 	const seen = new Set<string>();
 	const out: PunishmentEntry[] = [];
 	for (const it of items) {
@@ -512,8 +535,8 @@ function computeEntries(items: any[], players: Player[]): PunishmentEntry[] {
 }
 
 function requiresLock(lobby: Lobby) {
-	const cs = (lobby as any).challengeSettings || {};
-	if (String((lobby as any).mode || "").startsWith("CHALLENGE_ROULETTE")) {
+	const cs: Partial<NonNullable<Lobby["challengeSettings"]>> = lobby.challengeSettings ?? {};
+	if (String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE")) {
 		return cs.requireLockBeforeSpin ?? true;
 	}
 	return !!cs.requireLockBeforeSpin;

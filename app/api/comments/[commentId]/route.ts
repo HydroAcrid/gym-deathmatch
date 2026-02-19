@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { getRequestUserId } from "@/lib/requestAuth";
 
+type PlayerUserLookup = { user_id: string | null };
+
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ commentId: string }> }) {
 	const { commentId } = await params;
 	const supabase = getServerSupabase();
@@ -43,7 +45,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
 		supabase.from("lobby").select("owner_user_id").eq("id", systemComment.lobby_id).maybeSingle(),
 		systemComment.primary_player_id
 			? supabase.from("player").select("user_id").eq("id", systemComment.primary_player_id).maybeSingle()
-			: Promise.resolve({ data: null } as any)
+			: Promise.resolve({ data: null as PlayerUserLookup | null })
 	]);
 	const isOwner = lobbyRes.data?.owner_user_id === userId;
 	const isAuthor = authorRes.data?.user_id === userId;
