@@ -41,7 +41,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const onStageChange = props.onStageChange;
 	const onOwnerChange = props.onOwnerChange;
 	// Derive state directly from props
-	const players = lobbyData.players || [];
+	const players = useMemo(() => lobbyData.players ?? [], [lobbyData.players]);
 	const currentPot = typeof lobbyData.cashPool === "number" ? lobbyData.cashPool : 0;
 	const seasonStatus = liveData?.seasonStatus ?? lobbyData.status;
 	const stage = liveData?.stage ?? lobbyData.stage;
@@ -225,7 +225,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [user?.id, lobbyData?.id, players.length, liveData?.lobby?.players?.length]);
+	}, [user?.id, lobbyData?.id, players, liveData, lobbyData.players]);
 
 	// Show connection errors
 	useEffect(() => {
@@ -324,7 +324,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				} catch { /* ignore */ }
 			}
 		})();
-	}, [user?.id, players.length, lobbyData.id, onRefresh]);
+	}, [user?.id, players, lobbyData.id, onRefresh]);
 
 	useEffect(() => {
 		if (stravaConnected || stravaError) {
@@ -344,7 +344,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(nowMs + 30 * 24 * 60 * 60 * 1000);
 	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / weekMs));
 	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((nowMs - seasonStartDate.getTime()) / weekMs)));
-	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * weekMs);
+	const weekEndDateMs = seasonStartDate.getTime() + currentWeek * weekMs;
 	const currentWeekStartMs = seasonStartDate.getTime() + (currentWeek - 1) * weekMs;
 	const currentWeekEndMs = currentWeekStartMs + weekMs;
 	const myPlayerName = myPlayerId ? players.find((player) => player.id === myPlayerId)?.name ?? null : null;
@@ -483,13 +483,13 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			myPlayerId,
 			myPlayerName,
 			standings: standingsData,
-			hearts: heartsData,
-			currentWeek,
-			totalWeeks,
-			weekEndDate,
-			potAmount,
-			weeklyAnte,
-		});
+				hearts: heartsData,
+				currentWeek,
+				totalWeeks,
+				weekEndDate: new Date(weekEndDateMs),
+				potAmount,
+				weeklyAnte,
+			});
 	}, [
 		lobbyData.id,
 		lobbyData.name,
@@ -504,13 +504,13 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		myPlayerId,
 		myPlayerName,
 		standingsData,
-		heartsData,
-		currentWeek,
-		totalWeeks,
-		weekEndDate,
-		potAmount,
-		weeklyAnte,
-	]);
+			heartsData,
+			currentWeek,
+			totalWeeks,
+			weekEndDateMs,
+			potAmount,
+			weeklyAnte,
+		]);
 
 	// Determine host controls match status
 	const matchStatus: "AWAITING_HOST" | "ARMED" | "ACTIVE" | "COMPLETED" = 

@@ -44,7 +44,6 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const toast = useToast();
 	const [currentPot, setCurrentPot] = useState<number | null>(null);
 	const [potInput, setPotInput] = useState<string>("");
-	const isOwnerUser = ownerUserId && user?.id === ownerUserId;
 
 	const reloadActivities = useCallback(async (lid: string = lobbyId) => {
 		if (!lid) return;
@@ -672,12 +671,11 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 							) : null}
 
 							<div className="p-4 border-t border-border">
-								<ActivityComments
-									activityId={a.id}
-									lobbyId={lobbyId}
-									myPlayerId={myPlayerId}
-									ownerUserId={ownerUserId}
-								/>
+									<ActivityComments
+										activityId={a.id}
+										myPlayerId={myPlayerId}
+										ownerUserId={ownerUserId}
+									/>
 							</div>
 						</div>
 					);
@@ -710,7 +708,7 @@ type PostComment = {
 	authorAvatarUrl?: string | null;
 };
 
-function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { activityId: string; lobbyId: string; myPlayerId: string | null; ownerUserId: string | null }) {
+function ActivityComments({ activityId, myPlayerId, ownerUserId }: { activityId: string; myPlayerId: string | null; ownerUserId: string | null }) {
 	const { user } = useAuth();
 	const toast = useToast();
 	const [comments, setComments] = useState<PostComment[]>([]);

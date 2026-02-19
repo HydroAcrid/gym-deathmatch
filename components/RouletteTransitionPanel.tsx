@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lobby, Player } from "@/types/game";
 import { motion } from "framer-motion";
 import { useAuth } from "./AuthProvider";
@@ -30,6 +30,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	const prevActiveRef = useRef<string | null>(null);
 	const lastSpinIdRef = useRef<string | null>(null);
 	const [spinRequesting, setSpinRequesting] = useState<boolean>(false);
+	const lobbyOwnerUserId = (lobby as any).ownerUserId;
 	const challengeSettings = ((lobby as any).challengeSettings || {}) as any;
 	const suggestionCharLimit = Math.min(140, Math.max(1, Number(challengeSettings.suggestionCharLimit ?? 50)));
 	const allowSuggestions = Boolean(challengeSettings.allowSuggestions ?? true);
@@ -51,14 +52,13 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 	}, []);
 
 	useEffect(() => {
-		const ownerUserId = (lobby as any).ownerUserId;
 		const ownerPlayer = lobby.players.find(p => p.id === lobby.ownerId);
-		if (user?.id && ownerUserId) setIsOwner(user.id === ownerUserId);
+		if (user?.id && lobbyOwnerUserId) setIsOwner(user.id === lobbyOwnerUserId);
 		else if (user?.id && ownerPlayer?.userId) setIsOwner(user.id === ownerPlayer.userId);
 		else setIsOwner(false);
-	}, [user?.id, lobby.ownerId, (lobby as any).ownerUserId]);
+	}, [user?.id, lobby.ownerId, lobby.players, lobbyOwnerUserId]);
 
-	const loadPunishments = async () => {
+	const loadPunishments = useCallback(async () => {
 		try {
 			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/punishments`, { cache: "no-store" });
 			if (!res.ok) return;
@@ -136,14 +136,14 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			initialLoadRef.current = true;
 
 		} catch { /* ignore */ }
-	};
+	}, [chosen, lobby.id, players]);
 
 	// Listen for realtime updates
 		useEffect(() => {
 		function onRefresh() { loadPunishments(); }
 		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
 		return () => { if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any); };
-	}, [lobby.id]);
+	}, [lobby.id, loadPunishments]);
 
 	// Realtime sync for wheel submissions + spin event broadcast.
 	useEffect(() => {
@@ -194,7 +194,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 				}
 			})();
 		};
-	}, [lobby.id]);
+	}, [lobby.id, loadPunishments]);
 
 	// Find current user's submission
 	const prevMySubmissionRef = useRef<{ id: string; text: string } | null>(null);
@@ -253,7 +253,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 		// Keep a slow poll just in case realtime misses
 		const id = setInterval(loadPunishments, 10000);
 		return () => clearInterval(id);
-	}, [lobby.id]);
+	}, [loadPunishments]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -323,7 +323,7 @@ export function RouletteTransitionPanel({ lobby }: { lobby: Lobby }) {
 			}
 			
 			setTimeout(() => { justSubmittedRef.current = false; loadPunishments(); }, 500);
-		} catch (err) {
+		} catch {
 			setErrorMsg("Submit failed");
 			loadPunishments();
 		}

@@ -42,12 +42,12 @@ export async function logError(context: {
 			message: (context.err as any)?.message || String(context.err),
 			stack: (context.err as any)?.stack || undefined
 		};
-		// eslint-disable-next-line no-console
+		 
 		console.error("[gymdm]", JSON.stringify(payload));
 		await maybeSendToSentry(payload);
 	} catch (e) {
 		// last resort
-		// eslint-disable-next-line no-console
+		 
 		console.error("[gymdm] logging failed", e);
 	}
 }

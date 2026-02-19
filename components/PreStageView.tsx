@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Lobby, Player } from "@/types/game";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Lobby } from "@/types/game";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { OwnerSettingsModal } from "./OwnerSettingsModal";
@@ -57,7 +57,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 	const [scheduledStart, setScheduledStart] = useState<string | null | undefined>(lobby.scheduledStart);
 	const [readySaving, setReadySaving] = useState(false);
 	
-	const reloadLobby = async () => {
+	const reloadLobby = useCallback(async () => {
 		try {
 			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobby.id)}/live`, { cache: "no-store" });
 			if (!res.ok) return;
@@ -67,7 +67,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				if (data.seasonStatus) setLobbyStatus(data.seasonStatus);
 			}
 		} catch { /* ignore */ }
-	};
+	}, [lobby.id]);
 
 	const schedule = async () => {
 		const scheduledStartIso = toIsoFromLocalDateTimeInput(scheduleAt);
@@ -186,7 +186,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 				} catch { /* ignore */ }
 			}
 		})();
-	}, [user?.id, players.length, lobby.id]); // Sync when user, player count, or lobby changes
+	}, [user?.id, players, reloadLobby]); // Sync when user/player data changes
 
 	// Load live statuses (Strava connected, etc.) and poll for updates
 	useEffect(() => {

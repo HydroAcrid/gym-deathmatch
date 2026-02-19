@@ -12,8 +12,6 @@ import {
   TrendingUp,
   Medal,
   ChevronRight,
-  Flame,
-  Dumbbell,
 } from "lucide-react";
 import {
   type LobbyRow,

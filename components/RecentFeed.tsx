@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { authFetch } from "@/lib/clientAuth";
 
@@ -41,7 +41,7 @@ export function RecentFeed({
 		refresh();
 		const id = setInterval(refresh, 30 * 1000);
 		return () => { ignore = true; clearInterval(id); };
-	}, [lobbyId ?? ""]);
+	}, [lobbyId]);
 
 	return (
 		<motion.div
@@ -110,14 +110,6 @@ function limitAndFresh(evs: FeedEvent[]): FeedEvent[] {
 		.filter(e => now - new Date(e.timestamp).getTime() <= day)
 		.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 		.slice(0, 5);
-}
-
-function mergeNewest(prev: FeedEvent[], incoming: FeedEvent[]): FeedEvent[] {
-	const map = new Map<string, FeedEvent>();
-	for (const e of [...incoming, ...prev]) {
-		map.set(`${e.timestamp}-${e.message}`, e);
-	}
-	return limitAndFresh([...map.values()]);
 }
 
 function timeAgo(iso: string) {

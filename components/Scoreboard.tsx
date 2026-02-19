@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Countdown } from "./Countdown";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 
 function AnimatedDigit({ value }: { value: string }) {
 	const [prev, setPrev] = useState(value);

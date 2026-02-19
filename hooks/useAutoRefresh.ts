@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/exhaustive-deps */
 
 import { useEffect, useRef } from "react";
 
@@ -13,7 +14,7 @@ import { useEffect, useRef } from "react";
 export function useAutoRefresh(
 	callback: () => void | Promise<void>,
 	intervalMs: number,
-	deps: any[] = []
+	deps: unknown[] = []
 ) {
 	const savedCallback = useRef(callback);
 
@@ -40,4 +41,3 @@ export function useAutoRefresh(
 		return () => clearInterval(id);
 	}, [intervalMs, ...deps]);
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
@@ -12,6 +12,7 @@ import { Textarea } from "@/src/ui2/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/ui2/ui/select";
 import { authFetch } from "@/lib/clientAuth";
 import { MANUAL_ACTIVITY_TARGETS_CACHE_KEY } from "@/lib/localStorageKeys";
+import { getBrowserSupabase } from "@/lib/supabaseBrowser";
 
 const ELIGIBLE_LOBBY_STATUSES = new Set(["pending", "scheduled", "transition_spin", "active"]);
 const MAX_TARGET_LOBBIES = 25;
@@ -113,7 +114,7 @@ export function ManualActivityModal({
 	const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const persistRevisionRef = useRef(0);
 	const persistErrorToastAtRef = useRef(0);
-	const supabase = (require("@/lib/supabaseBrowser") as any).getBrowserSupabase?.() || null;
+	const supabase = getBrowserSupabase();
 	const toast = useToast?.();
 	const { user } = useAuth();
 
@@ -154,7 +155,7 @@ export function ManualActivityModal({
 		};
 	}, []);
 
-	const persistTargets = (nextIds: string[], immediate = false) => {
+	const persistTargets = useCallback((nextIds: string[], immediate = false) => {
 		if (!user?.id) return;
 		const deduped = normalizeLobbyIds(nextIds);
 		if (typeof window !== "undefined") {
@@ -202,7 +203,7 @@ export function ManualActivityModal({
 		persistTimerRef.current = setTimeout(() => {
 			void runPersist();
 		}, 500);
-	};
+	}, [toast, user?.id]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -278,7 +279,7 @@ export function ManualActivityModal({
 		return () => {
 			cancelled = true;
 		};
-	}, [open, user?.id, lobbyId]);
+	}, [open, user?.id, lobbyId, persistTargets, toast]);
 
 	function toggleLobbySelection(targetLobbyId: string) {
 		if (busy) return;

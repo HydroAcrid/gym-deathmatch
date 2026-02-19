@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "./AuthProvider";
-import type { Lobby, Player, GameMode, ChallengeSettings } from "@/types/game";
+import type { Player, GameMode, ChallengeSettings } from "@/types/game";
 import { authFetch } from "@/lib/clientAuth";
 
 export function WeekSetup({

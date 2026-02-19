@@ -7,7 +7,7 @@ import { ManualActivityModal } from "./ManualActivityModal";
 import { useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { StatusBadge } from "./StatusBadge";
-import { MapPin, Flame, Target, Trophy } from "lucide-react";
+import { MapPin, Flame, Target } from "lucide-react";
 import { authFetch } from "@/lib/clientAuth";
 
 export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player: Player; lobbyId?: string; mePlayerId?: string; showReady?: boolean }) {

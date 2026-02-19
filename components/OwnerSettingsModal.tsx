@@ -12,7 +12,6 @@ import { toIsoFromLocalDateTimeInput, toLocalDateTimeInputValue } from "@/lib/da
 
 export function OwnerSettingsModal({
 	lobbyId,
-	ownerPlayerId,
 	defaultWeekly,
 	defaultLives,
 	defaultSeasonEnd,

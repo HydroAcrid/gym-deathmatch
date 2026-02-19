@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import { authFetch } from "@/lib/clientAuth";
 
 type Item = { id: string; text: string; active: boolean; created_by?: string | null };
 
-export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyId: string; seasonStart?: string; isOwner?: boolean }) {
+export function WeeklyPunishmentCard({ lobbyId, isOwner }: { lobbyId: string; isOwner?: boolean }) {
   const { user } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [active, setActive] = useState<Item | null>(null);
@@ -36,7 +36,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     return `conic-gradient(${stops.join(",")})`;
   }, [wheelSegs]);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
       if (!res.ok) {
@@ -51,7 +51,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
       if (typeof j.locked === "boolean") setLocked(!!j.locked);
       setErrorMsg(null);
     } catch { /* ignore */ }
-  }
+  }, [lobbyId]);
 
   useEffect(() => { 
     load();
@@ -70,7 +70,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
       clearInterval(id);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [lobbyId]);
+  }, [lobbyId, load, user?.id]);
   // Poll readiness (lightweight via live route)
   useEffect(() => {
     let tm: any;

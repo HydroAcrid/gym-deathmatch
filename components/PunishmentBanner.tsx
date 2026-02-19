@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { authFetch } from "@/lib/clientAuth";
 
 function nextWeekStartLocal(): Date {
@@ -20,21 +20,21 @@ export function PunishmentBanner({ lobbyId }: { lobbyId: string }) {
 	const [eta, setEta] = useState<number>(0);
 	const [tz, setTz] = useState<string>("");
 
-	async function load() {
+	const load = useCallback(async () => {
 		try {
 			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
 			if (!res.ok) return;
 			const j = await res.json();
 			setText(j?.active?.text || null);
 		} catch { /* ignore */ }
-	}
+	}, [lobbyId]);
 
 	useEffect(() => {
 		load();
 		const id = setInterval(() => setEta(nextWeekStartLocal().getTime() - Date.now()), 1000);
 		try { setTz(Intl.DateTimeFormat().resolvedOptions().timeZone || ""); } catch { /* ignore */ }
 		return () => clearInterval(id);
-	}, [lobbyId]);
+	}, [load]);
 
 	if (!text) return null;
 	const ms = Math.max(0, eta);
@@ -54,4 +54,3 @@ export function PunishmentBanner({ lobbyId }: { lobbyId: string }) {
 		</div>
 	);
 }
-

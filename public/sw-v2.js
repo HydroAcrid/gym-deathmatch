@@ -12,7 +12,7 @@ const CACHE_NAME = "arena-assets-v2";
 const FALLBACK_ICON = "/icons/icon-192-v3.png";
 
 // Install event: force immediate activation
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
 	console.log('[SW] Installing service worker v2...');
 	// Force activation without waiting for other tabs to close
 	self.skipWaiting();
@@ -100,7 +100,7 @@ self.addEventListener('push', (event) => {
 	let payload = {};
 	try {
 		payload = event.data ? event.data.json() : {};
-	} catch (e) {
+	} catch {
 		payload = { body: event.data ? event.data.text() : "" };
 	}
 	const title = payload.title || "Gym Deathmatch";

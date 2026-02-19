@@ -112,8 +112,6 @@ export function calculateStreakFromActivities(
 
 	if (daysWithActivity.size === 0) return 0;
 
-	const todayKey = makeDayKey(now, offsetMinutes);
-
 	// Walk backwards from today, counting contiguous days with activities
 	let streak = 0;
 	let currentDate = new Date(now.getTime());
@@ -194,5 +192,4 @@ export function calculateLongestStreak(
 	}
 	return best;
 }
-
 

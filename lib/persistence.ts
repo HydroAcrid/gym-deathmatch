@@ -1,6 +1,5 @@
 import { getServerSupabase } from "./supabaseClient";
 import type { StravaTokens } from "./strava";
-import type { StravaTokenRow } from "@/types/db";
 
 export async function upsertUserStravaTokens(userId: string, tokens: StravaTokens): Promise<boolean> {
 	const supabase = getServerSupabase();
@@ -82,5 +81,4 @@ export async function updateLobbySettingsCore(lobbyId: string, updates: Partial<
 	}
 	return true;
 }
-
 

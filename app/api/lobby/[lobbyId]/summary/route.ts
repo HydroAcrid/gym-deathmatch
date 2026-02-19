@@ -151,13 +151,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		const lives = Array.from(playerMap.values()).map(p => p.lives);
 		const max = Math.max(...lives);
 		const min = Math.min(...lives);
-		const leaders = Array.from(playerMap.entries()).filter(([, v]) => v.lives === max).map(([id]) => playerMap.get(id)?.name || "Athlete");
-		const low = Array.from(playerMap.entries()).filter(([, v]) => v.lives === min).map(([id]) => playerMap.get(id)?.name || "Athlete");
+		const leaders = Array.from(playerMap.values()).filter((v) => v.lives === max).map((v) => v.name || "Athlete");
+		const low = Array.from(playerMap.values()).filter((v) => v.lives === min).map((v) => v.name || "Athlete");
 		return { leaders, low, max, min };
 	})();
 
 	const heartsDebug = (() => {
-		const playersArr = Array.from(playerMap.entries()).map(([id, v]) => ({ name: v.name, lives: v.lives }));
+		const playersArr = Array.from(playerMap.values()).map((v) => ({ name: v.name, lives: v.lives }));
 		if (!playersArr.length) return { playerCount: 0, leadersRaw: [], lowRaw: [] };
 		const maxLives = Math.max(...playersArr.map(p => p.lives));
 		const minLives = Math.min(...playersArr.map(p => p.lives));

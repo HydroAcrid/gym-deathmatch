@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import type { Lobby } from "@/types/game";
 import { LobbyLayout } from "./LobbyLayout";
 import { PreStageView } from "./PreStageView";
@@ -29,6 +29,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const liveSummary = liveData?.seasonSummary;
 	const liveSeasonStatus = liveData?.seasonStatus;
 	const effectiveSeasonStatus = liveSeasonStatus || lobby.status;
+	const lobbyMode = (lobby as any).mode;
 
 	// Fallback poll for week status in challenge modes (every 5s)
 	// This could be moved to realtime if we have a table for it, but sticking to polling for now as requested
@@ -63,7 +64,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 			cancelled = true;
 			clearInterval(id);
 		};
-	}, [lobby.id, (lobby as any).mode, liveData?.fetchedAt]); // Re-check when live data updates
+	}, [lobby, lobby.id, lobbyMode, liveData?.fetchedAt]); // Re-check when live data updates
 
 	useEffect(() => {
 		setWeekStatus(null);

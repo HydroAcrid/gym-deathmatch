@@ -49,7 +49,7 @@ export function ProfileAvatar({
 				// ignore
 			}
 		})();
-	}, [user?.id]);
+	}, [user]);
 
 	if (!user) return null;
 

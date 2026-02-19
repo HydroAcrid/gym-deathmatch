@@ -31,9 +31,9 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 	const [scalingEnabled, setScalingEnabled] = useState<boolean>(false);
 	const [perPlayerBoost, setPerPlayerBoost] = useState<string>("0");
 	// Challenge settings
-	const [challengeAllowSuggestions, setChallengeAllowSuggestions] = useState<boolean>(true);
-	const [challengeRequireLock, setChallengeRequireLock] = useState<boolean>(false);
-	const [challengeAutoSpin, setChallengeAutoSpin] = useState<boolean>(false);
+	const [challengeAllowSuggestions] = useState<boolean>(true);
+	const [challengeRequireLock] = useState<boolean>(false);
+	const [challengeAutoSpin] = useState<boolean>(false);
 	const [challengeSettings, setChallengeSettings] = useState<ChallengeSettings>(() => resetChallengeDefaults("CHALLENGE_ROULETTE"));
 	const [ownerName, setOwnerName] = useState("");
 	const toast = useToast();

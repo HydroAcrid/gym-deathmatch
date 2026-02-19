@@ -110,7 +110,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		}
 		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true, playerId });
-	} catch (e) {
+	} catch {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }

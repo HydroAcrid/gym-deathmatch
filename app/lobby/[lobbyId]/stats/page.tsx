@@ -12,14 +12,12 @@ import {
 export default function LobbyStatsPage({ params }: { params: Promise<{ lobbyId: string }> }) {
 	const [seasonNumber, setSeasonNumber] = useState<number>(1);
 	const [players, setPlayers] = useState<LobbyStatsPlayer[]>([]);
-	const [lobbyId, setLobbyId] = useState<string>("");
 
 	useEffect(() => {
 		let ignore = false;
 		(async () => {
 			const { lobbyId } = await params;
 			if (ignore) return;
-			setLobbyId(lobbyId);
 			try {
 				const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/live`, { cache: "no-store" });
 				const data = await res.json();
