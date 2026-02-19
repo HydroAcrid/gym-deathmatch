@@ -1,6 +1,57 @@
 {
-  "latestReleaseId": "0000000000000000000000000000000000000000",
+  "latestReleaseId": "3355412829cc8d887c6552c628feeb1a986f9db1",
   "entries": [
+    {
+      "releaseId": "3355412829cc8d887c6552c628feeb1a986f9db1",
+      "title": "Release 3355412",
+      "deployedAt": "2026-02-19T20:03:24.379Z",
+      "bullets": [
+        "Fix grammatical error in AGENT_NETWORK_PITCH.md to enhance clarity in… (#21)",
+        "Add Whats New feature with automated changelog generation and UI inte… (#20)",
+        "Architecture overhaul (#7)",
+        "Architecture overhaul (#6)",
+        "Architecture overhaul (#5)",
+        "Enhance lobby functionality with global loading overlay and integrati… (#4)",
+        "Migration (#3)",
+        "Migration (#2)"
+      ],
+      "links": [
+        {
+          "label": "Compare changes",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/compare/0000000000000000000000000000000000000000...3355412829cc8d887c6552c628feeb1a986f9db1"
+        },
+        {
+          "label": "PR #21",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/21"
+        },
+        {
+          "label": "PR #20",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/20"
+        },
+        {
+          "label": "PR #7",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/7"
+        },
+        {
+          "label": "PR #6",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/6"
+        },
+        {
+          "label": "PR #5",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/5"
+        }
+      ],
+      "sourcePrs": [
+        21,
+        20,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2
+      ]
+    },
     {
       "releaseId": "0000000000000000000000000000000000000000",
       "title": "Initial release notes",
@@ -18,5 +69,5 @@
       "sourcePrs": []
     }
   ],
-  "generatedAt": "2026-02-19T00:00:00.000Z"
+  "generatedAt": "2026-02-19T20:03:24.380Z"
 }
