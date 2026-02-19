@@ -34,7 +34,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 
 	const me = useMemo(() => {
 		if (!user?.id) return null;
-		const myPlayer = players.find(p => (p as any).userId === user.id);
+		const myPlayer = players.find((player) => player.userId === user.id);
 		return myPlayer?.id ?? null;
 	}, [players, user?.id]);
 
@@ -168,7 +168,7 @@ export function PreStageView({ lobby }: { lobby: Lobby }) {
 		(async () => {
 			if (!user?.id || !players.length) return;
 			// Find current user's player in this lobby
-			const myPlayer = players.find(p => (p as any).userId === user.id);
+			const myPlayer = players.find((player) => player.userId === user.id);
 			if (myPlayer && syncedRef.current !== myPlayer.id) {
 				syncedRef.current = myPlayer.id;
 				// Sync this player's data from user_profile and refresh

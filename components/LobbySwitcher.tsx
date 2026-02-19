@@ -20,7 +20,10 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	// Realtime & Live Data Hooks
 	const { data: liveData, reload, loading, error } = useLobbyLive(initialLobby.id);
 	useLobbyRealtime(initialLobby.id, { onChange: reload });
-	const liveErrorStatus = Number((error as any)?.status || 0);
+	const liveErrorStatus =
+		typeof error === "object" && error !== null && "status" in error
+			? Number((error as { status?: unknown }).status ?? 0)
+			: 0;
 	const showRejoinCta = !liveData && (liveErrorStatus === 401 || liveErrorStatus === 403);
 
 	// Merge live data with initial data
@@ -29,7 +32,8 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const liveSummary = liveData?.seasonSummary;
 	const liveSeasonStatus = liveData?.seasonStatus;
 	const effectiveSeasonStatus = liveSeasonStatus || lobby.status;
-	const lobbyMode = (lobby as any).mode;
+	const lobbyMode = lobby.mode;
+	const lobbyOwnerUserId = (lobby as Lobby & { ownerUserId?: string | null }).ownerUserId ?? null;
 
 	// Fallback poll for week status in challenge modes (every 5s)
 	// This could be moved to realtime if we have a table for it, but sticking to polling for now as requested
@@ -37,7 +41,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const [pendingSpinReplay, setPendingSpinReplay] = useState<boolean>(false);
 	const [punishmentsLoaded, setPunishmentsLoaded] = useState<boolean>(false);
 	useEffect(() => {
-		if (!String((lobby as any).mode || "").startsWith("CHALLENGE_")) return;
+		if (!String(lobby.mode || "").startsWith("CHALLENGE_")) return;
 		let cancelled = false;
 		async function load() {
 			try {
@@ -106,7 +110,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 		const ownerPlayer = (lobby.players || []).find(p => p.id === lobby.ownerId);
 		const overlayIsOwner = Boolean(
 			user?.id &&
-			(((lobby as any).ownerUserId && user.id === (lobby as any).ownerUserId) ||
+			((lobbyOwnerUserId && user.id === lobbyOwnerUserId) ||
 				(ownerPlayer?.userId && ownerPlayer.userId === user.id))
 		);
 

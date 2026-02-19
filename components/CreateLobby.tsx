@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useToast } from "./ToastProvider";
 import { useAuth } from "./AuthProvider";
 import { ChallengeSettingsCard, resetChallengeDefaults } from "./ChallengeSettingsCard";
-import type { ChallengeSettings } from "@/types/game";
+import type { ChallengeSettings, GameMode } from "@/types/game";
 import { CreateLobbyInfo } from "./CreateLobbyInfo";
 import { authFetch } from "@/lib/clientAuth";
 import { toIsoFromLocalDateTimeInput, toLocalDateTimeInputValue } from "@/lib/datetime";
@@ -14,6 +14,12 @@ import { toIsoFromLocalDateTimeInput, toLocalDateTimeInputValue } from "@/lib/da
 type CreateLobbyProps = {
 	children?: React.ReactNode;
 };
+
+type CreateLobbyMode = Extract<GameMode, "MONEY_SURVIVAL" | "MONEY_LAST_MAN" | "CHALLENGE_ROULETTE" | "CHALLENGE_CUMULATIVE">;
+
+function isCreateLobbyMode(value: string): value is CreateLobbyMode {
+	return value === "MONEY_SURVIVAL" || value === "MONEY_LAST_MAN" || value === "CHALLENGE_ROULETTE" || value === "CHALLENGE_CUMULATIVE";
+}
 
 export function CreateLobby({ children }: CreateLobbyProps) {
 	const [open, setOpen] = useState(false);
@@ -23,7 +29,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 	const [seasonEnd, setSeasonEnd] = useState<string>(toLocalDateTimeInputValue(new Date(new Date().getFullYear(), 11, 31, 23, 59, 0, 0)));
 	const [weekly, setWeekly] = useState<number>(3);
 	const [lives, setLives] = useState<number>(3);
-	const [mode, setMode] = useState<"MONEY_SURVIVAL"|"MONEY_LAST_MAN"|"CHALLENGE_ROULETTE"|"CHALLENGE_CUMULATIVE">("MONEY_SURVIVAL");
+	const [mode, setMode] = useState<CreateLobbyMode>("MONEY_SURVIVAL");
 	const [suddenDeath, setSuddenDeath] = useState<boolean>(false);
 	// Pot settings to match OwnerSettingsModal
 	const [initialPot, setInitialPot] = useState<string>("0");
@@ -133,7 +139,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 	);
 
 	if (children && isValidElement(children)) {
-		const child = children as React.ReactElement<any>;
+		const child = children as React.ReactElement<{ onClick?: (event: React.MouseEvent) => void }>;
 		trigger = cloneElement(child, {
 			onClick: (event: React.MouseEvent) => {
 				child.props?.onClick?.(event);
@@ -281,9 +287,12 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 													className="w-full h-10 px-3 bg-input border border-border text-foreground font-display text-sm"
 													value={mode}
 													onChange={e => {
-														const val = e.target.value as any;
-														setMode(val);
-														if (String(val).startsWith("CHALLENGE_")) setChallengeSettings(resetChallengeDefaults(val));
+														const nextMode = e.target.value;
+														if (!isCreateLobbyMode(nextMode)) return;
+														setMode(nextMode);
+														if (String(nextMode).startsWith("CHALLENGE_")) {
+															setChallengeSettings(resetChallengeDefaults(nextMode));
+														}
 													}}
 												>
 													<option value="MONEY_SURVIVAL">Money: Survival (classic)</option>
@@ -295,7 +304,7 @@ export function CreateLobby({ children }: CreateLobbyProps) {
 										</div>
 										{String(mode).startsWith("CHALLENGE_") && (
 											<div className="scoreboard-panel p-4">
-												<ChallengeSettingsCard mode={mode as any} value={challengeSettings} onChange={setChallengeSettings} />
+												<ChallengeSettingsCard mode={mode} value={challengeSettings} onChange={setChallengeSettings} />
 											</div>
 										)}
 										<div className="scoreboard-panel p-4">

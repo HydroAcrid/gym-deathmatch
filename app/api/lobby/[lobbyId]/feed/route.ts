@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			.filter((comment: FeedCommentRow) => String(comment.type || "").toUpperCase() !== "ACTIVITY")
 			.map((comment: FeedCommentRow) => ({
 				id: `comment-${String(comment.id ?? "")}`,
-				type: "comment",
+				type: "comment" as const,
 				text: String(comment.rendered || "Comment"),
 				createdAt: String(comment.created_at || new Date().toISOString()),
 				player: null,

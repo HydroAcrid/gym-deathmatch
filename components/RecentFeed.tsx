@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { authFetch } from "@/lib/clientAuth";
 
 export type FeedEvent = { message: string; timestamp: string };
+type FeedPlayer = { name?: string | null; avatar_url?: string | null };
+type FeedItem = { id: string; text: string; createdAt: string; player: FeedPlayer | null };
 
 export function RecentFeed({
 	lobbyId,
@@ -13,12 +15,19 @@ export function RecentFeed({
 	lobbyId?: string;
 	events?: FeedEvent[];
 }) {
-	const [items, setItems] = useState<any[]>([]);
+	const [items, setItems] = useState<FeedItem[]>([]);
 
 	// Seed from props when they change
 	useEffect(() => {
 		if (events && events.length) {
-			setItems(limitAndFresh(events));
+			setItems(
+				limitAndFresh(events).map((event, index) => ({
+					id: `event-${event.timestamp}-${index}`,
+					text: event.message,
+					createdAt: event.timestamp,
+					player: null,
+				}))
+			);
 		}
 	}, [events]);
 
@@ -33,7 +42,8 @@ export function RecentFeed({
 				if (!res.ok) return;
 				const data = await res.json();
 				if (ignore) return;
-				setItems(data.items ?? []);
+				const nextItems = Array.isArray(data?.items) ? (data.items as FeedItem[]) : [];
+				setItems(nextItems);
 			} catch {
 				// ignore
 			}

@@ -24,6 +24,7 @@ import {
 	getInitials,
 	renderEventLine,
 } from "@/src/ui2/adapters/lobbyHistory";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId: string }> }) {
 	const [lobbyId, setLobbyId] = useState<string>("");
@@ -95,12 +96,12 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	}, [lobbyId, isHydrated, user?.id, reloadActivities]);
 
 	useEffect(() => {
-		function onRefresh() {
+		const onRefresh: EventListener = () => {
 			reloadActivities();
-		}
-		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
+		};
+		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh);
 		return () => {
-			if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any);
+			if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh);
 		};
 	}, [reloadActivities]);
 
@@ -111,8 +112,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	useEffect(() => {
 		if (!lobbyId) return;
 
-		let votesChannel: any = null;
-		let activitiesChannel: any = null;
+		let votesChannel: RealtimeChannel | null = null;
+		let activitiesChannel: RealtimeChannel | null = null;
 		let isSubscribed = true;
 
 		(async () => {

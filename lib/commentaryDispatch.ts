@@ -1,10 +1,12 @@
 import { sendPushToLobby, sendPushToUser } from "@/lib/push";
 import type { CommentaryDispatchOutput } from "@/lib/commentaryRules";
+import { getServerSupabase } from "@/lib/supabaseClient";
 
 type DedupeClaimResult = "claimed" | "duplicate";
+type DbClient = NonNullable<ReturnType<typeof getServerSupabase>>;
 
 async function claimDispatchDedupe(input: {
-	supabase: any;
+	supabase: DbClient;
 	lobbyId: string;
 	ruleId: string;
 	channel: string;
@@ -33,7 +35,7 @@ async function claimDispatchDedupe(input: {
 	return data && data.length > 0 ? "claimed" : "duplicate";
 }
 
-async function emitComment(supabase: any, output: CommentaryDispatchOutput): Promise<void> {
+async function emitComment(supabase: DbClient, output: CommentaryDispatchOutput): Promise<void> {
 	const comment = output.comment;
 	if (!comment) throw new Error("missing comment payload for comment channel");
 	const { error } = await supabase.from("comments").insert({
@@ -75,7 +77,7 @@ async function emitPush(output: CommentaryDispatchOutput): Promise<void> {
 }
 
 export async function dispatchCommentaryOutput(input: {
-	supabase: any;
+	supabase: DbClient;
 	output: CommentaryDispatchOutput;
 	eventId: string;
 }): Promise<{ emitted: boolean; duplicate: boolean }> {

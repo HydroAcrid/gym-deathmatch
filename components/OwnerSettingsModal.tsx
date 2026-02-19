@@ -274,14 +274,18 @@ export function OwnerSettingsModal({
 
 	async function adminHeaders() {
 		const token = typeof window !== "undefined" ? (window as AdminWindow).__gymdm_admin_token : null;
-		return token ? { Authorization: `Bearer ${token}` } : {};
+		return token ? { Authorization: `Bearer ${token}` } : { Authorization: undefined };
 	}
 
 	async function removePlayer() {
 		if (!removeId) return;
 		// owner path requires ownerPlayerId; admin path uses header
-		const headers: Record<string, string> = { "Content-Type": "application/json", ...(await adminHeaders()) };
-		const isAdmin = !!headers.Authorization;
+		const admin = await adminHeaders();
+		const headers: HeadersInit = {
+			"Content-Type": "application/json",
+			...(admin.Authorization ? { Authorization: admin.Authorization } : {})
+		};
+		const isAdmin = Boolean(admin.Authorization);
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}/player/${encodeURIComponent(removeId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}/players/${encodeURIComponent(removeId)}`;
@@ -299,8 +303,12 @@ export function OwnerSettingsModal({
 
 	async function deleteLobby() {
 		if (!confirmName || confirmName.trim().length < 1) return;
-		const headers: Record<string, string> = { "Content-Type": "application/json", ...(await adminHeaders()) };
-		const isAdmin = !!headers.Authorization;
+		const admin = await adminHeaders();
+		const headers: HeadersInit = {
+			"Content-Type": "application/json",
+			...(admin.Authorization ? { Authorization: admin.Authorization } : {})
+		};
+		const isAdmin = Boolean(admin.Authorization);
 		const url = isAdmin
 			? `/api/admin/lobby/${encodeURIComponent(lobbyId)}`
 			: `/api/lobby/${encodeURIComponent(lobbyId)}`;

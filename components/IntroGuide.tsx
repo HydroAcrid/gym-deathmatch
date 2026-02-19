@@ -104,7 +104,7 @@ export function IntroGuide({ children }: IntroGuideProps) {
 	);
 
 	if (children && isValidElement(children)) {
-		const child = children as React.ReactElement<any>;
+		const child = children as React.ReactElement<{ onClick?: (event: React.MouseEvent) => void }>;
 		trigger = cloneElement(child, {
 			onClick: (event: React.MouseEvent) => {
 				child.props?.onClick?.(event);

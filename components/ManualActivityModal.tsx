@@ -59,6 +59,15 @@ async function parseApiError(response: Response) {
 	}
 }
 
+function extractErrorMessage(error: unknown): string {
+	if (error instanceof Error && error.message) return error.message;
+	if (typeof error === "object" && error !== null && "message" in error) {
+		const message = (error as { message?: unknown }).message;
+		if (typeof message === "string") return message;
+	}
+	return String(error);
+}
+
 async function runWithConcurrency<T, R>(
 	items: T[],
 	limit: number,
@@ -329,7 +338,7 @@ export function ManualActivityModal({
 				const bucket = supabase.storage.from("manual-activity-photos");
 				const { error: upErr } = await bucket.upload(path, file, { upsert: true, cacheControl: "3600" });
 				if (upErr) {
-					const msg = (upErr as any)?.message || String(upErr);
+					const msg = extractErrorMessage(upErr);
 					if (msg.toLowerCase().includes("row-level security")) {
 						alert("Upload blocked by Storage RLS. Ensure the object key starts with your auth user id folder.");
 					} else {

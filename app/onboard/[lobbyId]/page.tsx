@@ -10,6 +10,15 @@ import { Input } from "@/src/ui2/ui/input";
 import { Label } from "@/src/ui2/ui/label";
 import { authFetch } from "@/lib/clientAuth";
 
+function extractErrorMessage(error: unknown): string {
+	if (error instanceof Error && error.message) return error.message;
+	if (typeof error === "object" && error !== null && "message" in error) {
+		const message = (error as { message?: unknown }).message;
+		if (typeof message === "string") return message;
+	}
+	return String(error);
+}
+
 export default function OnboardPage() {
 	const routeParams = useParams<{ lobbyId?: string }>();
 	const lobbyId = useMemo(() => {
@@ -165,7 +174,7 @@ export default function OnboardPage() {
 				contentType: file.type || "image/*"
 			});
 			if (error) {
-				const msg = (error as any)?.message || String(error);
+				const msg = extractErrorMessage(error);
 				if (msg.includes("Bucket not found")) {
 					alert("Storage bucket 'avatars' not found. Create a public bucket named 'avatars' in Supabase → Storage.");
 				} else if (msg.toLowerCase().includes("row-level security")) {

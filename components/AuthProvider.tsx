@@ -28,12 +28,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			setIsHydrated(true);
 			return;
 		}
+		const browserSupabase = supabase;
 
 		let mounted = true;
 
 		async function bootstrap() {
 			try {
-				const { data } = await supabase.auth.getUser();
+				const { data } = await browserSupabase.auth.getUser();
 				if (mounted) {
 					setUser(data.user ?? null);
 				}
@@ -44,9 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 		}
 
-		bootstrap();
+			bootstrap();
 
-		const { data: subscription } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+			const { data: subscription } = browserSupabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
 			if (!mounted) return;
 			setUser(session?.user ?? null);
 			setIsHydrated(true);
