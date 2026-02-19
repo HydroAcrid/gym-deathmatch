@@ -10,13 +10,12 @@ import { Input } from "@/src/ui2/ui/input";
 import { Label } from "@/src/ui2/ui/label";
 import { authFetch } from "@/lib/clientAuth";
 
-export default function OnboardPage({ params }: { params: { lobbyId: string } }) {
+export default function OnboardPage() {
 	const routeParams = useParams<{ lobbyId?: string }>();
 	const lobbyId = useMemo(() => {
 		const fromRoute = typeof routeParams?.lobbyId === "string" ? routeParams.lobbyId : "";
-		const fromProps = typeof params?.lobbyId === "string" ? params.lobbyId : "";
-		return (fromRoute || fromProps || "").trim();
-	}, [routeParams?.lobbyId, params?.lobbyId]);
+		return fromRoute.trim();
+	}, [routeParams?.lobbyId]);
 	const searchParams = useSearchParams();
 	const toast = useToast();
 	const { user, isHydrated, signInWithGoogle } = useAuth();

@@ -55,6 +55,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const requireWeekReadyGate = Boolean((lobbyData as any).challengeSettings?.requireWeekReadyGate);
 	const ownerName = players.find((p) => p.id === lobbyData.ownerId)?.name || "Host";
 	const weeklyAnte = (lobbyData as any).weeklyAnte ?? 10;
+	const lobbyOwnerUserId = (lobbyData as { ownerUserId?: string | null }).ownerUserId ?? null;
 
 	// Local UI state
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
@@ -76,6 +77,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const [potAmount, setPotAmount] = useState<number>(currentPot);
 	const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 	const [openManual, setOpenManual] = useState(false);
+	const [nowMs, setNowMs] = useState(() => Date.now());
 
 	// Determine owner
 	const myPlayerId = useMemo(() => {
@@ -85,15 +87,20 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	}, [players, user?.id]);
 
 	const isOwner = useMemo(() => {
-		if (user?.id && (lobbyData as any).ownerUserId) return user.id === (lobbyData as any).ownerUserId;
+		if (user?.id && lobbyOwnerUserId) return user.id === lobbyOwnerUserId;
 		const ownerPlayer = players.find(p => p.id === lobbyData.ownerId);
 		if (user?.id && ownerPlayer?.userId) return ownerPlayer.userId === user.id;
 		return !!(lobbyData.ownerId && myPlayerId && lobbyData.ownerId === myPlayerId);
-	}, [user?.id, (lobbyData as any).ownerUserId, lobbyData.ownerId, players, myPlayerId]);
+	}, [user?.id, lobbyOwnerUserId, lobbyData.ownerId, players, myPlayerId]);
 
 	useEffect(() => {
 		setPotAmount(currentPot);
 	}, [currentPot]);
+
+	useEffect(() => {
+		const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+		return () => window.clearInterval(timer);
+	}, []);
 	
 	// Notify parent of owner/stage status
 	useEffect(() => {
@@ -333,10 +340,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	}, [joined, connectedPlayerId, toast]);
 
 	const weekMs = 7 * 24 * 60 * 60 * 1000;
-	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
-	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date(nowMs);
+	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(nowMs + 30 * 24 * 60 * 60 * 1000);
 	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / weekMs));
-	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((Date.now() - seasonStartDate.getTime()) / weekMs)));
+	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((nowMs - seasonStartDate.getTime()) / weekMs)));
 	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * weekMs);
 	const currentWeekStartMs = seasonStartDate.getTime() + (currentWeek - 1) * weekMs;
 	const currentWeekEndMs = currentWeekStartMs + weekMs;
@@ -352,7 +359,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const timeline = Array.isArray(p.heartsTimeline) ? p.heartsTimeline : [];
 			const timelineCurrent = (() => {
 				if (!timeline.length) return 0;
-				const now = Date.now();
+				const now = nowMs;
 				const currentEvent = timeline.find((evt) => {
 					const start = new Date(evt.weekStart).getTime();
 					if (!Number.isFinite(start)) return false;
@@ -374,7 +381,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const msPerDay = 24 * 60 * 60 * 1000;
 			const msPerWeek = 7 * msPerDay;
 			const seasonStartMidnight = new Date(seasonStart.getFullYear(), seasonStart.getMonth(), seasonStart.getDate()).getTime();
-			const now = new Date();
+			const now = new Date(nowMs);
 			const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 			const weekIndex = Math.max(0, Math.floor((nowMidnight - seasonStartMidnight) / msPerWeek));
 			const indexedEvent = timeline[weekIndex];

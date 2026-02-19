@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
 		// Attach per-lobby player counts for lobby cards.
 		const lobbyIds = list.map((l: any) => l.id).filter(Boolean);
-		let counts = new Map<string, number>();
+		const counts = new Map<string, number>();
 		if (lobbyIds.length) {
 			const { data: players } = await supabase
 				.from("player")

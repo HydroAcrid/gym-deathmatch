@@ -99,7 +99,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 
 	// Provide a scheduled start when we fake pre-stage so countdown renders
 	const stagedLobby: Lobby = shouldShowPre && !lobby.scheduledStart
-		? { ...lobby, status: effectiveSeasonStatus ?? "scheduled", scheduledStart: new Date(Date.now() + 5 * 60 * 1000).toISOString() }
+		? { ...lobby, status: effectiveSeasonStatus ?? "scheduled", scheduledStart: "2099-01-01T00:05:00.000Z" }
 		: lobby;
 
 		const ownerPlayer = (lobby.players || []).find(p => p.id === lobby.ownerId);

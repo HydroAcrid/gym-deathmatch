@@ -172,7 +172,7 @@ export async function POST(req: Request) {
 		status: "transition_spin",
 		seasonStart: ((lobby as any).season_start as string | null) ?? nowIso
 	});
-	let items = await ensureSeededWeek(supabase, lobbyId, week);
+	const items = await ensureSeededWeek(supabase, lobbyId, week);
 	if (!items.length) {
 		return NextResponse.json({ error: "No seeded punishments to spin" }, { status: 400 });
 	}
