@@ -142,7 +142,7 @@ Strengths:
 2. GitHub action and mention-driven automation.
 
 Gap vs our vision:
-1. Open ecosystem variance can reduce enterprise predictability.
+1. Open ecosystem variance can reduce the enterprise predictability.
 2. Requires stronger policy/compliance packaging for risk-sensitive orgs.
 
 ### SWE-agent (research/open source)
