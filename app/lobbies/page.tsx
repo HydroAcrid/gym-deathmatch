@@ -9,6 +9,7 @@ import { LobbyCard } from "@/src/ui2/components/LobbyCard";
 import { LobbyFiltersBar, type LobbySortBy, type LobbyFilters } from "@/src/ui2/components/LobbyFiltersBar";
 import { mapLobbyRowToCard } from "@/src/ui2/adapters/lobby";
 import { authFetch } from "@/lib/clientAuth";
+import { LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
 
 type LobbyRow = {
 	id: string; 
@@ -27,13 +28,49 @@ type LobbyRow = {
 	player_count?: number;
 };
 
+function toMs(value?: string): number {
+	if (!value) return 0;
+	const ms = new Date(value).getTime();
+	return Number.isFinite(ms) ? ms : 0;
+}
+
+function readInteractionSnapshot(raw: string | null): LobbyInteractionsSnapshot {
+	if (!raw) return {};
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+		const entries: Array<[string, string]> = Object.entries(parsed as Record<string, unknown>).flatMap(
+			([id, ts]) => (typeof ts === "string" && Number.isFinite(toMs(ts)) ? [[id, ts]] : [])
+		);
+		return Object.fromEntries(entries) as LobbyInteractionsSnapshot;
+	} catch {
+		return {};
+	}
+}
+
+function pruneInteractionSnapshot(
+	snapshot: LobbyInteractionsSnapshot,
+	validLobbyIds: Set<string>
+): LobbyInteractionsSnapshot {
+	return Object.fromEntries(
+		Object.entries(snapshot).filter(([id]) => validLobbyIds.has(id))
+	) as LobbyInteractionsSnapshot;
+}
+
 export default function LobbiesPage() {
 	const [allLobbies, setAllLobbies] = useState<LobbyRow[]>([]);
 	const [editLobby, setEditLobby] = useState<LobbyRow | null>(null);
+	const [nowMs] = useState<number>(() => Date.now());
+	const [interactionSnapshot, setInteractionSnapshot] = useState<LobbyInteractionsSnapshot>({});
 	const { user, isHydrated } = useAuth();
+	const userId = user?.id ?? null;
 	const [searchQuery, setSearchQuery] = useState<string>("");
 	const [debouncedSearch, setDebouncedSearch] = useState<string>("");
-	const [sortBy, setSortBy] = useState<LobbySortBy>("newest");
+	const [sortBy, setSortBy] = useState<LobbySortBy>("last_interacted");
+	const interactionMsByLobby = useMemo(() => {
+		const entries = Object.entries(interactionSnapshot || {}).map(([id, iso]) => [id, toMs(iso)] as const);
+		return new Map(entries);
+	}, [interactionSnapshot]);
 	const [filters, setFilters] = useState<LobbyFilters>({
 		showMine: false, // Default to false so users see all lobbies they're a member of or own
 		showActive: false,
@@ -42,36 +79,57 @@ export default function LobbiesPage() {
 		showChallenge: false,
 	});
 
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const read = () => {
+			const raw = window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY);
+			setInteractionSnapshot(readInteractionSnapshot(raw));
+		};
+		read();
+		const handle = () => read();
+		window.addEventListener("storage", handle);
+		window.addEventListener("gymdm:last-lobby", handle as EventListener);
+		return () => {
+			window.removeEventListener("storage", handle);
+			window.removeEventListener("gymdm:last-lobby", handle as EventListener);
+		};
+	}, []);
+
 	const reloadLobbies = useCallback(async () => {
-		// CRITICAL: Only fetch if auth is hydrated and user exists
-		// This prevents race conditions where we fetch before auth is ready
 		if (!isHydrated) {
-			console.log("[lobbies] Skipping fetch - auth not hydrated yet");
 			return;
 		}
-		
-		if (!user?.id) {
-			console.log("[lobbies] No user ID - user not signed in");
+
+		if (!userId) {
 			setAllLobbies([]);
 			return;
 		}
-		
-		console.log("[lobbies] Fetching lobbies for user:", user.id);
+
 		const url = `/api/lobbies`;
 		try {
 			const res = await authFetch(url);
 			const data = await res.json();
-			setAllLobbies(data.lobbies ?? []);
+			const list = Array.isArray(data?.lobbies) ? (data.lobbies as LobbyRow[]) : [];
+			setAllLobbies(list);
+			if (typeof window !== "undefined") {
+				const parsed = readInteractionSnapshot(window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY));
+				const pruned = pruneInteractionSnapshot(parsed, new Set(list.map((lobby) => lobby.id)));
+				setInteractionSnapshot(pruned);
+				window.localStorage.setItem(LOBBY_INTERACTIONS_STORAGE_KEY, JSON.stringify(pruned));
+			}
 		} catch (err) {
 			console.error("[lobbies] Fetch error:", err);
 			setAllLobbies([]);
 		}
-	}, [isHydrated, user?.id]);
+	}, [isHydrated, userId]);
 
 	// Only fetch lobbies after auth is hydrated AND user exists
 	useEffect(() => {
 		if (!isHydrated) return; // Wait for auth hydration
-		reloadLobbies();
+		const timer = setTimeout(() => {
+			void reloadLobbies();
+		}, 0);
+		return () => clearTimeout(timer);
 	}, [isHydrated, reloadLobbies]);
 
 	// Poll for lobby updates every 10 seconds
@@ -101,8 +159,8 @@ export default function LobbiesPage() {
 		}
 
 		// Apply "show mine" filter - filter to only owned lobbies
-		if (filters.showMine && user?.id) {
-			filtered = filtered.filter(l => user.id === l.owner_user_id);
+		if (filters.showMine && userId) {
+			filtered = filtered.filter(l => userId === l.owner_user_id);
 		}
 
 		// Apply status filters
@@ -121,25 +179,22 @@ export default function LobbiesPage() {
 			filtered = filtered.filter(l => String(l.mode || "").startsWith("CHALLENGE_"));
 		}
 
-		// Apply sorting
-		filtered.sort((a, b) => {
+		const sortByNewest = (a: LobbyRow, b: LobbyRow) => toMs(b.created_at) - toMs(a.created_at);
+		const sortBySelectedMode = (a: LobbyRow, b: LobbyRow) => {
 			switch (sortBy) {
+				case "last_interacted": {
+					const interactionDiff = (interactionMsByLobby.get(b.id) ?? 0) - (interactionMsByLobby.get(a.id) ?? 0);
+					if (interactionDiff !== 0) return interactionDiff;
+					return sortByNewest(a, b);
+				}
 				case "newest":
-					const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
-					const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
-					return bCreated - aCreated;
+					return sortByNewest(a, b);
 				case "oldest":
-					const aCreatedOld = a.created_at ? new Date(a.created_at).getTime() : 0;
-					const bCreatedOld = b.created_at ? new Date(b.created_at).getTime() : 0;
-					return aCreatedOld - bCreatedOld;
+					return toMs(a.created_at) - toMs(b.created_at);
 				case "season_latest":
-					const aStart = a.season_start ? new Date(a.season_start).getTime() : 0;
-					const bStart = b.season_start ? new Date(b.season_start).getTime() : 0;
-					return bStart - aStart;
+					return toMs(b.season_start) - toMs(a.season_start);
 				case "season_earliest":
-					const aStartEarly = a.season_start ? new Date(a.season_start).getTime() : 0;
-					const bStartEarly = b.season_start ? new Date(b.season_start).getTime() : 0;
-					return aStartEarly - bStartEarly;
+					return toMs(a.season_start) - toMs(b.season_start);
 				case "name_az":
 					return (a.name || "").localeCompare(b.name || "");
 				case "name_za":
@@ -147,24 +202,25 @@ export default function LobbiesPage() {
 				default:
 					return 0;
 			}
-		});
+		};
+
+		filtered.sort(sortBySelectedMode);
 
 		return filtered;
-	}, [allLobbies, debouncedSearch, filters, sortBy, user?.id]);
+	}, [allLobbies, debouncedSearch, filters, interactionMsByLobby, sortBy, userId]);
 
 	// Calculate days ago
 	const getDaysAgo = (createdAt?: string) => {
 		if (!createdAt) return null;
 		const created = new Date(createdAt).getTime();
-		const now = Date.now();
-		const diffMs = now - created;
+		const diffMs = nowMs - created;
 		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 		if (diffDays === 0) return "Today";
 		if (diffDays === 1) return "1 day ago";
 		return `${diffDays} days ago`;
 	};
 
-	const isOwner = (l: LobbyRow) => Boolean(user?.id && l.owner_user_id === user.id);
+	const isOwner = (l: LobbyRow) => Boolean(userId && l.owner_user_id === userId);
 
 	return (
 		<div className="min-h-screen">
@@ -195,6 +251,17 @@ export default function LobbiesPage() {
 					onSortChange={setSortBy}
 					filters={filters}
 					onFiltersChange={setFilters}
+					onResetAll={() => {
+						setSearchQuery("");
+						setFilters({
+							showMine: false,
+							showActive: false,
+							showCompleted: false,
+							showMoney: false,
+							showChallenge: false,
+						});
+						setSortBy("last_interacted");
+					}}
 					totalCount={allLobbies.length}
 					filteredCount={filteredAndSortedLobbies.length}
 				/>
@@ -215,20 +282,20 @@ export default function LobbiesPage() {
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
 						{filteredAndSortedLobbies.map((l) => {
 							const daysAgo = getDaysAgo(l.created_at);
-							const card = mapLobbyRowToCard(l, { userId: user?.id, createdAgo: daysAgo });
+							const card = mapLobbyRowToCard(l, { userId: userId ?? undefined, createdAgo: daysAgo });
 							return (
 								<LobbyCard
 									key={l.id}
 									lobby={card}
 									onEdit={() => setEditLobby(l)}
 									onLeave={async (lobbyId) => {
-										if (!user?.id) return;
+										if (!userId) return;
 										await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/leave`, {
 											method: "POST",
 										});
 										reloadLobbies();
 									}}
-									showLeave={Boolean(user?.id)}
+									showLeave={Boolean(userId)}
 								/>
 							);
 						})}

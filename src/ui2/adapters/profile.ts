@@ -246,23 +246,27 @@ export function buildProfileAggregatedStats(input: {
 			maxHearts = live.lobby.initialLives || 3;
 		}
 
-		lobbyEntries.push({
-			id: lobby.id,
-			name: lobby.name,
-			seasonNumber: live.lobby.seasonNumber,
-			stage: live.lobby.stage,
-			rank,
-			workouts: me.totalWorkouts,
-			result,
-			points: calculatePoints({ workouts: me.totalWorkouts, streak: me.currentStreak ?? 0 }),
-			currentStreak: me.currentStreak ?? 0,
-			longestStreak: me.longestStreak ?? 0,
-			hearts: me.livesRemaining ?? 0,
-			weeklyProgress,
-			weeklyTarget: me.weeklyTarget ?? 3,
-			seasonStart: lobby.season_start ?? null,
-			seasonEnd: lobby.season_end ?? null,
-		});
+			lobbyEntries.push({
+				id: lobby.id,
+				name: lobby.name,
+				seasonNumber: live.lobby.seasonNumber,
+				stage: live.lobby.stage,
+				rank,
+				workouts: me.totalWorkouts,
+				result,
+				points: calculatePoints({
+					workouts: me.totalWorkouts,
+					streak: me.currentStreak ?? 0,
+					longestStreak: me.longestStreak ?? me.currentStreak ?? 0,
+				}),
+				currentStreak: me.currentStreak ?? 0,
+				longestStreak: me.longestStreak ?? 0,
+				hearts: me.livesRemaining ?? 0,
+				weeklyProgress,
+				weeklyTarget: me.weeklyTarget ?? 3,
+				seasonStart: lobby.season_start ?? null,
+				seasonEnd: lobby.season_end ?? null,
+			});
 
 		if (me.recentActivities) {
 			for (let idx = 0; idx < me.recentActivities.length; idx++) {

@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 		const base =
 			process.env.NEXT_PUBLIC_BASE_URL ||
-			(typeof window !== "undefined" ? window.location.origin : "https://gym-deathmatch.vercel.app");
+			(typeof window !== "undefined" ? window.location.origin : "https://gymdeathmatch.com");
 		const path = typeof window !== "undefined" ? window.location.pathname + window.location.search + window.location.hash : "/";
 		const redirectTo = `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 

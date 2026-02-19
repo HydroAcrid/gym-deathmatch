@@ -43,7 +43,6 @@ export function ArenaNav() {
 
 	const isActive = (href: string) => {
 		if (pathname === href) return true;
-		if (href === "/home" && /^\/lobby\/[^/]+$/.test(pathname ?? "")) return true;
 		if (href.endsWith("/history") && /^\/lobby\/[^/]+\/history$/.test(pathname ?? "")) return true;
 		if (href.endsWith("/stats") && /^\/lobby\/[^/]+\/stats$/.test(pathname ?? "")) return true;
 		return false;

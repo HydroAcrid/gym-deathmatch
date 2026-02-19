@@ -12,19 +12,19 @@ import { OwnerSettingsModal } from "./OwnerSettingsModal";
 import { useAuth } from "./AuthProvider";
 import { ChallengeHero } from "./ChallengeHero";
 import { WeekSetup } from "./WeekSetup";
-import { LAST_LOBBY_STORAGE_KEY } from "@/lib/localStorageKeys";
+import { LAST_LOBBY_STORAGE_KEY, LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
 import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
-import { ActiveSeasonHeader } from "@/src/ui2/components/ActiveSeasonHeader";
+import { ArenaCommandCenter } from "@/src/ui2/components/ArenaCommandCenter";
 import { LiveFeed } from "@/src/ui2/components/LiveFeed";
 import { HeartsStatusBoard, type AthleteHeartStatus } from "@/src/ui2/components/HeartsStatusBoard";
 import { Standings, type Standing } from "@/src/ui2/components/Standings";
 import { HostControls } from "@/src/ui2/components/HostControls";
-import { WeeklyCycleIndicator } from "@/src/ui2/components/WeeklyCycleIndicator";
 import { Button } from "@/src/ui2/ui/button";
 import { authFetch } from "@/lib/clientAuth";
 import { calculatePoints, compareByPointsDesc, POINTS_FORMULA_TEXT } from "@/lib/points";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/ui2/ui/dialog";
 import { ManualActivityModal } from "./ManualActivityModal";
+import { buildArenaCommandCenterVM } from "@/src/ui2/adapters/arenaCommandCenter";
 
 type LobbyLayoutProps = {
 	lobby: Lobby;
@@ -177,20 +177,21 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						lowRaw: lives.filter(l => l.lives === min)
 					};
 				}
-				if (livePlayers.length > 0) {
-					const leaderboard = [...livePlayers]
-						.map((p: any) => {
-							const workouts = Number(p.totalWorkouts ?? 0);
-							const streak = Number(p.currentStreak ?? 0);
-							return {
-								name: p.name ?? "Athlete",
-								workouts,
-								streak,
-								points: calculatePoints({ workouts, streak })
-							};
-						})
-						.sort(compareByPointsDesc)
-						.slice(0, 3);
+					if (livePlayers.length > 0) {
+						const leaderboard = [...livePlayers]
+							.map((p: any) => {
+								const workouts = Number(p.totalWorkouts ?? 0);
+								const streak = Number(p.currentStreak ?? 0);
+								const longestStreak = Number(p.longestStreak ?? streak);
+								return {
+									name: p.name ?? "Athlete",
+									workouts,
+									streak,
+									points: calculatePoints({ workouts, streak, longestStreak })
+								};
+							})
+							.sort(compareByPointsDesc)
+							.slice(0, 3);
 					data.points = {
 						formula: `Season ${POINTS_FORMULA_TEXT.toLowerCase()}`,
 						leaderboard
@@ -271,13 +272,22 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		try {
+			const nowIso = new Date().toISOString();
 			const snapshot = {
 				id: lobbyData.id,
 				name: lobbyData.name,
 				mode: modeValue,
-				updatedAt: new Date().toISOString()
+				updatedAt: nowIso
 			};
 			window.localStorage.setItem(LAST_LOBBY_STORAGE_KEY, JSON.stringify(snapshot));
+			const rawInteractions = window.localStorage.getItem(LOBBY_INTERACTIONS_STORAGE_KEY);
+			const parsedInteractions: LobbyInteractionsSnapshot =
+				rawInteractions ? (JSON.parse(rawInteractions) as LobbyInteractionsSnapshot) : {};
+			const nextInteractions: LobbyInteractionsSnapshot = {
+				...(parsedInteractions && typeof parsedInteractions === "object" ? parsedInteractions : {}),
+				[lobbyData.id]: nowIso,
+			};
+			window.localStorage.setItem(LOBBY_INTERACTIONS_STORAGE_KEY, JSON.stringify(nextInteractions));
 			window.dispatchEvent(new CustomEvent("gymdm:last-lobby"));
 		} catch {
 			// ignore storage errors (private mode, etc.)
@@ -321,6 +331,16 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			toast.push("Welcome! You joined the lobby.");
 		}
 	}, [joined, connectedPlayerId, toast]);
+
+	const weekMs = 7 * 24 * 60 * 60 * 1000;
+	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
+	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / weekMs));
+	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((Date.now() - seasonStartDate.getTime()) / weekMs)));
+	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * weekMs);
+	const currentWeekStartMs = seasonStartDate.getTime() + (currentWeek - 1) * weekMs;
+	const currentWeekEndMs = currentWeekStartMs + weekMs;
+	const myPlayerName = myPlayerId ? players.find((player) => player.id === myPlayerId)?.name ?? null : null;
 
 	// Build hearts status data from live players
 	const heartsData: AthleteHeartStatus[] = players.map((p) => {
@@ -398,14 +418,28 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		.map((p) => {
 			const workouts = p.totalWorkouts ?? 0;
 			const streak = p.currentStreak ?? 0;
+			const longestStreak = p.longestStreak ?? streak;
 			const penalties = 0;
+			const recentActivities = Array.isArray((p as any).recentActivities) ? (p as any).recentActivities : [];
+			const earliestApprovedThisWeekMs = recentActivities.reduce((earliest: number | null, activity: any) => {
+				const raw = activity?.startDate ?? activity?.date ?? activity?.start_date_local ?? activity?.start_date ?? null;
+				if (!raw) return earliest;
+				const ts = new Date(raw).getTime();
+				if (!Number.isFinite(ts)) return earliest;
+				if (ts < currentWeekStartMs || ts >= currentWeekEndMs) return earliest;
+				if (earliest === null) return ts;
+				return Math.min(earliest, ts);
+			}, null);
 			return {
+				athleteId: p.id,
 				athleteName: p.name,
 				avatarUrl: p.avatarUrl || null,
 				workouts,
 				streak,
+				longestStreak,
 				penalties,
-				points: calculatePoints({ workouts, streak, penalties }),
+				tieBreakTimestamp: earliestApprovedThisWeekMs,
+				points: calculatePoints({ workouts, streak, longestStreak, penalties }),
 			};
 		})
 		.sort(compareByPointsDesc)
@@ -427,12 +461,49 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 	const selectedPlayer = selectedPlayerId ? players.find((p) => p.id === selectedPlayerId) ?? null : null;
 
-	// Calculate week info for cycle indicator
-	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
-	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)));
-	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((Date.now() - seasonStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000))));
-	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * 7 * 24 * 60 * 60 * 1000);
+	const commandCenterVm = useMemo(() => {
+		return buildArenaCommandCenterVM({
+			lobbyId: lobbyData.id,
+			lobbyName: lobbyData.name,
+			seasonNumber: lobbyData.seasonNumber,
+			stage,
+			seasonStatus,
+			mode,
+			modeLabel,
+			hostName: ownerName,
+			athleteCount: players.length,
+			challengePunishment: activePunishmentMeta,
+			myPlayerId,
+			myPlayerName,
+			standings: standingsData,
+			hearts: heartsData,
+			currentWeek,
+			totalWeeks,
+			weekEndDate,
+			potAmount,
+			weeklyAnte,
+		});
+	}, [
+		lobbyData.id,
+		lobbyData.name,
+		lobbyData.seasonNumber,
+		stage,
+		seasonStatus,
+		mode,
+		modeLabel,
+		ownerName,
+		players.length,
+		activePunishmentMeta,
+		myPlayerId,
+		myPlayerName,
+		standingsData,
+		heartsData,
+		currentWeek,
+		totalWeeks,
+		weekEndDate,
+		potAmount,
+		weeklyAnte,
+	]);
 
 	// Determine host controls match status
 	const matchStatus: "AWAITING_HOST" | "ARMED" | "ACTIVE" | "COMPLETED" = 
@@ -442,34 +513,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 	return (
 		<div className="min-h-screen">
-			<div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
-				<ActiveSeasonHeader
-					seasonName={lobbyData.name}
-					seasonNumber={lobbyData.seasonNumber}
-					gameMode={modeLabel}
-					hostName={ownerName}
-					athleteCount={players.length}
-					currentPot={potAmount}
-					weeklyAnte={weeklyAnte}
-					showMoneyInfo={isMoneyMode && stage !== "COMPLETED"}
-					seasonStart={lobbyData.seasonStart}
-					seasonEnd={lobbyData.seasonEnd}
-					showCountdown={stage !== "COMPLETED"}
-					showChallengeInfo={mode === "CHALLENGE_ROULETTE" && stage !== "COMPLETED"}
-					challengePunishment={activePunishmentMeta}
-				/>
+				<div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
+					<ArenaCommandCenter vm={commandCenterVm} />
 
-				{/* Weekly Cycle Indicator */}
-				{stage !== "COMPLETED" && (
-					<WeeklyCycleIndicator
-						currentWeek={currentWeek}
-						totalWeeks={totalWeeks}
-						weekEndDate={weekEndDate}
-						resetDay="MONDAY"
-					/>
-				)}
-
-				<div className="flex flex-wrap items-center gap-2">
+					<div className="flex flex-wrap items-center gap-2">
 					{myPlayerId && stage !== "COMPLETED" && (
 						<Button variant="arenaPrimary" size="sm" onClick={() => setOpenManual(true)}>
 							Log Workout

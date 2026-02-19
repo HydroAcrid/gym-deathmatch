@@ -221,9 +221,9 @@ period: "daily" | "weekly";
 									<Trophy className="h-5 w-5 text-primary" />
 									<div className="font-display text-lg tracking-[0.12em] text-primary">Points Board</div>
 								</div>
-								<div className="text-xs text-muted-foreground mb-2">
-									{data.points?.formula ?? "Points = workouts + streak - penalties"}
-								</div>
+									<div className="text-xs text-muted-foreground mb-2">
+										{data.points?.formula ?? "Points = workouts + best streak - penalties"}
+									</div>
 								<div className="space-y-1 text-sm text-muted-foreground">
 									{pointsLeaders.map((row, idx) => (
 										<div key={`${row.name}-${idx}`} className="flex items-center justify-between gap-3">

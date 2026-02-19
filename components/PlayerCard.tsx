@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Player } from "@/types/game";
 import { HeartDisplay } from "./HeartDisplay";
 import { QuipBubble } from "./QuipBubble";
@@ -27,7 +26,7 @@ export function PlayerCard({ player, lobbyId, mePlayerId, showReady }: { player:
 					<div className="relative">
 						<div className="w-12 h-12 sm:w-14 sm:h-14 bg-muted border-2 border-border flex items-center justify-center overflow-hidden">
 							{avatar ? (
-								<Image src={avatar} alt={`${player.name} avatar`} fill sizes="56px" className="object-cover" />
+								<img src={avatar} alt={`${player.name} avatar`} className="h-full w-full object-cover" />
 							) : (
 								<span className="text-xl sm:text-2xl font-display font-bold text-muted-foreground">
 									{initials}

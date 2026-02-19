@@ -36,23 +36,25 @@ export type LiveLobby = {
 		players: EnrichedPlayer[];
 		seasonSummary?: {
 			seasonNumber?: number;
-			winners?: Array<{
-				id: string;
-				name: string;
-				avatarUrl?: string;
-				totalWorkouts: number;
-				hearts: number;
-				currentStreak?: number;
-				points?: number;
-			}>;
-			losers?: Array<{
-				id: string;
-				name: string;
-				totalWorkouts: number;
-				hearts?: number;
-				currentStreak?: number;
-				points?: number;
-			}>;
+				winners?: Array<{
+					id: string;
+					name: string;
+					avatarUrl?: string;
+					totalWorkouts: number;
+					hearts: number;
+					currentStreak?: number;
+					longestStreak?: number;
+					points?: number;
+				}>;
+				losers?: Array<{
+					id: string;
+					name: string;
+					totalWorkouts: number;
+					hearts?: number;
+					currentStreak?: number;
+					longestStreak?: number;
+					points?: number;
+				}>;
 			finalPot?: number;
 			highlights?: {
 				longestStreak?: { playerName: string; streak: number };
@@ -122,17 +124,29 @@ export function buildRecordsViewModel(input: {
 		const players = live.lobby.players ?? [];
 		const summary = live.lobby.seasonSummary;
 
-		if (live.lobby.stage === "ACTIVE" && players.length > 0) {
-			const sorted = [...players].sort(
-				(a, b) =>
-					calculatePoints({ workouts: b.totalWorkouts, streak: b.currentStreak }) -
-					calculatePoints({ workouts: a.totalWorkouts, streak: a.currentStreak })
-			);
-			const totalW = players.reduce((s, p) => s + p.totalWorkouts, 0);
-			const leader = sorted[0];
-			const leaderPoints = leader
-				? calculatePoints({ workouts: leader.totalWorkouts, streak: leader.currentStreak })
-				: 0;
+			if (live.lobby.stage === "ACTIVE" && players.length > 0) {
+				const sorted = [...players].sort(
+					(a, b) =>
+						calculatePoints({
+							workouts: b.totalWorkouts,
+							streak: b.currentStreak,
+							longestStreak: b.longestStreak,
+						}) -
+						calculatePoints({
+							workouts: a.totalWorkouts,
+							streak: a.currentStreak,
+							longestStreak: a.longestStreak,
+						})
+				);
+				const totalW = players.reduce((s, p) => s + p.totalWorkouts, 0);
+				const leader = sorted[0];
+				const leaderPoints = leader
+					? calculatePoints({
+						workouts: leader.totalWorkouts,
+						streak: leader.currentStreak,
+						longestStreak: leader.longestStreak,
+					})
+					: 0;
 			activeList.push({
 				lobbyId: lobby.id,
 				lobbyName: lobby.name,
@@ -151,19 +165,20 @@ export function buildRecordsViewModel(input: {
 				(s, p) => s + (p.totalWorkouts ?? 0),
 				0
 			);
-			const seasonPlayers = [...(summary.winners ?? []), ...(summary.losers ?? [])];
-			const seasonTop = seasonPlayers.reduce(
-				(best, player) => {
-					const points =
-						player.points ??
-						calculatePoints({
-							workouts: player.totalWorkouts ?? 0,
-							streak: player.currentStreak ?? 0,
-						});
-					return points > best.points ? { name: player.name, points } : best;
-				},
-				{ name: "", points: 0 }
-			);
+				const seasonPlayers = [...(summary.winners ?? []), ...(summary.losers ?? [])];
+				const seasonTop = seasonPlayers.reduce(
+					(best, player) => {
+						const points =
+							player.points ??
+							calculatePoints({
+								workouts: player.totalWorkouts ?? 0,
+								streak: player.currentStreak ?? 0,
+								longestStreak: player.longestStreak ?? player.currentStreak ?? 0,
+							});
+						return points > best.points ? { name: player.name, points } : best;
+					},
+					{ name: "", points: 0 }
+				);
 			if (seasonTop.points > recordCandidates.mostPoints.value) {
 				recordCandidates.mostPoints = {
 					holder: seasonTop.name,
@@ -222,8 +237,12 @@ export function buildRecordsViewModel(input: {
 			}
 		}
 
-		for (const p of players) {
-			const points = calculatePoints({ workouts: p.totalWorkouts, streak: p.currentStreak });
+			for (const p of players) {
+				const points = calculatePoints({
+					workouts: p.totalWorkouts,
+					streak: p.currentStreak,
+					longestStreak: p.longestStreak,
+				});
 			if (p.longestStreak > recordCandidates.longestStreak.value) {
 				recordCandidates.longestStreak = { holder: p.name, value: p.longestStreak, lobby: lobby.name };
 			}

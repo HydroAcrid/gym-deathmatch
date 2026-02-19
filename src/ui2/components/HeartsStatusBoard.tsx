@@ -139,14 +139,15 @@ export function HeartsStatusBoard({ athletes, onAthleteSelect }: HeartsStatusBoa
                         {athlete.weeklyProgress}/{athlete.weeklyTarget}
                       </span>
                       <div className="relative w-16 sm:w-24 h-2.5 sm:h-3 bg-muted/90 border border-border/80 overflow-hidden">
+                        <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--muted))/0.95,hsl(var(--card))/0.95)]" />
                         <div
-                          className={`absolute inset-y-0 left-0 transition-all ${
-                            progressPercent >= 100
-                              ? "bg-[hsl(var(--status-online))]"
-                              : "bg-primary"
-                          }`}
+                          className="relative h-full transition-[width] duration-300 ease-out"
                           style={{
                             width: progressPercent > 0 ? `${Math.max(progressPercent, 8)}%` : "0%",
+                            background:
+                              progressPercent >= 100
+                                ? "linear-gradient(90deg, hsl(var(--status-online) / 0.45), hsl(var(--status-online) / 0.9))"
+                                : "linear-gradient(90deg, hsl(var(--primary) / 0.35), hsl(var(--primary) / 0.9))",
                             boxShadow:
                               progressPercent >= 100
                                 ? "0 0 10px hsl(var(--status-online) / 0.65)"

@@ -1,10 +1,10 @@
 import { useState } from "react";
-import Image from "next/image";
 import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { POINTS_FORMULA_TEXT } from "@/lib/points";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/src/ui2/ui/dialog";
 
 export interface Standing {
+  athleteId?: string;
   rank: number;
   previousRank?: number;
   athleteName: string;
@@ -67,7 +67,7 @@ export function Standings({ standings }: StandingsProps) {
           
           return (
             <div 
-              key={standing.athleteName}
+              key={standing.athleteId ?? standing.athleteName}
               className={`p-4 transition-colors hover:bg-muted/20 active:bg-muted/30 ${
                 isTop3 ? 'bg-muted/10' : ''
               }`}
@@ -88,11 +88,9 @@ export function Standings({ standings }: StandingsProps) {
                   </span>
                   <div className="w-9 h-9 bg-muted border-2 border-border flex items-center justify-center overflow-hidden">
                     {standing.avatarUrl ? (
-                      <Image
+                      <img
                         src={standing.avatarUrl}
                         alt={standing.athleteName}
-                        width={36}
-                        height={36}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -140,11 +138,9 @@ export function Standings({ standings }: StandingsProps) {
                 <div className="col-span-5 flex items-center gap-2">
                   <div className="w-9 h-9 bg-muted border-2 border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {standing.avatarUrl ? (
-                      <Image
+                      <img
                         src={standing.avatarUrl}
                         alt={standing.athleteName}
-                        width={36}
-                        height={36}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -226,8 +222,21 @@ export function Standings({ standings }: StandingsProps) {
               `STK` = current streak.
             </p>
             <p>
+              Points bank the best streak reached this season, so a broken streak won&apos;t reduce total points.
+            </p>
+            <p>
               Penalties subtract from total when enabled.
             </p>
+            <div className="pt-1">
+              <p className="text-foreground font-display tracking-wider text-xs uppercase">Tie-break order</p>
+              <ol className="list-decimal pl-5 space-y-1 mt-1">
+                <li>Higher points</li>
+                <li>More workouts</li>
+                <li>Higher current streak</li>
+                <li>Earlier approved workout timestamp this week (if needed)</li>
+                <li>Athlete name alphabetical (final fallback)</li>
+              </ol>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

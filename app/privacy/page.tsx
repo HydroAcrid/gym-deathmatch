@@ -150,10 +150,10 @@ export default function PrivacyPage() {
 							</p>
 							<p>
 								<a 
-									href="mailto:support@gym-deathmatch.vercel.app" 
+									href="mailto:support@gymdeathmatch.com" 
 									className="text-primary hover:underline"
 								>
-									support@gym-deathmatch.vercel.app
+									support@gymdeathmatch.com
 								</a>
 							</p>
 						</section>
