@@ -7,6 +7,7 @@ export type WhatsNewLink = {
 
 export type WhatsNewEntry = {
 	releaseId: string;
+	versionLabel: string;
 	title: string;
 	deployedAt: string;
 	bullets: string[];
@@ -37,6 +38,22 @@ function asNumberArray(value: unknown): number[] {
 		.map((item) => Math.floor(item));
 }
 
+function normalizeVersionLabel(value: unknown): string {
+	if (typeof value !== "string") return "";
+	const cleaned = value.trim();
+	if (!cleaned) return "";
+	return /^v?\d+\.\d+\.\d+$/.test(cleaned) ? (cleaned.startsWith("v") ? cleaned : `v${cleaned}`) : "";
+}
+
+function fallbackVersionLabel(deployedAt: string): string {
+	const parsed = new Date(deployedAt);
+	if (!Number.isFinite(parsed.getTime())) return "v0.0.0";
+	const yyyy = parsed.getUTCFullYear();
+	const mm = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+	const dd = String(parsed.getUTCDate()).padStart(2, "0");
+	return `v${yyyy}.${mm}.${dd}`;
+}
+
 function normalizeEntry(value: unknown): WhatsNewEntry | null {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 	const row = value as Record<string, unknown>;
@@ -44,6 +61,7 @@ function normalizeEntry(value: unknown): WhatsNewEntry | null {
 	if (!releaseId) return null;
 	const title = asString(row.title).trim() || `Release ${releaseId.slice(0, 7)}`;
 	const deployedAt = asString(row.deployedAt).trim() || new Date(0).toISOString();
+	const versionLabel = normalizeVersionLabel(row.versionLabel) || fallbackVersionLabel(deployedAt);
 	const bullets = asStringArray(row.bullets).slice(0, 12);
 	const links = Array.isArray(row.links)
 		? row.links
@@ -60,6 +78,7 @@ function normalizeEntry(value: unknown): WhatsNewEntry | null {
 		: [];
 	return {
 		releaseId,
+		versionLabel,
 		title,
 		deployedAt,
 		bullets,

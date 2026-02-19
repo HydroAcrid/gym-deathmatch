@@ -3,6 +3,7 @@
   "entries": [
     {
       "releaseId": "0000000000000000000000000000000000000000",
+      "versionLabel": "v0.1.0",
       "title": "Initial release notes",
       "deployedAt": "2026-02-19T00:00:00.000Z",
       "bullets": [

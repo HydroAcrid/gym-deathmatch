@@ -30,7 +30,7 @@ export function WhatsNewDialog({ open, onOpenChange, entry, entries = [] }: What
 								<div className="flex items-center justify-between gap-3 flex-wrap">
 									<div className="font-display text-sm sm:text-base tracking-wider text-foreground">{entry.title}</div>
 									<div className="arena-badge arena-badge-primary text-[10px]">
-										{entry.releaseId.slice(0, 7)}
+										{entry.versionLabel}
 									</div>
 								</div>
 								<div className="text-xs text-muted-foreground">
@@ -78,7 +78,7 @@ export function WhatsNewDialog({ open, onOpenChange, entry, entries = [] }: What
 										<div className="font-display text-xs tracking-wider text-foreground">{previous.title}</div>
 										<div className="text-[11px] text-muted-foreground">
 											{formatLocalDate(previous.deployedAt, { month: "short", day: "numeric", year: "numeric" })} •{" "}
-											{previous.releaseId.slice(0, 7)}
+											{previous.versionLabel}
 										</div>
 									</div>
 								))}

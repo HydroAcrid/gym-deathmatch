@@ -120,7 +120,10 @@ function LatestUpdatePanel({
 			</div>
 			{entry ? (
 				<>
-					<div className="font-display text-sm sm:text-base tracking-wider text-foreground">{entry.title}</div>
+					<div className="flex items-center justify-between gap-2 flex-wrap">
+						<div className="font-display text-sm sm:text-base tracking-wider text-foreground">{entry.title}</div>
+						<span className="arena-badge arena-badge-primary text-[10px]">{entry.versionLabel}</span>
+					</div>
 					<ul className="space-y-1">
 						{entry.bullets.slice(0, 3).map((bullet, idx) => (
 							<li key={`${entry.releaseId}-${idx}`} className="text-xs sm:text-sm text-muted-foreground">

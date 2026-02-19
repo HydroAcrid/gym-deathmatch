@@ -6,11 +6,28 @@ const DATA_PATH = resolve(process.cwd(), "data", "whats-new.json");
 const MAX_BULLETS = 8;
 const MAX_LINKS = 6;
 const KNOWN_LABELS = ["feature", "ui", "backend", "infra", "security", "bug", "fix", "chore"];
+const VERSION_RE = /^v?(\d+)\.(\d+)\.(\d+)$/;
 
 function assertEnv(name) {
 	const value = process.env[name];
 	if (!value) throw new Error(`Missing required environment variable: ${name}`);
 	return value;
+}
+
+function normalizeVersionLabel(value) {
+	if (typeof value !== "string") return "";
+	const cleaned = value.trim();
+	if (!cleaned) return "";
+	const match = cleaned.match(VERSION_RE);
+	if (!match) return "";
+	return `v${Number(match[1])}.${Number(match[2])}.${Number(match[3])}`;
+}
+
+function nextVersionLabel(previous) {
+	const normalized = normalizeVersionLabel(previous);
+	if (!normalized) return "v0.1.0";
+	const [, major, minor, patch] = normalized.match(VERSION_RE);
+	return `v${Number(major)}.${Number(minor)}.${Number(patch) + 1}`;
 }
 
 function normalizeData(raw) {
@@ -29,10 +46,15 @@ function normalizeData(raw) {
 		const releaseId = typeof item.releaseId === "string" ? item.releaseId : "";
 		if (!releaseId || seen.has(releaseId)) continue;
 		seen.add(releaseId);
-		normalized.push({
-			releaseId,
-			title: typeof item.title === "string" && item.title.trim() ? item.title.trim() : `Release ${releaseId.slice(0, 7)}`,
-			deployedAt: typeof item.deployedAt === "string" && item.deployedAt ? item.deployedAt : new Date().toISOString(),
+			normalized.push({
+				releaseId,
+				versionLabel:
+					normalizeVersionLabel(item.versionLabel) ||
+					`v${new Date(item.deployedAt || Date.now()).getUTCFullYear()}.${String(
+						new Date(item.deployedAt || Date.now()).getUTCMonth() + 1
+					).padStart(2, "0")}.${String(new Date(item.deployedAt || Date.now()).getUTCDate()).padStart(2, "0")}`,
+				title: typeof item.title === "string" && item.title.trim() ? item.title.trim() : `Release ${releaseId.slice(0, 7)}`,
+				deployedAt: typeof item.deployedAt === "string" && item.deployedAt ? item.deployedAt : new Date().toISOString(),
 			bullets: Array.isArray(item.bullets) ? item.bullets.filter((b) => typeof b === "string" && b.trim()) : [],
 			links: Array.isArray(item.links)
 				? item.links
@@ -179,9 +201,11 @@ async function main() {
 		label: `PR #${pr.number}`,
 		href: pr.htmlUrl,
 	}));
+	const versionLabel = nextVersionLabel(data.entries[0]?.versionLabel);
 	const entry = {
 		releaseId: sha,
-		title: `Release ${sha.slice(0, 7)}`,
+		versionLabel,
+		title: `Release ${versionLabel}`,
 		deployedAt: new Date().toISOString(),
 		bullets: buildBullets(prDetails),
 		links: [...compareLink, ...prLinks],
