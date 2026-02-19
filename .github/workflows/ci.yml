@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -68,7 +68,7 @@ jobs:
 
       - name: Checkout
         if: ${{ steps.secret-check.outputs.enabled == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install psql client
         if: ${{ steps.secret-check.outputs.enabled == 'true' }}
