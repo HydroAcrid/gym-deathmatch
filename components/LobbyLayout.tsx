@@ -206,6 +206,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						formula: `Season ${POINTS_FORMULA_TEXT.toLowerCase()}`,
 						leaderboard
 					};
+					data.toplineStats = {
+						...(data.toplineStats ?? {}),
+						pointsLeaderShort: leaderboard[0]?.name ?? data.toplineStats?.pointsLeaderShort ?? "—"
+					};
 				}
 
 				if (cancelled) return;
