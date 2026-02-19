@@ -3,7 +3,9 @@ import { getServerSupabase } from "@/lib/supabaseClient";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
-async function hasRecordedHistory(supabase: any, lobbyId: string, playerId: string) {
+type SupabaseClient = NonNullable<ReturnType<typeof getServerSupabase>>;
+
+async function hasRecordedHistory(supabase: SupabaseClient, lobbyId: string, playerId: string) {
 	const [manual, actorEvents, targetEvents, comments] = await Promise.all([
 		supabase
 			.from("manual_activities")

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "./AuthProvider";
-import type { Lobby, Player, GameMode, ChallengeSettings } from "@/types/game";
+import type { Player, GameMode, ChallengeSettings } from "@/types/game";
 import { authFetch } from "@/lib/clientAuth";
 
 export function WeekSetup({
@@ -31,7 +31,7 @@ export function WeekSetup({
 	// Find current user's player
 	const myPlayer = useMemo(() => {
 		if (user?.id) {
-			const found = players.find(p => (p as any).userId === user.id);
+			const found = players.find((p) => (p.userId ?? p.user_id ?? null) === user.id);
 			if (found) return found;
 		}
 		return null;

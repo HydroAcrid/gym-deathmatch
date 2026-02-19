@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { History, BookOpen, Home, Trophy, User } from "lucide-react";
+import { History, BookOpen, Home, Trophy, User, Shield } from "lucide-react";
 import { Button } from "../ui/button";
 import { CreateLobby } from "@/components/CreateLobby";
 import { IntroGuide } from "@/components/IntroGuide";
@@ -18,6 +18,7 @@ const baseTabs = [
 	{ href: "/profile", label: "PROFILE", icon: User },
 	{ href: "/history", label: "HISTORY", icon: History },
 	{ href: "/rules", label: "RULES", icon: BookOpen },
+	{ href: "/privacy", label: "PRIVACY", icon: Shield },
 ];
 
 export function ArenaNav() {
@@ -96,8 +97,20 @@ export function ArenaNav() {
 
 					<div className="flex items-center gap-1.5 sm:gap-2">
 						<div className="hidden lg:flex items-center gap-2">
-							{showDesktopActions && <CreateLobby />}
-							{showIntroGuide && <IntroGuide />}
+							{showDesktopActions && (
+								<CreateLobby>
+									<Button type="button" variant="outline" size="sm">
+										+ CREATE LOBBY
+									</Button>
+								</CreateLobby>
+							)}
+							{showIntroGuide && (
+								<IntroGuide>
+									<Button type="button" variant="outline" size="sm" className="w-9 px-0">
+										?
+									</Button>
+								</IntroGuide>
+							)}
 						</div>
 
 						<Button

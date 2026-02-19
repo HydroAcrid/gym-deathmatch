@@ -24,6 +24,7 @@ import {
 	getInitials,
 	renderEventLine,
 } from "@/src/ui2/adapters/lobbyHistory";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId: string }> }) {
 	const [lobbyId, setLobbyId] = useState<string>("");
@@ -44,7 +45,6 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	const toast = useToast();
 	const [currentPot, setCurrentPot] = useState<number | null>(null);
 	const [potInput, setPotInput] = useState<string>("");
-	const isOwnerUser = ownerUserId && user?.id === ownerUserId;
 
 	const reloadActivities = useCallback(async (lid: string = lobbyId) => {
 		if (!lid) return;
@@ -96,12 +96,12 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	}, [lobbyId, isHydrated, user?.id, reloadActivities]);
 
 	useEffect(() => {
-		function onRefresh() {
+		const onRefresh: EventListener = () => {
 			reloadActivities();
-		}
-		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh as any);
+		};
+		if (typeof window !== "undefined") window.addEventListener("gymdm:refresh-live", onRefresh);
 		return () => {
-			if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh as any);
+			if (typeof window !== "undefined") window.removeEventListener("gymdm:refresh-live", onRefresh);
 		};
 	}, [reloadActivities]);
 
@@ -112,8 +112,8 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 	useEffect(() => {
 		if (!lobbyId) return;
 
-		let votesChannel: any = null;
-		let activitiesChannel: any = null;
+		let votesChannel: RealtimeChannel | null = null;
+		let activitiesChannel: RealtimeChannel | null = null;
 		let isSubscribed = true;
 
 		(async () => {
@@ -672,12 +672,11 @@ export default function LobbyHistoryPage({ params }: { params: Promise<{ lobbyId
 							) : null}
 
 							<div className="p-4 border-t border-border">
-								<ActivityComments
-									activityId={a.id}
-									lobbyId={lobbyId}
-									myPlayerId={myPlayerId}
-									ownerUserId={ownerUserId}
-								/>
+									<ActivityComments
+										activityId={a.id}
+										myPlayerId={myPlayerId}
+										ownerUserId={ownerUserId}
+									/>
 							</div>
 						</div>
 					);
@@ -710,7 +709,7 @@ type PostComment = {
 	authorAvatarUrl?: string | null;
 };
 
-function ActivityComments({ activityId, lobbyId, myPlayerId, ownerUserId }: { activityId: string; lobbyId: string; myPlayerId: string | null; ownerUserId: string | null }) {
+function ActivityComments({ activityId, myPlayerId, ownerUserId }: { activityId: string; myPlayerId: string | null; ownerUserId: string | null }) {
 	const { user } = useAuth();
 	const toast = useToast();
 	const [comments, setComments] = useState<PostComment[]>([]);

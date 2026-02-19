@@ -5,6 +5,11 @@ import { logError } from "@/lib/logger";
 
 const SNAPSHOT_TTL_MS = 15 * 1000;
 
+type SnapshotRow = {
+	payload: LiveLobbyResponse | null;
+	updated_at: string;
+};
+
 function normalizeOffset(offset?: number | null): number {
 	if (!Number.isFinite(offset as number)) return 0;
 	const rounded = Math.round(Number(offset));
@@ -23,11 +28,12 @@ export async function getLobbyLiveSnapshot(lobbyId: string, timezoneOffsetMinute
 			.eq("lobby_id", lobbyId)
 			.eq("timezone_offset_minutes", tz)
 			.maybeSingle();
-		if (!data?.payload) return null;
-		const updatedAt = new Date((data as any).updated_at as string).getTime();
+		const row = (data as SnapshotRow | null) ?? null;
+		if (!row?.payload) return null;
+		const updatedAt = new Date(row.updated_at).getTime();
 		if (!Number.isFinite(updatedAt)) return null;
 		if (Date.now() - updatedAt > SNAPSHOT_TTL_MS) return null;
-		return (data as any).payload as LiveLobbyResponse;
+		return row.payload;
 	} catch {
 		return null;
 	}
@@ -46,7 +52,7 @@ export async function saveLobbyLiveSnapshot(
 			{
 				lobby_id: lobbyId,
 				timezone_offset_minutes: tz,
-				payload: payload as any,
+				payload,
 				updated_at: new Date().toISOString(),
 			},
 			{ onConflict: "lobby_id,timezone_offset_minutes" }

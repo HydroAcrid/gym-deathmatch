@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { 
-  Dumbbell, Clock, CheckCircle2, XCircle, AlertTriangle,
+  Clock, CheckCircle2, XCircle, AlertTriangle,
   MessageSquare, ChevronDown, ChevronUp, Send, Trash2, Shield, Timer, Route, X
 } from "lucide-react";
 import { Button } from "../ui/button";

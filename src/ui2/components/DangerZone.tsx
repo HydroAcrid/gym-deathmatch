@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "../ui/button";
-import { AlertTriangle, UserMinus, Crown, Trash2, Skull } from "lucide-react";
+import { UserMinus, Crown, Trash2, Skull } from "lucide-react";
 
 interface DangerZoneProps {
   lobbyName: string;

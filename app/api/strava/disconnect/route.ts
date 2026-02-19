@@ -20,9 +20,11 @@ export async function POST(req: NextRequest) {
 			}
 		} else {
 			const { data: ownedPlayers } = await supabase.from("player").select("id").eq("user_id", userId);
-			const ids = (ownedPlayers ?? []).map((p: any) => p.id).filter(Boolean);
+			const ids = (ownedPlayers ?? [])
+				.map((player: { id?: string | null }) => player.id)
+				.filter((id): id is string => typeof id === "string" && id.length > 0);
 			if (ids.length) {
-				await supabase.from("strava_token").delete().in("player_id", ids as any);
+				await supabase.from("strava_token").delete().in("player_id", ids);
 			}
 		}
 		return NextResponse.json({ ok: true });
@@ -31,4 +33,3 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }
-

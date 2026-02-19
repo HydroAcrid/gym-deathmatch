@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		if (error) throw error;
 		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true });
-	} catch (e) {
+	} catch {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }

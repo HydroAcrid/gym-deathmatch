@@ -10,7 +10,29 @@ export function PWARegister() {
 			return;
 		}
 
+		const isLocalhost =
+			window.location.hostname === "localhost" ||
+			window.location.hostname === "127.0.0.1" ||
+			window.location.hostname === "::1";
+		const isDev = process.env.NODE_ENV !== "production";
 		const enableInDev = process.env.NEXT_PUBLIC_ENABLE_PWA_IN_DEV === "1";
+
+		// Never keep SW active in local/dev (unless explicitly enabled); stale cached dev assets cause hydration mismatches.
+		if (isLocalhost || (isDev && !enableInDev)) {
+			(async () => {
+				try {
+					const regs = await navigator.serviceWorker.getRegistrations();
+					for (const reg of regs) await reg.unregister();
+					const keys = await caches.keys();
+					await Promise.all(keys.map((k) => caches.delete(k)));
+					console.log("[PWA] Disabled in local/dev and cleared SW caches");
+				} catch (error) {
+					console.error("[PWA] Failed to clear local/dev SW state", error);
+				}
+			})();
+			return;
+		}
+
 		const shouldRegister = process.env.NODE_ENV === "production" || enableInDev;
 		let intervalId: number | null = null;
 		let cancelled = false;

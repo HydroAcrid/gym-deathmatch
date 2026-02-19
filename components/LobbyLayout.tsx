@@ -13,7 +13,7 @@ import { useAuth } from "./AuthProvider";
 import { ChallengeHero } from "./ChallengeHero";
 import { WeekSetup } from "./WeekSetup";
 import { LAST_LOBBY_STORAGE_KEY, LOBBY_INTERACTIONS_STORAGE_KEY, type LobbyInteractionsSnapshot } from "@/lib/localStorageKeys";
-import { PeriodSummaryOverlay } from "./PeriodSummaryOverlay";
+import { PeriodSummaryOverlay, type PeriodSummaryData } from "./PeriodSummaryOverlay";
 import { ArenaCommandCenter } from "@/src/ui2/components/ArenaCommandCenter";
 import { LiveFeed } from "@/src/ui2/components/LiveFeed";
 import { HeartsStatusBoard, type AthleteHeartStatus } from "@/src/ui2/components/HeartsStatusBoard";
@@ -41,20 +41,24 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const onStageChange = props.onStageChange;
 	const onOwnerChange = props.onOwnerChange;
 	// Derive state directly from props
-	const players = lobbyData.players || [];
+	const players = useMemo(() => lobbyData.players ?? [], [lobbyData.players]);
 	const currentPot = typeof lobbyData.cashPool === "number" ? lobbyData.cashPool : 0;
 	const seasonStatus = liveData?.seasonStatus ?? lobbyData.status;
 	const stage = liveData?.stage ?? lobbyData.stage;
 	const seasonSummary = liveData?.seasonSummary ?? lobbyData.seasonSummary;
 	const koEvent = liveData?.koEvent;
-	const mode = (lobbyData as any).mode;
+	const mode = lobbyData.mode;
 	const modeValue = mode ?? null;
 	const modeLabel = String(mode || "MONEY_SURVIVAL").replace(/_/g, " ");
 	const isMoneyMode = String(mode || "").startsWith("MONEY_");
 	const isChallengeMode = String(mode || "").startsWith("CHALLENGE_");
-	const requireWeekReadyGate = Boolean((lobbyData as any).challengeSettings?.requireWeekReadyGate);
+	const requireWeekReadyGate = Boolean(
+		(lobbyData.challengeSettings as (typeof lobbyData.challengeSettings & { requireWeekReadyGate?: boolean }) | null | undefined)
+			?.requireWeekReadyGate
+	);
 	const ownerName = players.find((p) => p.id === lobbyData.ownerId)?.name || "Host";
-	const weeklyAnte = (lobbyData as any).weeklyAnte ?? 10;
+	const weeklyAnte = lobbyData.weeklyAnte ?? 10;
+	const lobbyOwnerUserId = (lobbyData as { ownerUserId?: string | null }).ownerUserId ?? null;
 
 	// Local UI state
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
@@ -68,7 +72,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const [editOpen, setEditOpen] = useState(false);
 	const { user } = useAuth();
 	const toast = useToast();
-	const [periodSummary, setPeriodSummary] = useState<any | null>(null);
+	const [periodSummary, setPeriodSummary] = useState<PeriodSummaryData | null>(null);
 	const [summaryOpen, setSummaryOpen] = useState(false);
 	const [summaryPeriod, setSummaryPeriod] = useState<"daily"|"weekly">("daily");
 	const [summarySeenKey, setSummarySeenKey] = useState<string | null>(null);
@@ -76,24 +80,30 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	const [potAmount, setPotAmount] = useState<number>(currentPot);
 	const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 	const [openManual, setOpenManual] = useState(false);
+	const [nowMs, setNowMs] = useState(() => Date.now());
 
 	// Determine owner
 	const myPlayerId = useMemo(() => {
 		if (!user?.id) return null;
-		const mine = players.find(p => (p as any).userId === user.id);
+		const mine = players.find((p) => (p.userId ?? p.user_id ?? null) === user.id);
 		return mine ? mine.id : null;
 	}, [players, user?.id]);
 
 	const isOwner = useMemo(() => {
-		if (user?.id && (lobbyData as any).ownerUserId) return user.id === (lobbyData as any).ownerUserId;
+		if (user?.id && lobbyOwnerUserId) return user.id === lobbyOwnerUserId;
 		const ownerPlayer = players.find(p => p.id === lobbyData.ownerId);
 		if (user?.id && ownerPlayer?.userId) return ownerPlayer.userId === user.id;
 		return !!(lobbyData.ownerId && myPlayerId && lobbyData.ownerId === myPlayerId);
-	}, [user?.id, (lobbyData as any).ownerUserId, lobbyData.ownerId, players, myPlayerId]);
+	}, [user?.id, lobbyOwnerUserId, lobbyData.ownerId, players, myPlayerId]);
 
 	useEffect(() => {
 		setPotAmount(currentPot);
 	}, [currentPot]);
+
+	useEffect(() => {
+		const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+		return () => window.clearInterval(timer);
+	}, []);
 	
 	// Notify parent of owner/stage status
 	useEffect(() => {
@@ -160,12 +170,12 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				}
 
 				// Keep hearts summary aligned with the latest live player projection.
-				const livePlayers = ((liveData as any)?.players ?? liveData?.lobby?.players ?? lobbyData.players ?? []) as any[];
-				if (livePlayers.length > 0) {
-					const lives = livePlayers.map((p: any) => ({
-						name: p.name ?? "Athlete",
-						lives: p.livesRemaining ?? p.lives_remaining ?? 0
-					}));
+					const livePlayers = liveData?.lobby?.players ?? lobbyData.players ?? [];
+					if (livePlayers.length > 0) {
+						const lives = livePlayers.map((p) => ({
+							name: p.name ?? "Athlete",
+							lives: p.livesRemaining ?? p.lives_remaining ?? 0
+						}));
 					const max = Math.max(...lives.map(l => l.lives));
 					const min = Math.min(...lives.map(l => l.lives));
 					const leaders = lives.filter(l => l.lives === max).map(l => l.name);
@@ -178,10 +188,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					};
 				}
 					if (livePlayers.length > 0) {
-						const leaderboard = [...livePlayers]
-							.map((p: any) => {
-								const workouts = Number(p.totalWorkouts ?? 0);
-								const streak = Number(p.currentStreak ?? 0);
+							const leaderboard = [...livePlayers]
+								.map((p) => {
+									const workouts = Number(p.totalWorkouts ?? 0);
+									const streak = Number(p.currentStreak ?? 0);
 								const longestStreak = Number(p.longestStreak ?? streak);
 								return {
 									name: p.name ?? "Athlete",
@@ -195,6 +205,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 					data.points = {
 						formula: `Season ${POINTS_FORMULA_TEXT.toLowerCase()}`,
 						leaderboard
+					};
+					data.toplineStats = {
+						...(data.toplineStats ?? {}),
+						pointsLeaderShort: leaderboard[0]?.name ?? data.toplineStats?.pointsLeaderShort ?? "—"
 					};
 				}
 
@@ -218,16 +232,16 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [user?.id, lobbyData?.id, players.length, liveData?.lobby?.players?.length]);
+	}, [user?.id, lobbyData?.id, players, liveData, lobbyData.players]);
 
 	// Show connection errors
 	useEffect(() => {
 		if (liveData?.errors?.length) {
-			const names: string[] = [];
-			for (const err of liveData.errors) {
-				const n = players.find((p: any) => p.id === err.playerId)?.name ?? err.playerId;
-				names.push(n);
-			}
+				const names: string[] = [];
+				for (const err of liveData.errors) {
+					const n = players.find((p) => p.id === err.playerId)?.name ?? err.playerId;
+					names.push(n);
+				}
 			toast.push(`Some connections need attention: ${names.join(", ")}`);
 		}
 	}, [liveData?.errors, players, toast]);
@@ -297,11 +311,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	// Sync current user's player data from profile
 	const syncedRef = useRef<string | null>(null);
 	useEffect(() => {
-		(async () => {
-			if (!user?.id || !players.length) return;
-			// Find current user's player in this lobby
-			const myPlayer = players.find(p => (p as any).userId === user.id);
-			if (myPlayer && syncedRef.current !== myPlayer.id) {
+			(async () => {
+				if (!user?.id || !players.length) return;
+				// Find current user's player in this lobby
+				const myPlayer = players.find((p) => (p.userId ?? p.user_id ?? null) === user.id);
+				if (myPlayer && syncedRef.current !== myPlayer.id) {
 				syncedRef.current = myPlayer.id;
 					// Sync this player's data from user_profile and refresh
 					try {
@@ -317,7 +331,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 				} catch { /* ignore */ }
 			}
 		})();
-	}, [user?.id, players.length, lobbyData.id, onRefresh]);
+	}, [user?.id, players, lobbyData.id, onRefresh]);
 
 	useEffect(() => {
 		if (stravaConnected || stravaError) {
@@ -333,11 +347,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 	}, [joined, connectedPlayerId, toast]);
 
 	const weekMs = 7 * 24 * 60 * 60 * 1000;
-	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date();
-	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+	const seasonStartDate = lobbyData.seasonStart ? new Date(lobbyData.seasonStart) : new Date(nowMs);
+	const seasonEndDate = lobbyData.seasonEnd ? new Date(lobbyData.seasonEnd) : new Date(nowMs + 30 * 24 * 60 * 60 * 1000);
 	const totalWeeks = Math.max(1, Math.ceil((seasonEndDate.getTime() - seasonStartDate.getTime()) / weekMs));
-	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((Date.now() - seasonStartDate.getTime()) / weekMs)));
-	const weekEndDate = new Date(seasonStartDate.getTime() + currentWeek * weekMs);
+	const currentWeek = Math.max(1, Math.min(totalWeeks, Math.ceil((nowMs - seasonStartDate.getTime()) / weekMs)));
+	const weekEndDateMs = seasonStartDate.getTime() + currentWeek * weekMs;
 	const currentWeekStartMs = seasonStartDate.getTime() + (currentWeek - 1) * weekMs;
 	const currentWeekEndMs = currentWeekStartMs + weekMs;
 	const myPlayerName = myPlayerId ? players.find((player) => player.id === myPlayerId)?.name ?? null : null;
@@ -352,7 +366,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const timeline = Array.isArray(p.heartsTimeline) ? p.heartsTimeline : [];
 			const timelineCurrent = (() => {
 				if (!timeline.length) return 0;
-				const now = Date.now();
+				const now = nowMs;
 				const currentEvent = timeline.find((evt) => {
 					const start = new Date(evt.weekStart).getTime();
 					if (!Number.isFinite(start)) return false;
@@ -374,7 +388,7 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const msPerDay = 24 * 60 * 60 * 1000;
 			const msPerWeek = 7 * msPerDay;
 			const seasonStartMidnight = new Date(seasonStart.getFullYear(), seasonStart.getMonth(), seasonStart.getDate()).getTime();
-			const now = new Date();
+			const now = new Date(nowMs);
 			const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 			const weekIndex = Math.max(0, Math.floor((nowMidnight - seasonStartMidnight) / msPerWeek));
 			const indexedEvent = timeline[weekIndex];
@@ -382,10 +396,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 			const currentWeekStartMs = seasonStartMidnight + weekIndex * msPerWeek;
 			const currentWeekEndMs = currentWeekStartMs + msPerWeek;
-			const recentActivities = Array.isArray((p as any).recentActivities) ? (p as any).recentActivities : [];
-			const recentThisWeek = recentActivities.filter((a: any) => {
-				const raw = a?.startDate ?? a?.date ?? null;
-				if (!raw) return false;
+				const recentActivities = p.recentActivities ?? p.recent_activities ?? [];
+				const recentThisWeek = recentActivities.filter((a) => {
+					const raw = a?.startDate ?? a?.date ?? null;
+					if (!raw) return false;
 				const ts = new Date(raw).getTime();
 				if (!Number.isFinite(ts)) return false;
 				return ts >= currentWeekStartMs && ts < currentWeekEndMs;
@@ -420,10 +434,10 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			const streak = p.currentStreak ?? 0;
 			const longestStreak = p.longestStreak ?? streak;
 			const penalties = 0;
-			const recentActivities = Array.isArray((p as any).recentActivities) ? (p as any).recentActivities : [];
-			const earliestApprovedThisWeekMs = recentActivities.reduce((earliest: number | null, activity: any) => {
-				const raw = activity?.startDate ?? activity?.date ?? activity?.start_date_local ?? activity?.start_date ?? null;
-				if (!raw) return earliest;
+				const recentActivities = p.recentActivities ?? p.recent_activities ?? [];
+				const earliestApprovedThisWeekMs = recentActivities.reduce((earliest: number | null, activity) => {
+					const raw = activity?.startDate ?? activity?.date ?? activity?.start_date_local ?? activity?.start_date ?? null;
+					if (!raw) return earliest;
 				const ts = new Date(raw).getTime();
 				if (!Number.isFinite(ts)) return earliest;
 				if (ts < currentWeekStartMs || ts >= currentWeekEndMs) return earliest;
@@ -446,11 +460,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		.map((standing, i) => ({ ...standing, rank: i + 1 }));
 
 	const activePunishmentMeta = useMemo(() => {
-		if (!activePunishment) return null;
-		const from = players.find((p) => {
-			const createdBy = activePunishment.createdBy || "";
-			return p.id === createdBy || ((p as any).userId && (p as any).userId === createdBy);
-		});
+			if (!activePunishment) return null;
+			const from = players.find((p) => {
+				const createdBy = activePunishment.createdBy || "";
+				return p.id === createdBy || ((p.userId ?? p.user_id ?? null) === createdBy);
+			});
 		return {
 			text: activePunishment.text,
 			week: activePunishment.week,
@@ -476,13 +490,13 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 			myPlayerId,
 			myPlayerName,
 			standings: standingsData,
-			hearts: heartsData,
-			currentWeek,
-			totalWeeks,
-			weekEndDate,
-			potAmount,
-			weeklyAnte,
-		});
+				hearts: heartsData,
+				currentWeek,
+				totalWeeks,
+				weekEndDate: new Date(weekEndDateMs),
+				potAmount,
+				weeklyAnte,
+			});
 	}, [
 		lobbyData.id,
 		lobbyData.name,
@@ -497,13 +511,13 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 		myPlayerId,
 		myPlayerName,
 		standingsData,
-		heartsData,
-		currentWeek,
-		totalWeeks,
-		weekEndDate,
-		potAmount,
-		weeklyAnte,
-	]);
+			heartsData,
+			currentWeek,
+			totalWeeks,
+			weekEndDateMs,
+			potAmount,
+			weeklyAnte,
+		]);
 
 	// Determine host controls match status
 	const matchStatus: "AWAITING_HOST" | "ARMED" | "ACTIVE" | "COMPLETED" = 
@@ -610,11 +624,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 
 				{isChallengeMode && requireWeekReadyGate && weekStatus === "PENDING_CONFIRMATION" && activePunishment ? (
 					<div className="space-y-6">
-						<WeekSetup
+							<WeekSetup
 							lobbyId={lobbyData.id}
 							week={activePunishment.week}
 							punishmentText={activePunishment.text}
-							mode={mode as any}
+								mode={mode}
 							challengeSettings={lobbyData.challengeSettings || null}
 							players={players}
 							isOwner={isOwner}
@@ -640,11 +654,11 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 							)}
 
 							{/* Challenge Mode Hero */}
-								{stage !== "COMPLETED" && isChallengeMode && mode !== "CHALLENGE_ROULETTE" && (
-									<ChallengeHero
-										lobbyId={lobbyData.id}
-										mode={mode as any}
-										challengeSettings={lobbyData.challengeSettings || null}
+									{stage !== "COMPLETED" && isChallengeMode && mode !== "CHALLENGE_ROULETTE" && (
+										<ChallengeHero
+											lobbyId={lobbyData.id}
+											mode={mode}
+											challengeSettings={lobbyData.challengeSettings || null}
 										seasonStart={lobbyData.seasonStart}
 										seasonEnd={lobbyData.seasonEnd}
 										isOwner={isOwner}
@@ -754,12 +768,12 @@ export function LobbyLayout(props: LobbyLayoutProps) {
 						lobbyId={lobbyData.id}
 						ownerPlayerId={lobbyData.ownerId}
 						defaultWeekly={lobbyData.weeklyTarget ?? 3}
-					defaultLives={lobbyData.initialLives ?? 3}
-					defaultSeasonEnd={lobbyData.seasonEnd}
-					defaultInitialPot={(lobbyData as any).initialPot ?? 0}
-					defaultWeeklyAnte={(lobbyData as any).weeklyAnte ?? 10}
-					defaultScalingEnabled={(lobbyData as any).scalingEnabled ?? false}
-					defaultPerPlayerBoost={(lobbyData as any).perPlayerBoost ?? 0}
+						defaultLives={lobbyData.initialLives ?? 3}
+						defaultSeasonEnd={lobbyData.seasonEnd}
+						defaultInitialPot={lobbyData.initialPot ?? 0}
+						defaultWeeklyAnte={lobbyData.weeklyAnte ?? 10}
+						defaultScalingEnabled={lobbyData.scalingEnabled ?? false}
+						defaultPerPlayerBoost={lobbyData.perPlayerBoost ?? 0}
 					onSaved={() => { setEditOpen(false); onRefresh?.(); }}
 					hideTrigger
 				/>

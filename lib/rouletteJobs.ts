@@ -12,6 +12,42 @@ type RunWeeklyRouletteJobOptions = {
 	lobbyId?: string;
 };
 
+type RouletteLobbyRow = {
+	id: string;
+	mode: string;
+	status: string;
+	stage: string | null;
+	season_start: string | null;
+	challenge_settings: Record<string, unknown> | null;
+};
+
+type WeekStatusRow = {
+	week_status: string | null;
+};
+
+type PreviousWeekRow = {
+	text: string | null;
+	created_by: string | null;
+};
+
+type PunishmentItemRow = {
+	id: string;
+	text: string | null;
+	created_by: string | null;
+	active: boolean | null;
+};
+
+type SpinEventRow = {
+	id: string;
+	started_at: string;
+	winner_item_id: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+	if (error instanceof Error && error.message) return error.message;
+	return String(error || fallback);
+}
+
 export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions = {}) {
 	const supabase = getServerSupabase();
 	if (!supabase) {
@@ -50,9 +86,9 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 	const skipped: string[] = [];
 	const errors: Array<{ lobbyId: string; error: string }> = [];
 
-	for (const lobby of (lobbies ?? []) as any[]) {
+	for (const lobby of (lobbies ?? []) as RouletteLobbyRow[]) {
 		const lobbyId = String(lobby.id);
-		const challengeSettings = (lobby.challenge_settings || {}) as Record<string, any>;
+		const challengeSettings = (lobby.challenge_settings || {}) as Record<string, unknown>;
 		const autoSpinEnabled = Boolean(challengeSettings.autoSpinAtWeekStart ?? false);
 		if (!autoSpinEnabled) {
 			skipped.push(`${lobbyId}:AUTO_SPIN_DISABLED`);
@@ -74,7 +110,7 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 					.select("week_status")
 					.eq("lobby_id", lobbyId)
 					.eq("week", weekByDate);
-				const hasStartedCurrentWeek = (currentWeekRows || []).some((row: any) => {
+				const hasStartedCurrentWeek = ((currentWeekRows ?? []) as WeekStatusRow[]).some((row) => {
 					const wkStatus = String(row?.week_status || "");
 					return wkStatus === "ACTIVE" || wkStatus === "COMPLETE";
 				});
@@ -127,7 +163,7 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 						.order("created_at", { ascending: true });
 					if (previousWeek && previousWeek.length > 0) {
 						await supabase.from("lobby_punishments").insert(
-							previousWeek.map((row: any) => ({
+							(previousWeek as PreviousWeekRow[]).map((row) => ({
 								lobby_id: lobbyId,
 								week,
 								text: String(row.text || "").slice(0, 140),
@@ -177,7 +213,7 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 					.eq("week", week);
 			}
 
-			const pool = items.filter((x: any) => !x.active);
+			const pool = ((items ?? []) as PunishmentItemRow[]).filter((item) => !item.active);
 			if (!pool.length) {
 				skipped.push(`${lobbyId}:EMPTY_POOL_WEEK_${week}`);
 				continue;
@@ -185,7 +221,7 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 			const winner = pool[Math.floor(Math.random() * pool.length)];
 			const startedAt = new Date(Date.now() + 1500).toISOString();
 
-			let spinEvent: any = null;
+			let spinEvent: SpinEventRow | null = null;
 			try {
 				const { data, error } = await supabase
 					.from("lobby_spin_events")
@@ -206,15 +242,15 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 							.eq("lobby_id", lobbyId)
 							.eq("week", week)
 							.maybeSingle();
-						spinEvent = existing;
+						spinEvent = (existing as SpinEventRow | null) ?? null;
 					} else {
 						throw error;
 					}
 				} else {
-					spinEvent = data;
+					spinEvent = (data as SpinEventRow | null) ?? null;
 				}
-			} catch (e: any) {
-				throw new Error(`SPIN_EVENT_FAILED:${e?.message || String(e)}`);
+			} catch (error: unknown) {
+				throw new Error(`SPIN_EVENT_FAILED:${getErrorMessage(error, "spin event failed")}`);
 			}
 			if (!spinEvent) {
 				skipped.push(`${lobbyId}:NO_SPIN_EVENT_WEEK_${week}`);
@@ -270,14 +306,14 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 						auto: true,
 					});
 					await processCommentaryQueue({ lobbyId, limit: 80, maxMs: 800 });
-				} catch (e) {
-					logError({ route: "cron/roulette/weekly", code: "AUTO_SPIN_EVENT_FAILED", err: e, lobbyId });
+				} catch (error) {
+					logError({ route: "cron/roulette/weekly", code: "AUTO_SPIN_EVENT_FAILED", err: error, lobbyId });
 				}
 
 			spun += 1;
-		} catch (e: any) {
-			errors.push({ lobbyId, error: e?.message || String(e) });
-			logError({ route: "cron/roulette/weekly", code: "AUTO_SPIN_FAILED", err: e, lobbyId });
+		} catch (error: unknown) {
+			errors.push({ lobbyId, error: getErrorMessage(error, "auto spin failed") });
+			logError({ route: "cron/roulette/weekly", code: "AUTO_SPIN_FAILED", err: error, lobbyId });
 		}
 	}
 

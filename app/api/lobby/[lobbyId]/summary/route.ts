@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
+import { resolvePunishmentWeek } from "@/lib/challengeWeek";
+
+type SummaryPrimaryCard =
+	| { kind: "pot"; amount: number; subtitle: string }
+	| { kind: "punishment"; text: string; suggestedBy?: string | null; weekLabel?: string | null };
+
+type SummaryToplineStats = {
+	heartsLeadersShort: string;
+	pointsLeaderShort: string;
+};
 
 type SummaryPayload = {
+	mode?: string;
 	daily?: {
 		dateKey: string;
 		totalWorkouts: number;
@@ -27,6 +38,26 @@ type SummaryPayload = {
 	quips?: Array<{ text: string; created_at: string }>;
 	quipsDaily?: Array<{ text: string; created_at: string }>;
 	quipsWeekly?: Array<{ text: string; created_at: string }>;
+	primarySummaryCard?: SummaryPrimaryCard;
+	toplineStats?: SummaryToplineStats;
+};
+
+type SummaryPlayerRow = { id: string; name: string; lives_remaining?: number | null; hearts?: number | null };
+type SummaryCountRow = { player_id: string };
+type SummaryLobbyRow = {
+	cash_pool?: number | null;
+	mode?: string | null;
+	status?: string | null;
+	season_start?: string | null;
+};
+type SummaryPunishmentRow = {
+	text?: string | null;
+	created_by?: string | null;
+	week?: number | null;
+};
+type SummaryHistoryEventRow = {
+	type?: string | null;
+	payload?: Record<string, unknown> | null;
 };
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
@@ -95,7 +126,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			.lt("created_at", startOfNextWeek.toISOString())
 			.order("created_at", { ascending: false })
 			.limit(50),
-		supabase.from("lobby").select("cash_pool").eq("id", lobbyId).maybeSingle()
+		supabase.from("lobby").select("cash_pool,mode,status,season_start").eq("id", lobbyId).maybeSingle()
 	]);
 
 	const playerMap = new Map<string, { name: string; lives: number }>();
@@ -103,20 +134,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	if ((!playersData || playersData.length === 0) && playersRes.error) {
 		console.error("summary players error", playersRes.error);
 	}
-	if (!playersData || playersData.length === 0) {
-		// Defensive retry in case a policy blocked the first query
-		const { data: retry } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
-		playersData = retry as any[] ?? [];
-	}
+		if (!playersData || playersData.length === 0) {
+			// Defensive retry in case a policy blocked the first query
+			const { data: retry } = await supabase.from("player").select("*").eq("lobby_id", lobbyId);
+			playersData = (retry as SummaryPlayerRow[] | null) ?? [];
+		}
 	for (const p of playersData) {
 		const lives = Number(p.lives_remaining ?? p.hearts ?? 0);
 		playerMap.set(p.id as string, { name: p.name as string, lives });
 	}
 
-	const countMap = (rows: any[]) => {
-		const m = new Map<string, number>();
-		for (const r of rows ?? []) {
-			const pid = r.player_id as string;
+		const countMap = (rows: SummaryCountRow[]) => {
+			const m = new Map<string, number>();
+			for (const r of rows ?? []) {
+				const pid = r.player_id;
 			m.set(pid, (m.get(pid) ?? 0) + 1);
 		}
 		return m;
@@ -151,13 +182,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		const lives = Array.from(playerMap.values()).map(p => p.lives);
 		const max = Math.max(...lives);
 		const min = Math.min(...lives);
-		const leaders = Array.from(playerMap.entries()).filter(([, v]) => v.lives === max).map(([id]) => playerMap.get(id)?.name || "Athlete");
-		const low = Array.from(playerMap.entries()).filter(([, v]) => v.lives === min).map(([id]) => playerMap.get(id)?.name || "Athlete");
+		const leaders = Array.from(playerMap.values()).filter((v) => v.lives === max).map((v) => v.name || "Athlete");
+		const low = Array.from(playerMap.values()).filter((v) => v.lives === min).map((v) => v.name || "Athlete");
 		return { leaders, low, max, min };
 	})();
 
 	const heartsDebug = (() => {
-		const playersArr = Array.from(playerMap.entries()).map(([id, v]) => ({ name: v.name, lives: v.lives }));
+		const playersArr = Array.from(playerMap.values()).map((v) => ({ name: v.name, lives: v.lives }));
 		if (!playersArr.length) return { playerCount: 0, leadersRaw: [], lowRaw: [] };
 		const maxLives = Math.max(...playersArr.map(p => p.lives));
 		const minLives = Math.min(...playersArr.map(p => p.lives));
@@ -168,10 +199,89 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		};
 	})();
 
-	const quipsDaily = (quipsDailyRes.data ?? []).map(q => ({ text: q.rendered as string, created_at: q.created_at as string }));
-	const quipsWeekly = (quipsWeeklyRes.data ?? []).map(q => ({ text: q.rendered as string, created_at: q.created_at as string }));
+	const quipsDaily = (quipsDailyRes.data ?? []).map((q) => ({ text: q.rendered as string, created_at: q.created_at as string }));
+	const quipsWeekly = (quipsWeeklyRes.data ?? []).map((q) => ({ text: q.rendered as string, created_at: q.created_at as string }));
+	const lobbyRow = (lobbyRes.data as SummaryLobbyRow | null) ?? null;
+	const lobbyMode = String(lobbyRow?.mode ?? "MONEY_SURVIVAL");
+	const isChallengeMode = lobbyMode.startsWith("CHALLENGE_");
+	const weeklyTop = topFromMap(weekCounts);
+	const shortNames = (names: string[]) => {
+		if (!names.length) return "—";
+		if (names.length <= 2) return names.join(" • ");
+		return `${names.slice(0, 2).join(" • ")} +${names.length - 2}`;
+	};
+	let primarySummaryCard: SummaryPrimaryCard = {
+		kind: "pot",
+		amount: Number(lobbyRow?.cash_pool ?? 0),
+		subtitle: "Stakes climbing."
+	};
+	if (isChallengeMode) {
+		let selectedPunishment: { text: string; suggestedBy?: string | null; weekLabel?: string | null } | null = null;
+		try {
+			const week = await resolvePunishmentWeek(supabase, lobbyId, {
+				mode: lobbyRow?.mode ?? null,
+				status: lobbyRow?.status ?? null,
+				seasonStart: lobbyRow?.season_start ?? null
+			});
+			const { data: activeData } = await supabase
+				.from("lobby_punishments")
+				.select("text,created_by,week")
+				.eq("lobby_id", lobbyId)
+				.eq("week", week)
+				.eq("active", true)
+				.maybeSingle();
+			const active = (activeData as SummaryPunishmentRow | null) ?? null;
+			if (active?.text) {
+				const createdByName = active.created_by ? (playerMap.get(String(active.created_by))?.name ?? null) : null;
+				selectedPunishment = {
+					text: String(active.text),
+					suggestedBy: createdByName,
+					weekLabel: `Week ${Number(active.week ?? week)}`
+				};
+			}
+			if (!selectedPunishment) {
+				const { data: eventData } = await supabase
+					.from("history_events")
+					.select("type,payload")
+					.eq("lobby_id", lobbyId)
+					.in("type", ["PUNISHMENT_SPUN", "WEEK_STARTED"])
+					.order("created_at", { ascending: false })
+					.limit(5);
+				const events = (eventData as SummaryHistoryEventRow[] | null) ?? [];
+				for (const row of events) {
+					const payload = row.payload ?? {};
+					const textValue = payload.text ?? payload.punishment;
+					if (typeof textValue === "string" && textValue.trim()) {
+						const payloadWeek = payload.week;
+						const weekLabel =
+							typeof payloadWeek === "number" && Number.isFinite(payloadWeek)
+								? `Week ${payloadWeek}`
+								: null;
+						selectedPunishment = { text: textValue.trim(), weekLabel };
+						break;
+					}
+				}
+			}
+		} catch {
+			// Keep fallback card when punishment lookup fails.
+		}
+		primarySummaryCard = selectedPunishment
+			? {
+					kind: "punishment",
+					text: selectedPunishment.text,
+					suggestedBy: selectedPunishment.suggestedBy ?? null,
+					weekLabel: selectedPunishment.weekLabel ?? null
+				}
+			: {
+					kind: "punishment",
+					text: "Awaiting roulette punishment",
+					suggestedBy: null,
+					weekLabel: null
+				};
+	}
 
 	const payload: SummaryPayload = {
+		mode: lobbyMode,
 		daily: {
 			dateKey: dayKey,
 			totalWorkouts: (manualDay.data?.length ?? 0) + (stravaDay.data?.length ?? 0),
@@ -182,12 +292,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 			totalWorkouts: (manualWeek.data?.length ?? 0) + (stravaWeek.data?.length ?? 0),
 			topPerformer: topFromMap(weekCounts)
 		},
-		pot: Number(lobbyRes.data?.cash_pool ?? 0),
+		pot: Number(lobbyRow?.cash_pool ?? 0),
 		hearts,
 		heartsDebug,
 		quips: quipsWeekly.slice(0, 5),
 		quipsDaily: quipsDaily.slice(0, 10),
-		quipsWeekly: quipsWeekly.slice(0, 20)
+		quipsWeekly: quipsWeekly.slice(0, 20),
+		primarySummaryCard,
+		toplineStats: {
+			heartsLeadersShort: shortNames(hearts?.leaders ?? []),
+			pointsLeaderShort: weeklyTop ? weeklyTop.name : "—"
+		}
 	};
 
 	return NextResponse.json({ summary: payload });

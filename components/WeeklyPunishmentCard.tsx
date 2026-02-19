@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import { authFetch } from "@/lib/clientAuth";
 
 type Item = { id: string; text: string; active: boolean; created_by?: string | null };
+type ReadyWindow = Window & { __gymdm_ready?: string };
 
-export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyId: string; seasonStart?: string; isOwner?: boolean }) {
+export function WeeklyPunishmentCard({ lobbyId, isOwner }: { lobbyId: string; isOwner?: boolean }) {
   const { user } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [active, setActive] = useState<Item | null>(null);
@@ -19,6 +20,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [locked, setLocked] = useState<boolean>(false);
+  const [readyLabel, setReadyLabel] = useState<string>("");
   const [wheelOpen, setWheelOpen] = useState(false);
   const [wheelAngle, setWheelAngle] = useState(0);
   const [wheelSegs, setWheelSegs] = useState<string[]>([]);
@@ -36,7 +38,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     return `conic-gradient(${stops.join(",")})`;
   }, [wheelSegs]);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
       if (!res.ok) {
@@ -51,7 +53,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
       if (typeof j.locked === "boolean") setLocked(!!j.locked);
       setErrorMsg(null);
     } catch { /* ignore */ }
-  }
+  }, [lobbyId]);
 
   useEffect(() => { 
     load();
@@ -70,10 +72,10 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
       clearInterval(id);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [lobbyId]);
+  }, [lobbyId, load, user?.id]);
   // Poll readiness (lightweight via live route)
   useEffect(() => {
-    let tm: any;
+    let tm: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
     async function poll() {
       if (cancelled || document.hidden) return;
@@ -85,11 +87,12 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
           const total = players.length;
           const readyCount = players.filter(p => p.ready).length;
           setAllReady(total > 0 && readyCount === total);
+          setReadyLabel(`${readyCount}/${total}`);
           if (user?.id) {
             const mine = players.find(p => p.userId === user.id);
             if (mine) setMePlayerId(mine.id);
           }
-          (window as any).__gymdm_ready = `${readyCount}/${total}`;
+          (window as ReadyWindow).__gymdm_ready = `${readyCount}/${total}`;
         }
       } catch { /* ignore */ }
       if (!cancelled) tm = setTimeout(poll, 15000); // Poll every 15 seconds
@@ -101,7 +104,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       cancelled = true;
-      clearTimeout(tm);
+      if (tm) clearTimeout(tm);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [lobbyId, user?.id]);
@@ -307,7 +310,7 @@ export function WeeklyPunishmentCard({ lobbyId, seasonStart, isOwner }: { lobbyI
           >
             Override start (owner)
           </button>
-          <div className="text-[11px] text-muted-foreground">{allReady ? "All players ready" : `Waiting for players… ${(window as any).__gymdm_ready || ""}`}</div>
+          <div className="text-[11px] text-muted-foreground">{allReady ? "All players ready" : `Waiting for players… ${readyLabel}`}</div>
         </div>
       )}
       {/* Spinning wheel overlay */}

@@ -76,6 +76,15 @@ create table if not exists user_profile (
   created_at timestamptz default now()
 );
 alter table user_profile enable row level security;
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name='user_profile' and column_name='manual_activity_target_lobbies') then
+    alter table user_profile add column manual_activity_target_lobbies text[] not null default '{}'::text[];
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name='user_profile' and column_name='updated_at') then
+    alter table user_profile add column updated_at timestamptz not null default now();
+  end if;
+end $$;
 -- Example policies (auth.uid() available in Supabase SQL runtime)
 -- create policy "profile read own" on user_profile for select using (auth.uid() = user_id);
 -- create policy "profile upsert own" on user_profile for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

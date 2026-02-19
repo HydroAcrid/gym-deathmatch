@@ -2,13 +2,22 @@ import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { getRequestUserId } from "@/lib/requestAuth";
 
+type PlayerSyncUpdate = Partial<{
+	user_id: string;
+	name: string;
+	location: string;
+	quip: string;
+}>;
+
 export async function POST(req: Request) {
 	const supabase = getServerSupabase();
 	if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 501 });
 	try {
 		const userId = await getRequestUserId(req);
 		if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		const { overwriteAll, playerId } = await req.json();
+		const body = (await req.json().catch(() => null)) as { overwriteAll?: unknown; playerId?: unknown } | null;
+		const overwriteAll = body?.overwriteAll === true;
+		const playerId = typeof body?.playerId === "string" ? body.playerId : "";
 		const { data: prof } = await supabase.from("user_profile").select("*").eq("user_id", userId).maybeSingle();
 		if (!prof) return NextResponse.json({ ok: true });
 
@@ -16,7 +25,7 @@ export async function POST(req: Request) {
 		if (playerId) {
 			const { data: ownedPlayer } = await supabase.from("player").select("id").eq("id", playerId).eq("user_id", userId).maybeSingle();
 			if (!ownedPlayer) return NextResponse.json({ error: "Player not found for user" }, { status: 403 });
-			const backfill: any = { user_id: userId };
+			const backfill: PlayerSyncUpdate = { user_id: userId };
 			if (prof.display_name) backfill.name = prof.display_name;
 			if (prof.location !== undefined) backfill.location = prof.location;
 			if (prof.quip !== undefined) backfill.quip = prof.quip;
@@ -25,7 +34,7 @@ export async function POST(req: Request) {
 
 		if (overwriteAll) {
 			// Force-sync all mapped fields from profile onto every player row for this user
-			const updates: any = {};
+			const updates: PlayerSyncUpdate = {};
 			if (prof.display_name) updates.name = prof.display_name;
 			if (prof.location !== null && prof.location !== undefined) updates.location = prof.location;
 			if (prof.quip !== null && prof.quip !== undefined) updates.quip = prof.quip;
@@ -45,7 +54,7 @@ export async function POST(req: Request) {
 					.eq("user_id", userId)
 					.in("name", ["Owner", "Me"]);
 			}
-			const updates: any = {};
+			const updates: PlayerSyncUpdate = {};
 			if (prof.location) updates.location = prof.location;
 			if (prof.quip) updates.quip = prof.quip;
 			if (Object.keys(updates).length) {
@@ -64,4 +73,3 @@ export async function POST(req: Request) {
 		return NextResponse.json({ ok: false });
 	}
 }
-

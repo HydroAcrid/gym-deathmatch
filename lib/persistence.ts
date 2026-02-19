@@ -1,6 +1,5 @@
 import { getServerSupabase } from "./supabaseClient";
 import type { StravaTokens } from "./strava";
-import type { StravaTokenRow } from "@/types/db";
 
 export async function upsertUserStravaTokens(userId: string, tokens: StravaTokens): Promise<boolean> {
 	const supabase = getServerSupabase();
@@ -56,7 +55,7 @@ export async function upsertStravaTokens(playerId: string, tokens: StravaTokens)
 export async function updateLobbyStage(lobbyId: string, updates: Partial<{ status: "pending"|"scheduled"|"transition_spin"|"active"|"completed"; scheduledStart: string | null; seasonStart: string | null; stage?: "PRE_STAGE"|"ACTIVE"|"COMPLETED" }>): Promise<boolean> {
 	const supabase = getServerSupabase();
 	if (!supabase) return false;
-	const payload: any = {};
+	const payload: Record<string, unknown> = {};
 	if (updates.status !== undefined) payload.status = updates.status;
 	if (updates.scheduledStart !== undefined) payload.scheduled_start = updates.scheduledStart;
 	if (updates.seasonStart !== undefined) payload.season_start = updates.seasonStart;
@@ -72,7 +71,7 @@ export async function updateLobbyStage(lobbyId: string, updates: Partial<{ statu
 export async function updateLobbySettingsCore(lobbyId: string, updates: Partial<{ mode: string; suddenDeathEnabled: boolean }>): Promise<boolean> {
 	const supabase = getServerSupabase();
 	if (!supabase) return false;
-	const payload: any = {};
+	const payload: Record<string, unknown> = {};
 	if (updates.mode !== undefined) payload.mode = updates.mode;
 	if (updates.suddenDeathEnabled !== undefined) payload.sudden_death_enabled = updates.suddenDeathEnabled;
 	const { error } = await supabase.from("lobby").update(payload).eq("id", lobbyId);
@@ -82,5 +81,3 @@ export async function updateLobbySettingsCore(lobbyId: string, updates: Partial<
 	}
 	return true;
 }
-
-

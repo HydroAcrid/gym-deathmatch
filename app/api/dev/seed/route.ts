@@ -26,9 +26,8 @@ export async function POST(req: Request) {
 			{ id: "demo-b", lobby_id: lobbyId, name: "Demo B", avatar_url: null, quip: "Bring it." }
 		]);
 		return NextResponse.json({ ok: true, lobbyId });
-	} catch (e) {
+	} catch {
 		return NextResponse.json({ error: "seed failed" }, { status: 500 });
 	}
 }
-
 

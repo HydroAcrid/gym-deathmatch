@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import type { Lobby } from "@/types/game";
 import { LobbyLayout } from "./LobbyLayout";
 import { PreStageView } from "./PreStageView";
@@ -20,7 +20,10 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	// Realtime & Live Data Hooks
 	const { data: liveData, reload, loading, error } = useLobbyLive(initialLobby.id);
 	useLobbyRealtime(initialLobby.id, { onChange: reload });
-	const liveErrorStatus = Number((error as any)?.status || 0);
+	const liveErrorStatus =
+		typeof error === "object" && error !== null && "status" in error
+			? Number((error as { status?: unknown }).status ?? 0)
+			: 0;
 	const showRejoinCta = !liveData && (liveErrorStatus === 401 || liveErrorStatus === 403);
 
 	// Merge live data with initial data
@@ -29,6 +32,8 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const liveSummary = liveData?.seasonSummary;
 	const liveSeasonStatus = liveData?.seasonStatus;
 	const effectiveSeasonStatus = liveSeasonStatus || lobby.status;
+	const lobbyMode = lobby.mode;
+	const lobbyOwnerUserId = (lobby as Lobby & { ownerUserId?: string | null }).ownerUserId ?? null;
 
 	// Fallback poll for week status in challenge modes (every 5s)
 	// This could be moved to realtime if we have a table for it, but sticking to polling for now as requested
@@ -36,7 +41,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const [pendingSpinReplay, setPendingSpinReplay] = useState<boolean>(false);
 	const [punishmentsLoaded, setPunishmentsLoaded] = useState<boolean>(false);
 	useEffect(() => {
-		if (!String((lobby as any).mode || "").startsWith("CHALLENGE_")) return;
+		if (!String(lobby.mode || "").startsWith("CHALLENGE_")) return;
 		let cancelled = false;
 		async function load() {
 			try {
@@ -63,7 +68,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 			cancelled = true;
 			clearInterval(id);
 		};
-	}, [lobby.id, (lobby as any).mode, liveData?.fetchedAt]); // Re-check when live data updates
+	}, [lobby, lobby.id, lobbyMode, liveData?.fetchedAt]); // Re-check when live data updates
 
 	useEffect(() => {
 		setWeekStatus(null);
@@ -99,13 +104,13 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 
 	// Provide a scheduled start when we fake pre-stage so countdown renders
 	const stagedLobby: Lobby = shouldShowPre && !lobby.scheduledStart
-		? { ...lobby, status: effectiveSeasonStatus ?? "scheduled", scheduledStart: new Date(Date.now() + 5 * 60 * 1000).toISOString() }
+		? { ...lobby, status: effectiveSeasonStatus ?? "scheduled", scheduledStart: "2099-01-01T00:05:00.000Z" }
 		: lobby;
 
 		const ownerPlayer = (lobby.players || []).find(p => p.id === lobby.ownerId);
 		const overlayIsOwner = Boolean(
 			user?.id &&
-			(((lobby as any).ownerUserId && user.id === (lobby as any).ownerUserId) ||
+			((lobbyOwnerUserId && user.id === lobbyOwnerUserId) ||
 				(ownerPlayer?.userId && ownerPlayer.userId === user.id))
 		);
 

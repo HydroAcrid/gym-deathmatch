@@ -14,17 +14,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	const { searchParams } = new URL(req.url);
 	const week = parseInt(searchParams.get("week") || "1", 10);
 	
-	try {
-		const { data } = await supabase
-			.from("week_ready_states")
-			.select("player_id, ready")
-			.eq("lobby_id", lobbyId)
-			.eq("week", week);
-		
-		const readyByPlayer: Record<string, boolean> = {};
-		(data || []).forEach((r: any) => {
-			readyByPlayer[r.player_id] = !!r.ready;
-		});
+		try {
+			const { data } = await supabase
+				.from("week_ready_states")
+				.select("player_id, ready")
+				.eq("lobby_id", lobbyId)
+				.eq("week", week);
+			
+			const readyByPlayer: Record<string, boolean> = {};
+			(data || []).forEach((r: { player_id: string; ready: boolean | null }) => {
+				readyByPlayer[r.player_id] = !!r.ready;
+			});
 		
 		return NextResponse.json({ ok: true, readyByPlayer });
 	} catch (e) {

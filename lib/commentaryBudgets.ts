@@ -5,6 +5,7 @@ export type CommentaryBudgetDecision = {
 	reason?: string;
 	meta?: Record<string, unknown>;
 };
+type DbClient = NonNullable<ReturnType<typeof import("@/lib/supabaseClient").getServerSupabase>>;
 
 function startOfUtcDay(dayKey?: string): Date {
 	if (dayKey && /^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
@@ -15,7 +16,7 @@ function startOfUtcDay(dayKey?: string): Date {
 }
 
 export async function checkCommentaryBudget(input: {
-	supabase: any;
+	supabase: DbClient;
 	output: CommentaryDispatchOutput;
 	now?: Date;
 }): Promise<CommentaryBudgetDecision> {
@@ -47,7 +48,8 @@ export async function checkCommentaryBudget(input: {
 
 	if (output.budgetType === "feed_per_workout") {
 		const lobbyId = output.comment?.lobbyId;
-		const activityId = output.comment?.activityId ?? String((output.meta as any)?.activityId || "");
+		const metaActivityId = typeof output.meta?.activityId === "string" ? output.meta.activityId : "";
+		const activityId = output.comment?.activityId ?? metaActivityId;
 		if (!lobbyId || !activityId) {
 			return { allowed: false, reason: "missing_activity_scope" };
 		}
@@ -66,9 +68,10 @@ export async function checkCommentaryBudget(input: {
 	}
 
 	if (output.budgetType === "daily_push_per_user_per_day") {
-		const userId = output.push?.userId ?? String((output.meta as any)?.userId || "");
+		const metaUserId = typeof output.meta?.userId === "string" ? output.meta.userId : "";
+		const userId = output.push?.userId ?? metaUserId;
 		if (!userId) return { allowed: false, reason: "missing_user_id" };
-		const dayKey = String((output.meta as any)?.dayKey || "");
+		const dayKey = typeof output.meta?.dayKey === "string" ? output.meta.dayKey : "";
 		const dayStartIso = startOfUtcDay(dayKey).toISOString();
 		const { count, error } = await supabase
 			.from("commentary_rule_runs")

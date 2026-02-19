@@ -6,9 +6,11 @@ import { authFetch } from "@/lib/clientAuth";
 import { formatLocalDate, formatLocalDateTime } from "@/lib/datetime";
 
 type Contribution = { week_start: string; amount: number; player_count: number };
-type EventRow = { id: string; type: string; payload: any; created_at: string; target_player_id?: string | null };
+type EventPayload = Record<string, unknown>;
+type EventRow = { id: string; type: string; payload: EventPayload | null; created_at: string; target_player_id?: string | null };
 type PlayerLite = { id: string; name: string; avatar_url?: string | null; user_id?: string | null };
 type UserPun = { id: string; user_id: string; lobby_id: string; week: number; text: string; resolved: boolean };
+type LobbyMeta = { initial_pot?: number | null; season_number?: number | null };
 
 export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyId: string }> }) {
 	const [lobbyId, setLobbyId] = useState<string>("");
@@ -32,19 +34,23 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 				supabase.from("lobby").select("initial_pot,season_number").eq("id", lobbyId).maybeSingle(),
 				supabase.from("user_punishments").select("*").eq("lobby_id", lobbyId).order("created_at")
 			]);
-			setPlayers((p ?? []) as any);
-			setContribs((c ?? []) as any);
-			setEvents((e ?? []) as any);
-			setInitialPot((l as any)?.initial_pot ?? 0);
-			setSeasonNumber((l as any)?.season_number ?? 1);
-			setUserPuns((up ?? []) as any);
+			setPlayers((p ?? []) as PlayerLite[]);
+			setContribs((c ?? []) as Contribution[]);
+			setEvents((e ?? []) as EventRow[]);
+			const lobbyMeta = (l as LobbyMeta | null) ?? null;
+			setInitialPot(lobbyMeta?.initial_pot ?? 0);
+			setSeasonNumber(lobbyMeta?.season_number ?? 1);
+			setUserPuns((up ?? []) as UserPun[]);
 		})();
 	}, [params]);
 
 	const totalContribs = contribs.reduce((s, x) => s + (x.amount || 0), 0);
 	const finalPot = (initialPot || 0) + totalContribs;
 	const ko = events.find(ev => ev.type === "SEASON_KO");
-	const loserName = ko ? (players.find(p => p.id === (ko.payload?.loserPlayerId || ""))?.name || "Player") : "";
+	const koPayload = (ko?.payload && typeof ko.payload === "object" ? ko.payload : null) as EventPayload | null;
+	const koLoserId = typeof koPayload?.loserPlayerId === "string" ? koPayload.loserPlayerId : "";
+	const koCurrentPot = typeof koPayload?.currentPot === "number" ? koPayload.currentPot : finalPot;
+	const loserName = ko ? (players.find(p => p.id === koLoserId)?.name || "Player") : "";
 
 	return (
 		<div className="min-h-screen">
@@ -87,7 +93,7 @@ export default function SeasonSummaryPage({ params }: { params: Promise<{ lobbyI
 									: <div className="h-full w-full flex items-center justify-center text-2xl">💀</div>}
 							</div>
 							<div className="text-sm">
-								<span className="font-display text-primary">{loserName}</span> was KO’d · Pot at KO: ${ko.payload?.currentPot ?? finalPot}
+								<span className="font-display text-primary">{loserName}</span> was KO’d · Pot at KO: ${koCurrentPot}
 							</div>
 							<div className="text-xs text-muted-foreground ml-auto">{formatLocalDateTime(ko.created_at, true)}</div>
 						</div>

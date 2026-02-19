@@ -4,45 +4,77 @@ import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { resolvePunishmentWeek } from "@/lib/challengeWeek";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
+type LobbyPunishmentRow = {
+	season_start: string | null;
+	status: string | null;
+	mode: string | null;
+	challenge_settings?: {
+		allowSuggestions?: boolean;
+		suggestionCharLimit?: number;
+	} | null;
+};
+
+type PunishmentItemRow = {
+	id: string;
+	active: boolean | null;
+	locked: boolean | null;
+	week_status: string | null;
+};
+
+type SpinEventRow = {
+	id: string;
+	started_at: string;
+	winner_item_id: string;
+	week: number;
+};
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(_req, lobbyId);
 	if (!access.ok) return jsonError(access.code, access.message, access.status);
 	if (!access.memberPlayerId && !access.isOwner) return jsonError("FORBIDDEN", "Not a lobby member", 403);
 	const supabase = access.supabase;
-	const { data: lobby } = await supabase.from("lobby").select("season_start,status,mode").eq("id", lobbyId).maybeSingle();
+	const { data: lobbyData } = await supabase.from("lobby").select("season_start,status,mode").eq("id", lobbyId).maybeSingle();
+	const lobby = (lobbyData as LobbyPunishmentRow | null) ?? null;
 	if (!lobby) return jsonError("NOT_FOUND", "Lobby not found", 404);
 	const week = await resolvePunishmentWeek(supabase, lobbyId, {
-		mode: (lobby as any).mode,
-		status: (lobby as any).status,
-		seasonStart: (lobby as any).season_start
+		mode: lobby.mode,
+		status: lobby.status,
+		seasonStart: lobby.season_start
 	});
-	const { data } = await supabase.from("lobby_punishments").select("*").eq("lobby_id", lobbyId).eq("week", week).order("created_at", { ascending: true });
-	const { data: spinEvent } = await supabase
+	const { data } = await supabase
+		.from("lobby_punishments")
+		.select("*")
+		.eq("lobby_id", lobbyId)
+		.eq("week", week)
+		.order("created_at", { ascending: true });
+	const items = (data as PunishmentItemRow[] | null) ?? [];
+	const { data: spinEventData } = await supabase
 		.from("lobby_spin_events")
 		.select("id,started_at,winner_item_id,week")
 		.eq("lobby_id", lobbyId)
 		.eq("week", week)
 		.maybeSingle();
-	const active = (data || []).find((x: any) => x.active);
+	const spinEvent = (spinEventData as SpinEventRow | null) ?? null;
+	const active = items.find((x) => !!x.active);
 	// Locked: when any row is locked true (we treat as list-level lock)
-	const locked = (data || []).length > 0 ? (data as any[]).every((x: any) => !!x.locked) : false;
+	const locked = items.length > 0 ? items.every((x) => !!x.locked) : false;
 	// Week status: get from active punishment or default to PENDING_PUNISHMENT
-	const weekStatus = active?.week_status || (data && data.length > 0 ? "PENDING_PUNISHMENT" : null);
+	const weekStatus = active?.week_status || (items.length > 0 ? "PENDING_PUNISHMENT" : null);
 	return NextResponse.json({
 		week,
-		items: data || [],
+		items,
 		active: active || null,
 		locked,
 		weekStatus,
 		spinEvent: spinEvent
-			? {
-					spinId: (spinEvent as any).id as string,
-					startedAt: (spinEvent as any).started_at as string,
-					winnerItemId: (spinEvent as any).winner_item_id as string,
-					week: (spinEvent as any).week as number
-			  }
-			: null
+				? {
+						spinId: spinEvent.id,
+						startedAt: spinEvent.started_at,
+						winnerItemId: spinEvent.winner_item_id,
+						week: spinEvent.week
+				  }
+				: null
 	});
 }
 
@@ -59,18 +91,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		const body = await req.json();
 		const { text } = body || {};
 		if (!text) return jsonError("MISSING_FIELDS", "Missing fields");
-		const { data: lobby } = await supabase
+		const { data: lobbyData } = await supabase
 			.from("lobby")
 			.select("season_start,status,mode,challenge_settings")
 			.eq("id", lobbyId)
 			.maybeSingle();
+		const lobby = (lobbyData as LobbyPunishmentRow | null) ?? null;
 		if (!lobby) return jsonError("NOT_FOUND", "Lobby not found", 404);
 		const week = await resolvePunishmentWeek(supabase, lobbyId, {
-			mode: (lobby as any).mode,
-			status: (lobby as any).status,
-			seasonStart: (lobby as any).season_start
+			mode: lobby.mode,
+			status: lobby.status,
+			seasonStart: lobby.season_start
 		});
-		const challengeSettings = (lobby as any).challenge_settings || {};
+		const challengeSettings = lobby.challenge_settings ?? {};
 		const allowSuggestions = Boolean(challengeSettings.allowSuggestions ?? true);
 		if (!allowSuggestions && !access.isOwner) {
 			return jsonError("SUGGESTIONS_DISABLED", "Suggestions are disabled for this lobby", 403);

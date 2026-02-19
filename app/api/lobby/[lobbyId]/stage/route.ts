@@ -9,10 +9,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ lobbyI
 		const { lobbyId } = await params;
 		const decoded = decodeURIComponent(lobbyId);
 		const access = await resolveLobbyAccess(req, decoded);
-		if (!access.ok) return jsonError(access.code, access.message, access.status);
-		if (!access.isOwner) return jsonError("FORBIDDEN", "Owner only", 403);
-		const body = await req.json();
-		const payload: any = {};
+			if (!access.ok) return jsonError(access.code, access.message, access.status);
+			if (!access.isOwner) return jsonError("FORBIDDEN", "Owner only", 403);
+			const body = await req.json();
+			const payload: Record<string, unknown> = {};
 		if (body.status) {
 			payload.status = body.status;
 			// When setting status to "scheduled", ensure stage stays PRE_STAGE

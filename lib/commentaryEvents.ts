@@ -122,8 +122,10 @@ export class CommentaryQueueUnavailableError extends Error {
 }
 
 export function isCommentaryQueueUnavailableError(err: unknown): boolean {
-	const message = String((err as any)?.message || "").toLowerCase();
-	const code = String((err as any)?.code || "");
+	const hasMessage = typeof err === "object" && err !== null && "message" in err;
+	const hasCode = typeof err === "object" && err !== null && "code" in err;
+	const message = String(hasMessage ? (err as { message?: unknown }).message ?? "" : "").toLowerCase();
+	const code = String(hasCode ? (err as { code?: unknown }).code ?? "" : "");
 	if (err instanceof CommentaryQueueUnavailableError) return true;
 	return (
 		code === "42P01" ||
@@ -159,7 +161,7 @@ export async function enqueueCommentaryEvent<T extends CommentaryEventType>(inpu
 				lobby_id: input.lobbyId,
 				event_type: input.type,
 				event_key: input.key,
-				payload: input.payload as any,
+				payload: input.payload as unknown as Record<string, unknown>,
 				status: "queued",
 				next_attempt_at: nowIso,
 			},

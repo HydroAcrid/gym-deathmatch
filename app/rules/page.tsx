@@ -5,10 +5,23 @@ import { OwnerSettingsModal } from "@/components/OwnerSettingsModal";
 import { useAuth } from "@/components/AuthProvider";
 import { authFetch } from "@/lib/clientAuth";
 
+type RulesLobbyPlayer = { id: string; userId?: string | null };
+type RulesLobbyInfo = {
+	ownerId?: string | null;
+	players?: RulesLobbyPlayer[];
+	initialPot?: number;
+	weeklyAnte?: number;
+	scalingEnabled?: boolean;
+	perPlayerBoost?: number;
+	weeklyTarget?: number;
+	initialLives?: number;
+	seasonEnd?: string;
+};
+
 export default function RulesPage() {
 	const searchParams = useSearchParams();
 	const lobbyId = searchParams?.get("lobbyId") ?? "";
-	const [info, setInfo] = useState<any>(null);
+	const [info, setInfo] = useState<RulesLobbyInfo | null>(null);
 	const { user } = useAuth();
 
 	const loadLobby = useCallback(async () => {
@@ -34,7 +47,7 @@ export default function RulesPage() {
 		info?.ownerId &&
 		user?.id &&
 		Array.isArray(info?.players) &&
-		info.players.some((p: any) => p.id === info.ownerId && p.userId === user.id)
+		info.players.some((player) => player.id === info.ownerId && player.userId === user.id)
 	);
 
 	const rules = [

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+type DebugWindow = Window & { __gymdm_ready?: string };
+
 export function DebugFooter() {
 	const [enabled, setEnabled] = useState(false);
 	const [ready, setReady] = useState<string>("");
@@ -11,7 +13,7 @@ export function DebugFooter() {
 			if (typeof window === "undefined") return;
 			const search = new URLSearchParams(window.location.search);
 			setEnabled(search.get("debug") === "1");
-			setReady((window as any).__gymdm_ready || "");
+			setReady((window as DebugWindow).__gymdm_ready || "");
 		};
 		check();
 		const id = setInterval(check, 2000);
@@ -29,4 +31,3 @@ export function DebugFooter() {
 		</div>
 	);
 }
-

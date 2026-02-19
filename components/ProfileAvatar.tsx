@@ -15,6 +15,15 @@ type ProfileAvatarProps = {
 	className?: string;
 };
 
+function extractErrorMessage(error: unknown): string {
+	if (error instanceof Error && error.message) return error.message;
+	if (typeof error === "object" && error !== null && "message" in error) {
+		const message = (error as { message?: unknown }).message;
+		if (typeof message === "string") return message;
+	}
+	return String(error);
+}
+
 export function ProfileAvatar({
 	variant = "default",
 	trigger = "avatar",
@@ -49,7 +58,7 @@ export function ProfileAvatar({
 				// ignore
 			}
 		})();
-	}, [user?.id]);
+	}, [user]);
 
 	if (!user) return null;
 
@@ -81,7 +90,7 @@ export function ProfileAvatar({
 				contentType: file.type || "image/*"
 			});
 			if (upErr) {
-				const msg = (upErr as any)?.message || String(upErr);
+				const msg = extractErrorMessage(upErr);
 				if (msg.includes("Bucket not found")) {
 					alert("Storage bucket 'avatars' not found. Create a public bucket named 'avatars' in Supabase → Storage.");
 				} else if (msg.toLowerCase().includes("row-level security")) {

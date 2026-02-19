@@ -89,11 +89,11 @@ export async function fetchRecentActivities(accessToken: string): Promise<unknow
 				Authorization: `Bearer ${accessToken}`
 			}
 		});
-		if (!res.ok) {
-			const text = await res.text();
-			console.error("Strava activities fetch failed:", res.status, text);
-			const err: any = new Error("Failed to fetch Strava activities");
-			err.status = res.status;
+			if (!res.ok) {
+				const text = await res.text();
+				console.error("Strava activities fetch failed:", res.status, text);
+				const err = new Error("Failed to fetch Strava activities") as Error & { status?: number };
+				err.status = res.status;
 			// On 429, prefer serving stale cache if present
 			if (res.status === 429) {
 				// enter short cooldown
@@ -176,5 +176,4 @@ export function toActivitySummary(raw: RawStravaActivity) {
 		isNight: hour >= 20 || hour < 5
 	};
 }
-
 

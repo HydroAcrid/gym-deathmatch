@@ -74,6 +74,25 @@ function readInteractionSnapshot(raw: string | null): LobbyInteractionsSnapshot 
 	}
 }
 
+function HomepageCompliancePanel() {
+	return (
+		<div className="scoreboard-panel p-4 sm:p-5 space-y-2">
+			<div className="font-display text-sm tracking-widest text-primary">ABOUT THIS APP</div>
+			<p className="text-xs sm:text-sm text-muted-foreground">
+				Gym Deathmatch tracks workouts, season standings, and challenge outcomes across your lobbies.
+			</p>
+			<p className="text-xs sm:text-sm text-muted-foreground">
+				When you sign in with Google, we use your account identity (name/email/profile) to create your player profile and manage lobby membership.
+			</p>
+			<div className="pt-1">
+				<Link href="/privacy" className="arena-badge px-4 py-2 text-xs">
+					PRIVACY POLICY
+				</Link>
+			</div>
+		</div>
+	);
+}
+
 export default function HomePage() {
 	const { user, isHydrated, signInWithGoogle } = useAuth();
 	const lastLobby = useLastLobbySnapshot();
@@ -262,8 +281,34 @@ export default function HomePage() {
 	if (!isHydrated) {
 		return (
 			<div className="min-h-screen">
-				<div className="container mx-auto max-w-3xl py-10 px-4">
+				<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
 					<div className="scoreboard-panel p-6 text-sm text-muted-foreground">Loading command hub...</div>
+					<HomepageCompliancePanel />
+				</div>
+			</div>
+		);
+	}
+
+	if (user && lastLobby?.id) {
+		return (
+			<div className="min-h-screen">
+				<div className="container mx-auto max-w-3xl py-10 px-4 space-y-6">
+					<div className="scoreboard-panel p-6 space-y-3">
+						<div className="arena-badge arena-badge-primary text-[10px]">RESUMING LOBBY</div>
+						<h1 className="font-display text-2xl tracking-widest text-primary">{lastLobby.name}</h1>
+						<p className="text-sm text-muted-foreground">
+							Taking you back to your most recent lobby.
+						</p>
+						<div className="flex gap-3 flex-wrap">
+							<Link href={`/lobby/${encodeURIComponent(lastLobby.id)}`} className="arena-badge arena-badge-primary px-4 py-2">
+								OPEN NOW
+							</Link>
+							<Link href="/lobbies" className="arena-badge px-4 py-2">
+								CHOOSE ANOTHER
+							</Link>
+						</div>
+					</div>
+					<HomepageCompliancePanel />
 				</div>
 			</div>
 		);
@@ -300,8 +345,12 @@ export default function HomePage() {
 							<Link href="/rules" className="arena-badge px-4 py-2">
 								READ RULES
 							</Link>
+							<Link href="/privacy" className="arena-badge px-4 py-2">
+								PRIVACY POLICY
+							</Link>
 						</div>
 					</div>
+					<HomepageCompliancePanel />
 				</div>
 			</div>
 		);
@@ -429,6 +478,7 @@ export default function HomePage() {
 						)}
 					</div>
 				</div>
+				<HomepageCompliancePanel />
 			</div>
 		);
 }

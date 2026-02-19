@@ -116,9 +116,13 @@ export function HeartsStatusBoard({ athletes, onAthleteSelect }: HeartsStatusBoa
                           className={`w-4 h-4 sm:w-5 sm:h-5 ${
                             i < athlete.hearts 
                               ? "text-destructive fill-destructive" 
-                              : "text-muted-foreground/40"
+                              : "text-foreground/65 fill-transparent"
                           }`}
-                          style={i < athlete.hearts ? { filter: 'drop-shadow(0 0 3px hsl(var(--destructive) / 0.5))' } : {}}
+                          style={
+                            i < athlete.hearts
+                              ? { filter: "drop-shadow(0 0 3px hsl(var(--destructive) / 0.5))" }
+                              : { strokeWidth: 2.25, filter: "drop-shadow(0 0 1px hsl(var(--foreground) / 0.25))" }
+                          }
                         />
                       ))}
                     </div>

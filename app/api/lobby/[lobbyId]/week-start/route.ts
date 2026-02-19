@@ -3,6 +3,12 @@ import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
+type ActivePunishmentRow = {
+	id: string;
+	text: string;
+	week_status: string | null;
+};
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
@@ -23,23 +29,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			.eq("week", week)
 			.eq("active", true)
 			.maybeSingle();
+		const active = (activePunishment as ActivePunishmentRow | null) ?? null;
 		
-		if (!activePunishment) {
+		if (!active) {
 			return jsonError("NO_ACTIVE_PUNISHMENT", "No active punishment found for this week", 404);
 		}
 		
 		// If already active, treat as idempotent success.
-		if ((activePunishment as any).week_status === "ACTIVE") {
+		if (active.week_status === "ACTIVE") {
 			await supabase.from("lobby").update({ status: "active", stage: "ACTIVE" }).eq("id", lobbyId);
 			void refreshLobbyLiveSnapshot(lobbyId);
 			return NextResponse.json({ ok: true, alreadyStarted: true });
 		}
 
 		// Update week_status to ACTIVE
-		const { error: updateError } = await supabase
-			.from("lobby_punishments")
-			.update({ week_status: "ACTIVE" })
-			.eq("id", activePunishment.id);
+			const { error: updateError } = await supabase
+				.from("lobby_punishments")
+				.update({ week_status: "ACTIVE" })
+				.eq("id", active.id);
 		
 		if (updateError) throw updateError;
 		
@@ -80,11 +87,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 		
 		// Log week start event
 		try {
-			await supabase.from("history_events").insert({
-				lobby_id: lobbyId,
-				type: "WEEK_STARTED",
-				payload: { week, punishment: activePunishment.text, hostName },
-			});
+				await supabase.from("history_events").insert({
+					lobby_id: lobbyId,
+					type: "WEEK_STARTED",
+					payload: { week, punishment: active.text, hostName },
+				});
 		} catch (e) {
 			logError({ route: "POST /api/lobby/[id]/week-start", code: "HISTORY_LOG_FAILED", err: e, lobbyId });
 		}

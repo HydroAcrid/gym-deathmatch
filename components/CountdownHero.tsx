@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { authFetch } from "@/lib/clientAuth";
@@ -31,14 +31,14 @@ export function CountdownHero({
 	numAthletes: number;
 }) {
 	const router = useRouter();
-	const [nowTick, setNowTick] = useState(0);
-	const remaining = useMemo(() => getRemaining(targetIso), [targetIso, nowTick]);
+	const [, forceTick] = useState(0);
+	const remaining = getRemaining(targetIso);
 	const warmup = remaining.totalMs > 24 * 60 * 60 * 1000;
 	const nearStart = remaining.totalMs > 0 && remaining.totalMs <= 10 * 60 * 1000;
 	const reached = remaining.totalMs === 0;
 
 	useEffect(() => {
-		const id = setInterval(() => setNowTick((n) => n + 1), 1000);
+		const id = setInterval(() => forceTick((n) => n + 1), 1000);
 		return () => clearInterval(id);
 	}, []);
 
@@ -131,4 +131,3 @@ function TimeBlock({ label, value }: { label: string; value: number }) {
 		</motion.div>
 	);
 }
-

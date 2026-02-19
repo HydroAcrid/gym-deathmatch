@@ -4,6 +4,13 @@ import type { PlayerRow } from "@/types/db";
 import { evaluateInviteGate, inviteReasonMessage } from "@/lib/inviteAccess";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
+type LobbyInviteRow = {
+	invite_enabled: boolean | null;
+	invite_expires_at: string | null;
+	invite_token_required: boolean | null;
+	invite_token: string | null;
+};
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
@@ -17,21 +24,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 
 		// Enforce invite controls for non-owner self-join flows.
 		if (!allowUnlinkedGuest) {
-			const { data: lobby } = await supabase
-				.from("lobby")
-				.select("*")
-				.eq("id", lobbyId)
-				.maybeSingle();
-			if (!lobby) return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
-			const gate = evaluateInviteGate({
-					isOwner: access.isOwner,
-					isMember: !!access.memberPlayerId || access.isOwner,
-					inviteEnabled: (lobby as any).invite_enabled !== false,
-					inviteExpiresAt: ((lobby as any).invite_expires_at as string | null) ?? null,
-					inviteTokenRequired: (lobby as any).invite_token_required === true,
-					inviteToken: ((lobby as any).invite_token as string | null) ?? null,
-					providedToken: typeof body.inviteToken === "string" ? body.inviteToken : null,
-				});
+				const { data: lobbyData } = await supabase
+					.from("lobby")
+					.select("*")
+					.eq("id", lobbyId)
+					.maybeSingle();
+				const lobby = (lobbyData as LobbyInviteRow | null) ?? null;
+				if (!lobby) return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
+				const gate = evaluateInviteGate({
+						isOwner: access.isOwner,
+						isMember: !!access.memberPlayerId || access.isOwner,
+						inviteEnabled: lobby.invite_enabled !== false,
+						inviteExpiresAt: lobby.invite_expires_at ?? null,
+						inviteTokenRequired: lobby.invite_token_required === true,
+						inviteToken: lobby.invite_token ?? null,
+						providedToken: typeof body.inviteToken === "string" ? body.inviteToken : null,
+					});
 			if (!gate.canJoin) {
 				return NextResponse.json(
 					{ error: inviteReasonMessage(gate.reason), code: gate.reason },
@@ -57,15 +65,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 			const { data: existing } = await supabase
 				.from("player")
 				.select("id")
-			.eq("lobby_id", lobbyId)
-			.eq("user_id", authUserId)
-			.maybeSingle();
-			if (existing?.id) {
-				// Update the existing player with any new profile data
-				const updateData: any = {};
-				if (body.name) updateData.name = body.name;
-				if (body.avatarUrl !== undefined) updateData.avatar_url = body.avatarUrl;
-				if (body.location !== undefined) updateData.location = body.location;
+				.eq("lobby_id", lobbyId)
+				.eq("user_id", authUserId)
+				.maybeSingle();
+				if (existing?.id) {
+					// Update the existing player with any new profile data
+					const updateData: Partial<Pick<PlayerRow, "name" | "avatar_url" | "location" | "quip">> = {};
+					if (body.name) updateData.name = body.name;
+					if (body.avatarUrl !== undefined) updateData.avatar_url = body.avatarUrl;
+					if (body.location !== undefined) updateData.location = body.location;
 				if (body.quip !== undefined) updateData.quip = body.quip;
 				if (Object.keys(updateData).length > 0) {
 					await supabase.from("player").update(updateData).eq("id", existing.id);
@@ -92,25 +100,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lob
 				if (!quip && prof?.quip) quip = prof.quip;
 			} catch { /* ignore */ }
 		}
-		const p: PlayerRow = {
-			id: playerId,
+			const p: PlayerRow = {
+				id: playerId,
 			lobby_id: lobbyId,
 			name,
 			avatar_url: avatarUrl,
 			location,
 			quip
-		};
-		// Attach authenticated user for self-joins; guest invites stay unlinked.
-		if (!allowUnlinkedGuest) (p as any).user_id = authUserId;
-		// Never upsert on `id` because player ids are global across lobbies.
-		const { error } = await supabase.from("player").insert(p as any);
+			};
+			// Attach authenticated user for self-joins; guest invites stay unlinked.
+			if (!allowUnlinkedGuest) p.user_id = authUserId;
+			// Never upsert on `id` because player ids are global across lobbies.
+			const { error } = await supabase.from("player").insert(p);
 		if (error) {
 			console.error("invite insert error", error);
 			return NextResponse.json({ error: "Failed to insert" }, { status: 500 });
 		}
 		void refreshLobbyLiveSnapshot(lobbyId);
 		return NextResponse.json({ ok: true, playerId });
-	} catch (e) {
+	} catch {
 		return NextResponse.json({ error: "Bad request" }, { status: 400 });
 	}
 }

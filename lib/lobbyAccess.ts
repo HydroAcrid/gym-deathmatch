@@ -16,6 +16,19 @@ type UserProfileRow = {
 	avatar_url: string | null;
 };
 
+type OwnerPlayerRow = {
+	id: string;
+	lobby_id: string;
+	user_id: string | null;
+};
+
+type UserProfileFullRow = {
+	display_name: string | null;
+	avatar_url: string | null;
+	location: string | null;
+	quip: string | null;
+};
+
 export type LobbyAccessResult =
 	| {
 			ok: true;
@@ -104,9 +117,10 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 					.select("id,lobby_id,user_id")
 					.eq("id", l.owner_id)
 					.maybeSingle();
-				if ((ownerRow as any)?.id && (ownerRow as any)?.lobby_id === lobbyId) {
-					memberPlayerId = (ownerRow as any).id as string;
-					if (!(ownerRow as any).user_id) {
+				const ownerPlayer = (ownerRow as OwnerPlayerRow | null) ?? null;
+				if (ownerPlayer?.id && ownerPlayer.lobby_id === lobbyId) {
+					memberPlayerId = ownerPlayer.id;
+					if (!ownerPlayer.user_id) {
 						await supabase.from("player").update({ user_id: userId }).eq("id", memberPlayerId);
 					}
 				}
@@ -118,14 +132,15 @@ export async function resolveLobbyAccess(req: Request, lobbyId: string): Promise
 					.select("display_name,avatar_url,location,quip")
 					.eq("user_id", userId)
 					.maybeSingle();
+				const fullProfile = (profileFull as UserProfileFullRow | null) ?? null;
 				const repairedOwnerId = crypto.randomUUID();
 				const { error: insertErr } = await supabase.from("player").insert({
 					id: repairedOwnerId,
 					lobby_id: lobbyId,
-					name: (profileFull as any)?.display_name || "Owner",
-					avatar_url: (profileFull as any)?.avatar_url ?? null,
-					location: (profileFull as any)?.location ?? null,
-					quip: (profileFull as any)?.quip ?? null,
+					name: fullProfile?.display_name || "Owner",
+					avatar_url: fullProfile?.avatar_url ?? null,
+					location: fullProfile?.location ?? null,
+					quip: fullProfile?.quip ?? null,
 					user_id: userId
 				});
 				if (!insertErr) {

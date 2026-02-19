@@ -16,6 +16,22 @@ type CommentResponse = {
 	authorAvatarUrl?: string | null;
 };
 
+type AuthorInfo = {
+	name: string | null;
+	avatarUrl: string | null;
+};
+
+function extractAuthorInfo(value: unknown): AuthorInfo {
+	if (!value) return { name: null, avatarUrl: null };
+	const raw = Array.isArray(value) ? value[0] : value;
+	if (!raw || typeof raw !== "object") return { name: null, avatarUrl: null };
+	const record = raw as Record<string, unknown>;
+	return {
+		name: typeof record.name === "string" ? record.name : null,
+		avatarUrl: typeof record.avatar_url === "string" ? record.avatar_url : null,
+	};
+}
+
 async function requireMembership(supabase: NonNullable<ReturnType<typeof getServerSupabase>>, lobbyId: string, userId: string) {
 	const { data: member } = await supabase
 		.from("player")
@@ -52,6 +68,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ acti
 	if (error) return NextResponse.json({ error: "Failed to load comments" }, { status: 500 });
 
 	const comments: CommentResponse[] = (data ?? []).map(row => ({
+		...(() => {
+			const author = extractAuthorInfo((row as Record<string, unknown>).author);
+			return {
+				authorName: author.name,
+				authorAvatarUrl: author.avatarUrl,
+			};
+		})(),
 		id: row.id as string,
 		lobbyId: row.lobby_id as string,
 		activityId: row.activity_id as string,
@@ -60,8 +83,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ acti
 		body: row.body as string,
 		createdAt: row.created_at as string,
 		authorPlayerId: row.author_player_id as string,
-		authorName: (row as any)?.author?.name ?? null,
-		authorAvatarUrl: (row as any)?.author?.avatar_url ?? null
 	}));
 
 	return NextResponse.json({ comments });
@@ -146,6 +167,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 
 	const comment: CommentResponse | null = row
 		? {
+				...(() => {
+					const author = extractAuthorInfo((row as Record<string, unknown>).author);
+					return {
+						authorName: author.name,
+						authorAvatarUrl: author.avatarUrl,
+					};
+				})(),
 				id: row.id as string,
 				lobbyId: row.lobby_id as string,
 				activityId: row.activity_id as string,
@@ -154,14 +182,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
 				body: row.body as string,
 				createdAt: row.created_at as string,
 				authorPlayerId: row.author_player_id as string,
-				authorName: (row as any)?.author?.name ?? null,
-				authorAvatarUrl: (row as any)?.author?.avatar_url ?? null
 		  }
 		: null;
 
 	// Push notify activity owner or parent comment author (if different from poster)
 	try {
-		const ownerPlayerId = (activity as any)?.player_id as string | undefined;
+		const ownerPlayerId = typeof activity?.player_id === "string" ? activity.player_id : undefined;
 		const { data: ownerPlayer } = ownerPlayerId
 			? await supabase.from("player").select("user_id,name").eq("id", ownerPlayerId).maybeSingle()
 			: { data: null };

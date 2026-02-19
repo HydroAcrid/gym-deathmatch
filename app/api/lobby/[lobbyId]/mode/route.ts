@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 
+type LobbyModeRow = {
+	mode: string | null;
+	sudden_death_enabled: boolean | null;
+	challenge_settings: Record<string, unknown> | null;
+};
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
@@ -12,10 +18,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		.select("mode, sudden_death_enabled, challenge_settings")
 		.eq("id", lobbyId)
 		.maybeSingle();
-	if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+	const row = (data as LobbyModeRow | null) ?? null;
+	if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	return NextResponse.json({
-		mode: data.mode,
-		suddenDeathEnabled: !!data.sudden_death_enabled,
-		challengeSettings: (data as any).challenge_settings ?? null
+		mode: row.mode,
+		suddenDeathEnabled: !!row.sudden_death_enabled,
+		challengeSettings: row.challenge_settings ?? null
 	});
 }

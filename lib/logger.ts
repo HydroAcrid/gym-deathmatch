@@ -1,13 +1,23 @@
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
+function getErrorDetails(error: unknown): { message: string; stack?: string } {
+	if (error instanceof Error) {
+		return {
+			message: error.message || String(error),
+			stack: error.stack,
+		};
+	}
+	return { message: String(error) };
+}
+
 function levelEnabled(level: LogLevel): boolean {
 	const env = (process.env.LOG_LEVEL || "info").toLowerCase();
 	const order: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
-	const current = (order as any)[env as LogLevel] ?? 20;
+	const current = env in order ? order[env as LogLevel] : order.info;
 	return (order[level] >= current);
 }
 
-async function maybeSendToSentry(payload: any) {
+async function maybeSendToSentry(payload: Record<string, unknown>) {
 	try {
 		const url = process.env.SENTRY_WEBHOOK_URL;
 		if (!url) return;
@@ -31,6 +41,7 @@ export async function logError(context: {
 }) {
 	if (!levelEnabled("error")) return;
 	try {
+		const details = getErrorDetails(context.err);
 		const payload = {
 			level: "error",
 			route: context.route,
@@ -39,15 +50,15 @@ export async function logError(context: {
 			actorUserId: context.actorUserId,
 			actorPlayerId: context.actorPlayerId,
 			extra: context.extra || {},
-			message: (context.err as any)?.message || String(context.err),
-			stack: (context.err as any)?.stack || undefined
+			message: details.message,
+			stack: details.stack || undefined
 		};
-		// eslint-disable-next-line no-console
+		 
 		console.error("[gymdm]", JSON.stringify(payload));
 		await maybeSendToSentry(payload);
 	} catch (e) {
 		// last resort
-		// eslint-disable-next-line no-console
+		 
 		console.error("[gymdm] logging failed", e);
 	}
 }
@@ -58,5 +69,4 @@ export function jsonError(code: string, message?: string, status = 400) {
 		headers: { "Content-Type": "application/json" }
 	});
 }
-
 

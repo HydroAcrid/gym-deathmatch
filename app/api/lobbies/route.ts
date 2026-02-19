@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabaseClient";
 import { getRequestUserId } from "@/lib/requestAuth";
 
+type LobbyMemberRow = { lobby_id: string };
+type LobbyRow = { id: string; [key: string]: unknown };
+
 export async function GET(req: NextRequest) {
 	const userId = await getRequestUserId(req);
 	const supabase = getServerSupabase();
@@ -22,33 +25,33 @@ export async function GET(req: NextRequest) {
 			supabase.from("lobby").select("*").eq("owner_user_id", userId).limit(200)
 		]);
 		
-		const memberLobbyIds = Array.from(new Set((memberRows ?? []).map((r: any) => r.lobby_id)));
-		const { data: memberLobbies } = memberLobbyIds.length
-			? await supabase.from("lobby").select("*").in("id", memberLobbyIds as any).limit(500)
-			: { data: [] as any[] };
-		
-		// Merge and sort by name
-		const map = new Map<string, any>();
-		for (const r of (memberLobbies ?? [])) map.set(r.id, r);
-		for (const r of (ownerRows ?? [])) map.set(r.id, r);
-		const list = Array.from(map.values());
+			const memberLobbyIds = Array.from(new Set(((memberRows ?? []) as LobbyMemberRow[]).map((r) => r.lobby_id)));
+			const { data: memberLobbies } = memberLobbyIds.length
+				? await supabase.from("lobby").select("*").in("id", memberLobbyIds).limit(500)
+				: { data: [] as LobbyRow[] };
+			
+			// Merge and sort by name
+			const map = new Map<string, LobbyRow>();
+			for (const r of ((memberLobbies ?? []) as LobbyRow[])) map.set(r.id, r);
+			for (const r of ((ownerRows ?? []) as LobbyRow[])) map.set(r.id, r);
+			const list = Array.from(map.values());
 
-		// Attach per-lobby player counts for lobby cards.
-		const lobbyIds = list.map((l: any) => l.id).filter(Boolean);
-		let counts = new Map<string, number>();
+			// Attach per-lobby player counts for lobby cards.
+			const lobbyIds = list.map((l) => l.id).filter(Boolean);
+		const counts = new Map<string, number>();
 		if (lobbyIds.length) {
-			const { data: players } = await supabase
-				.from("player")
-				.select("lobby_id")
-				.in("lobby_id", lobbyIds as any);
+				const { data: players } = await supabase
+					.from("player")
+					.select("lobby_id")
+					.in("lobby_id", lobbyIds);
 			for (const row of (players ?? []) as Array<{ lobby_id: string }>) {
 				counts.set(row.lobby_id, (counts.get(row.lobby_id) ?? 0) + 1);
 			}
 		}
-		const withCounts = list.map((l: any) => ({
-			...l,
-			player_count: counts.get(l.id) ?? 0
-		}));
+			const withCounts = list.map((l) => ({
+				...l,
+				player_count: counts.get(l.id) ?? 0
+			}));
 		
 		// Return all fields including created_at, status, mode for client-side filtering/sorting
 		return NextResponse.json({ lobbies: withCounts });

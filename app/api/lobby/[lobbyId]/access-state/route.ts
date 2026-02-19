@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { evaluateInviteGate, inviteReasonMessage } from "@/lib/inviteAccess";
 
+type LobbyAccessRow = {
+	name: string | null;
+	invite_enabled: boolean | null;
+	invite_expires_at: string | null;
+	invite_token_required: boolean | null;
+	invite_token: string | null;
+};
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lobbyId: string }> }) {
 	const { lobbyId } = await params;
 	const access = await resolveLobbyAccess(req, lobbyId);
@@ -18,15 +26,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 		.select("*")
 		.eq("id", lobbyId)
 		.maybeSingle();
-	if (!lobby) {
+	const lobbyRow = (lobby as LobbyAccessRow | null) ?? null;
+	if (!lobbyRow) {
 		return NextResponse.json({ state: "not_found", error: "Lobby not found" }, { status: 404 });
 	}
 
 	const token = new URL(req.url).searchParams.get("t");
-	const inviteEnabled = (lobby as any).invite_enabled !== false;
-	const inviteExpiresAt = ((lobby as any).invite_expires_at as string | null) ?? null;
-	const inviteTokenRequired = (lobby as any).invite_token_required === true;
-	const inviteToken = ((lobby as any).invite_token as string | null) ?? null;
+	const inviteEnabled = lobbyRow.invite_enabled !== false;
+	const inviteExpiresAt = lobbyRow.invite_expires_at ?? null;
+	const inviteTokenRequired = lobbyRow.invite_token_required === true;
+	const inviteToken = lobbyRow.invite_token ?? null;
 	const gate = evaluateInviteGate({
 		isOwner: access.isOwner,
 		isMember: !!access.memberPlayerId || access.isOwner,
@@ -38,10 +47,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lobb
 	});
 
 	return NextResponse.json({
-		state: access.memberPlayerId || access.isOwner ? "member" : "not_member",
-		memberPlayerId: access.memberPlayerId || (access.isOwner ? access.ownerPlayerId : null),
-		lobbyId: lobbyId,
-		lobbyName: (lobby as any).name ?? null,
+			state: access.memberPlayerId || access.isOwner ? "member" : "not_member",
+			memberPlayerId: access.memberPlayerId || (access.isOwner ? access.ownerPlayerId : null),
+			lobbyId: lobbyId,
+			lobbyName: lobbyRow.name ?? null,
 		canJoin: gate.canJoin,
 		reason: gate.reason,
 		reasonMessage: inviteReasonMessage(gate.reason),

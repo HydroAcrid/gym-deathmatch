@@ -217,9 +217,9 @@ export function MobileBottomNav() {
 													<ScrollText className="w-5 h-5" />
 													<span className="font-display text-xs tracking-widest font-bold">TERMS</span>
 												</Link>
-												<Link
-													href="/records"
-													onClick={() => setMoreOpen(false)}
+											<Link
+												href="/records"
+												onClick={() => setMoreOpen(false)}
 												className={`flex items-center gap-4 px-6 py-4 transition-colors active:bg-muted/30 border-l-2 touch-target ${
 													isActive("/records")
 														? "text-primary bg-primary/10 border-primary"

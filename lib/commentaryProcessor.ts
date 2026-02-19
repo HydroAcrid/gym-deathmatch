@@ -14,6 +14,7 @@ const MAX_LIMIT = 500;
 const DEFAULT_MAX_MS = 1500;
 const MAX_MAX_MS = 8000;
 const MAX_ATTEMPTS = 5;
+type DbClient = NonNullable<ReturnType<typeof getServerSupabase>>;
 
 export type CommentaryProcessStats = {
 	ok: true;
@@ -39,13 +40,18 @@ type CommentaryEventRow = {
 	processed_at: string | null;
 };
 
+function getErrorMessage(error: unknown, fallback: string): string {
+	if (error instanceof Error && error.message) return error.message;
+	return String(error || fallback);
+}
+
 function normalizeEventRow(row: CommentaryEventRow): CommentaryEventRecord {
 	return {
 		id: row.id,
 		lobbyId: row.lobby_id,
 		type: row.event_type,
 		key: row.event_key,
-		payload: row.payload as any,
+		payload: row.payload,
 		status: row.status,
 		attempts: Number(row.attempts ?? 0),
 		nextAttemptAt: row.next_attempt_at,
@@ -77,7 +83,7 @@ function pickTopOutputsByChannel(outputs: ReturnType<typeof buildRuleOutputs>) {
 }
 
 async function writeRuleRun(input: {
-	supabase: any;
+	supabase: DbClient;
 	eventId: string;
 	ruleId: string;
 	channel: "feed" | "history" | "push";
@@ -96,7 +102,7 @@ async function writeRuleRun(input: {
 	if (error) throw error;
 }
 
-async function loadRuleContext(supabase: any, lobbyId: string): Promise<CommentaryRuleContext> {
+async function loadRuleContext(supabase: DbClient, lobbyId: string): Promise<CommentaryRuleContext> {
 	const { data, error } = await supabase.from("player").select("id,name,user_id").eq("lobby_id", lobbyId);
 	if (error) throw error;
 	const playerNamesById = new Map<string, string>();
@@ -108,7 +114,7 @@ async function loadRuleContext(supabase: any, lobbyId: string): Promise<Commenta
 	return { playerNamesById, playerUserIdsById };
 }
 
-async function claimEventForProcessing(supabase: any, row: CommentaryEventRow): Promise<CommentaryEventRow | null> {
+async function claimEventForProcessing(supabase: DbClient, row: CommentaryEventRow): Promise<CommentaryEventRow | null> {
 	const attempts = Number(row.attempts ?? 0) + 1;
 	const nowIso = new Date().toISOString();
 	const { data, error } = await supabase
@@ -128,7 +134,7 @@ async function claimEventForProcessing(supabase: any, row: CommentaryEventRow): 
 	return (data as CommentaryEventRow | null) ?? null;
 }
 
-async function markEventDone(supabase: any, eventId: string) {
+async function markEventDone(supabase: DbClient, eventId: string) {
 	const { error } = await supabase
 		.from("commentary_events")
 		.update({
@@ -140,9 +146,9 @@ async function markEventDone(supabase: any, eventId: string) {
 	if (error) throw error;
 }
 
-async function markEventFailedOrDead(supabase: any, row: CommentaryEventRow, err: unknown): Promise<"failed" | "dead"> {
+async function markEventFailedOrDead(supabase: DbClient, row: CommentaryEventRow, err: unknown): Promise<"failed" | "dead"> {
 	const attempts = Number(row.attempts ?? 0);
-	const message = String((err as any)?.message || err || "unknown commentary processor error").slice(0, 1000);
+	const message = getErrorMessage(err, "unknown commentary processor error").slice(0, 1000);
 	if (attempts >= MAX_ATTEMPTS) {
 		const { error } = await supabase
 			.from("commentary_events")
@@ -171,7 +177,7 @@ async function markEventFailedOrDead(supabase: any, row: CommentaryEventRow, err
 }
 
 async function processOneEvent(input: {
-	supabase: any;
+	supabase: DbClient;
 	eventRow: CommentaryEventRow;
 	contextCache: Map<string, CommentaryRuleContext>;
 	stats: CommentaryProcessStats;
@@ -281,7 +287,7 @@ async function processOneEvent(input: {
 				meta: runMetaBase,
 			});
 		} catch (err) {
-			const errMessage = String((err as any)?.message || err || "dispatch failed").slice(0, 500);
+			const errMessage = getErrorMessage(err, "dispatch failed").slice(0, 500);
 			dispatchErrors.push(`${output.ruleId}:${output.channel}:${errMessage}`);
 			await writeRuleRun({
 				supabase,

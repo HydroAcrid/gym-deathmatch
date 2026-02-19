@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { authFetch } from "@/lib/clientAuth";
 
 export type FeedEvent = { message: string; timestamp: string };
+type FeedPlayer = { name?: string | null; avatar_url?: string | null };
+type FeedItem = { id: string; text: string; createdAt: string; player: FeedPlayer | null };
 
 export function RecentFeed({
 	lobbyId,
@@ -13,12 +15,19 @@ export function RecentFeed({
 	lobbyId?: string;
 	events?: FeedEvent[];
 }) {
-	const [items, setItems] = useState<any[]>([]);
+	const [items, setItems] = useState<FeedItem[]>([]);
 
 	// Seed from props when they change
 	useEffect(() => {
 		if (events && events.length) {
-			setItems(limitAndFresh(events));
+			setItems(
+				limitAndFresh(events).map((event, index) => ({
+					id: `event-${event.timestamp}-${index}`,
+					text: event.message,
+					createdAt: event.timestamp,
+					player: null,
+				}))
+			);
 		}
 	}, [events]);
 
@@ -33,7 +42,8 @@ export function RecentFeed({
 				if (!res.ok) return;
 				const data = await res.json();
 				if (ignore) return;
-				setItems(data.items ?? []);
+				const nextItems = Array.isArray(data?.items) ? (data.items as FeedItem[]) : [];
+				setItems(nextItems);
 			} catch {
 				// ignore
 			}
@@ -41,7 +51,7 @@ export function RecentFeed({
 		refresh();
 		const id = setInterval(refresh, 30 * 1000);
 		return () => { ignore = true; clearInterval(id); };
-	}, [lobbyId ?? ""]);
+	}, [lobbyId]);
 
 	return (
 		<motion.div
@@ -110,14 +120,6 @@ function limitAndFresh(evs: FeedEvent[]): FeedEvent[] {
 		.filter(e => now - new Date(e.timestamp).getTime() <= day)
 		.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 		.slice(0, 5);
-}
-
-function mergeNewest(prev: FeedEvent[], incoming: FeedEvent[]): FeedEvent[] {
-	const map = new Map<string, FeedEvent>();
-	for (const e of [...incoming, ...prev]) {
-		map.set(`${e.timestamp}-${e.message}`, e);
-	}
-	return limitAndFresh([...map.values()]);
 }
 
 function timeAgo(iso: string) {

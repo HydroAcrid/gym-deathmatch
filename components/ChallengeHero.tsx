@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Countdown } from "./Countdown";
 import type { ChallengeSettings, GameMode } from "@/types/game";
 import { authFetch } from "@/lib/clientAuth";
 
 // Calculate next week start based on season_start (7 days from start, not calendar weeks)
-function nextWeekFromSeasonStart(seasonStartIso: string | undefined | null, currentWeek: number | null): Date | null {
+function nextWeekFromSeasonStart(seasonStartIso: string | undefined | null): Date | null {
 	if (!seasonStartIso) return null;
 	const start = new Date(seasonStartIso);
 	const now = Date.now();
@@ -40,7 +40,7 @@ export function ChallengeHero({
 	const [nextSpinIso, setNextSpinIso] = useState<string | null>(null);
 	const [tz, setTz] = useState<string>("");
 
-	async function load() {
+	const load = useCallback(async () => {
 		try {
 			const res = await authFetch(`/api/lobby/${encodeURIComponent(lobbyId)}/punishments`, { cache: "no-store" });
 			if (!res.ok) return;
@@ -48,14 +48,14 @@ export function ChallengeHero({
 			setPunishmentText(j?.active?.text || null);
 			setWeek(j?.week || null);
 		} catch { /* ignore */ }
-	}
+	}, [lobbyId]);
 
 	useEffect(() => {
 		load();
 		const id = setInterval(load, 30 * 1000); // refresh every 30s
 		try { setTz(Intl.DateTimeFormat().resolvedOptions().timeZone || ""); } catch { /* ignore */ }
 		return () => clearInterval(id);
-	}, [lobbyId]);
+	}, [load]);
 
 	// Calculate next spin time based on spinFrequency
 	useEffect(() => {
@@ -76,7 +76,7 @@ export function ChallengeHero({
 				// For WEEKLY and BIWEEKLY, calculate next week from season_start
 				let nextWeek: Date | null = null;
 				if (seasonStart) {
-					nextWeek = nextWeekFromSeasonStart(seasonStart, week);
+					nextWeek = nextWeekFromSeasonStart(seasonStart);
 					if (nextWeek && spinFrequency === "BIWEEKLY") {
 						// For biweekly, add another week
 						nextWeek.setTime(nextWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -95,7 +95,7 @@ export function ChallengeHero({
 		
 		// If no seasonEnd or it's in the past, calculate from season_start
 		if (seasonStart) {
-			const nextWeek = nextWeekFromSeasonStart(seasonStart, week);
+			const nextWeek = nextWeekFromSeasonStart(seasonStart);
 			if (nextWeek) {
 				if (spinFrequency === "BIWEEKLY") {
 					// For biweekly, add another week
@@ -110,7 +110,6 @@ export function ChallengeHero({
 		setNextSpinIso(null);
 	}, [challengeSettings, seasonStart, seasonEnd, week]);
 
-	const isRoulette = mode === "CHALLENGE_ROULETTE";
 	const isCumulative = mode === "CHALLENGE_CUMULATIVE";
 	const label = isCumulative ? "CUMULATIVE CHALLENGES" : "WEEKLY PUNISHMENT";
 	const spinFrequency = challengeSettings?.spinFrequency || "WEEKLY";
