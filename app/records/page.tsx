@@ -16,6 +16,7 @@ import {
 import {
   type LobbyRow,
   type LiveLobby,
+  type ArchivedSeasonRecord,
   buildRecordsViewModel,
 } from "@/src/ui2/adapters/records";
 
@@ -25,33 +26,48 @@ export default function RecordsPage() {
   const { user } = useAuth();
   const [lobbies, setLobbies] = useState<LobbyRow[]>([]);
   const [liveData, setLiveData] = useState<Map<string, LiveLobby>>(new Map());
+  const [archivedSeasons, setArchivedSeasons] = useState<ArchivedSeasonRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSeason, setExpandedSeason] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
+    let cancelled = false;
     setLoading(true);
 
-    authFetch(`/api/lobbies`)
-      .then((r) => (r.ok ? r.json() : { lobbies: [] }))
-      .then(({ lobbies: lobbyList }) => {
-        setLobbies(lobbyList ?? []);
-        const recent = (lobbyList ?? []).slice(0, 15);
-        return Promise.all(
-          recent.map((l: LobbyRow) =>
-            authFetch(`/api/lobby/${l.id}/live`)
+    Promise.all([
+      authFetch(`/api/lobbies`).then((r) => (r.ok ? r.json() : { lobbies: [] })),
+      authFetch(`/api/records/seasons`).then((r) => (r.ok ? r.json() : { seasons: [] })),
+    ])
+      .then(async ([lobbyPayload, archivedPayload]) => {
+        if (cancelled) return;
+        const lobbyList = (lobbyPayload?.lobbies ?? []) as LobbyRow[];
+        const archived = (archivedPayload?.seasons ?? []) as ArchivedSeasonRecord[];
+        setLobbies(lobbyList);
+        setArchivedSeasons(archived);
+
+        const recent = lobbyList.slice(0, 15);
+        const results = await Promise.all(
+          recent.map((lobby) =>
+            authFetch(`/api/lobby/${lobby.id}/live`)
               .then((r) => (r.ok ? r.json() : null))
               .catch(() => null)
           )
-        ).then((results) => {
-          const map = new Map<string, LiveLobby>();
-          results.forEach((data, i) => {
-            if (data?.lobby) map.set(recent[i].id, data);
-          });
-          setLiveData(map);
+        );
+        if (cancelled) return;
+        const map = new Map<string, LiveLobby>();
+        results.forEach((data, i) => {
+          if (data?.lobby) map.set(recent[i].id, data);
         });
+        setLiveData(map);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   const { champions, records, pastSeasons, activeSeasons, hasData } = useMemo(
@@ -59,8 +75,9 @@ export default function RecordsPage() {
       buildRecordsViewModel({
         lobbies,
         liveData,
+        archivedSeasons,
       }),
-    [lobbies, liveData]
+    [lobbies, liveData, archivedSeasons]
   );
 
   if (!user) {
@@ -220,12 +237,13 @@ export default function RecordsPage() {
                 <div className="space-y-4">
                   {pastSeasons.map((season) => {
                     const key = `${season.lobbyId}-${season.season}`;
+                    const isExpanded = expandedSeason === key;
                     return (
                       <div key={key} className="scoreboard-panel overflow-hidden">
                         {/* Mobile: Tap to expand */}
                         <div
                           className="sm:hidden p-4 cursor-pointer active:bg-muted/30"
-                          onClick={() => setExpandedSeason(expandedSeason === key ? null : key)}
+                          onClick={() => setExpandedSeason(isExpanded ? null : key)}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -245,11 +263,11 @@ export default function RecordsPage() {
                             </div>
                             <ChevronRight
                               className={`w-5 h-5 text-muted-foreground transition-transform ${
-                                expandedSeason === key ? "rotate-90" : ""
+                                isExpanded ? "rotate-90" : ""
                               }`}
                             />
                           </div>
-                          {expandedSeason === key && (
+                          {isExpanded && (
                             <div className="mt-4 pt-4 border-t border-border space-y-3">
                               <div className="text-xs text-muted-foreground uppercase tracking-wider">
                                 {season.startDate} — {season.endDate}
@@ -273,6 +291,25 @@ export default function RecordsPage() {
                                   </div>
                                 )}
                               </div>
+                              {season.standings.length > 0 && (
+                                <div className="pt-2 border-t border-border">
+                                  <div className="font-display text-[11px] tracking-wider text-muted-foreground uppercase mb-2">
+                                    Final standings
+                                  </div>
+                                  <div className="space-y-2">
+                                    {season.standings.map((row) => (
+                                      <div
+                                        key={`${key}-${row.playerId || row.athleteName}`}
+                                        className="grid grid-cols-[28px_1fr_auto] items-center gap-2 text-xs"
+                                      >
+                                        <div className="font-display text-primary">#{row.rank}</div>
+                                        <div className="truncate font-display">{row.athleteName}</div>
+                                        <div className="text-muted-foreground">{row.points} pts • {row.workouts} wkt</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -322,8 +359,58 @@ export default function RecordsPage() {
                                 </div>
                               )}
                             </div>
+                            <button
+                              onClick={() => setExpandedSeason(isExpanded ? null : key)}
+                              className="arena-badge px-3 py-2 text-xs"
+                            >
+                              {isExpanded ? "Hide standings" : "Final standings"}
+                            </button>
                           </div>
                         </div>
+                        {isExpanded && season.standings.length > 0 && (
+                          <div className="hidden sm:block border-t border-border px-6 py-4 bg-muted/10">
+                            <div className="grid grid-cols-[70px_minmax(220px,1fr)_90px_90px_90px_90px_110px] gap-2 text-[10px] uppercase tracking-wider text-muted-foreground font-display mb-2">
+                              <div>Rank</div>
+                              <div>Athlete</div>
+                              <div className="text-right">Points</div>
+                              <div className="text-right">Workouts</div>
+                              <div className="text-right">Streak</div>
+                              <div className="text-right">Hearts</div>
+                              <div className="text-right">Result</div>
+                            </div>
+                            <div className="space-y-2">
+                              {season.standings.map((row) => (
+                                <div
+                                  key={`${key}-desktop-${row.playerId || row.athleteName}`}
+                                  className="grid grid-cols-[70px_minmax(220px,1fr)_90px_90px_90px_90px_110px] gap-2 items-center text-sm"
+                                >
+                                  <div className="font-display text-primary">#{row.rank}</div>
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-8 h-8 border border-border overflow-hidden bg-muted shrink-0">
+                                      {row.avatarUrl ? (
+                                        <img src={row.avatarUrl} alt={row.athleteName} className="h-full w-full object-cover" />
+                                      ) : (
+                                        <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
+                                          {row.athleteName.charAt(0)}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="truncate font-display">{row.athleteName}</div>
+                                  </div>
+                                  <div className="text-right font-display text-primary">{row.points}</div>
+                                  <div className="text-right">{row.workouts}</div>
+                                  <div className="text-right">{row.streak}</div>
+                                  <div className="text-right">{row.hearts}</div>
+                                  <div className="text-right">
+                                    <span className={`arena-badge text-[10px] ${row.result === "CHAMPION" ? "arena-badge-gold" : ""}`}>
+                                      {row.result}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

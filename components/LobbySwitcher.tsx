@@ -11,10 +11,14 @@ import { useLobbyRealtime } from "@/hooks/useLobbyRealtime";
 import { useAuth } from "./AuthProvider";
 import { authFetch } from "@/lib/clientAuth";
 import { hasSeenSpinReplay } from "@/lib/spinReplay";
+import { SEASON_FINALE_SEEN_PREFIX } from "@/lib/localStorageKeys";
 
 export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	const [overridePre, setOverridePre] = useState<boolean>(false);
 	const [showDebugToggle, setShowDebugToggle] = useState(false);
+	const [showSeasonFinale, setShowSeasonFinale] = useState(false);
+	const [seasonFinaleInitialized, setSeasonFinaleInitialized] = useState(false);
+	const [attemptedCompletedReload, setAttemptedCompletedReload] = useState(false);
 	const { user } = useAuth();
 	
 	// Realtime & Live Data Hooks
@@ -89,9 +93,17 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 
 	const currentStage = liveStage || lobby.stage || (effectiveSeasonStatus === "completed" ? "COMPLETED" : effectiveSeasonStatus === "active" || effectiveSeasonStatus === "transition_spin" ? "ACTIVE" : "PRE_STAGE");
 	const currentSummary = liveSummary || lobby.seasonSummary;
+	const isCompletedSeason = currentStage === "COMPLETED" || effectiveSeasonStatus === "completed";
+	const finaleSeasonNumber = Number(currentSummary?.seasonNumber ?? lobby.seasonNumber ?? 1);
+	const finaleStorageKey = `${SEASON_FINALE_SEEN_PREFIX}:${lobby.id}:${finaleSeasonNumber}`;
 
 	const shouldShowPre =
-		(currentStage === "PRE_STAGE" || (effectiveSeasonStatus && effectiveSeasonStatus !== "active" && effectiveSeasonStatus !== "transition_spin")) || overridePre;
+		(currentStage === "PRE_STAGE" ||
+			(effectiveSeasonStatus &&
+				effectiveSeasonStatus !== "active" &&
+				effectiveSeasonStatus !== "transition_spin" &&
+				effectiveSeasonStatus !== "completed")) ||
+		overridePre;
 
 	const isRouletteTransition = 
 		effectiveSeasonStatus === "transition_spin" && 
@@ -101,6 +113,41 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 		weekStatus === "PENDING_PUNISHMENT" ||
 		weekStatus === "PENDING_CONFIRMATION";
 	const shouldShowTransitionPanel = isRouletteTransition && punishmentsLoaded && (pendingSpinReplay || weekNeedsWheel);
+
+	useEffect(() => {
+		setShowSeasonFinale(false);
+		setSeasonFinaleInitialized(false);
+		setAttemptedCompletedReload(false);
+	}, [lobby.id, finaleSeasonNumber]);
+
+	useEffect(() => {
+		if (!isCompletedSeason || !currentSummary || seasonFinaleInitialized) return;
+		if (typeof window === "undefined") return;
+		let seen = false;
+		try {
+			seen = window.localStorage.getItem(finaleStorageKey) === "1";
+		} catch {
+			seen = false;
+		}
+		setShowSeasonFinale(!seen);
+		setSeasonFinaleInitialized(true);
+	}, [isCompletedSeason, currentSummary, seasonFinaleInitialized, finaleStorageKey]);
+
+	useEffect(() => {
+		if (!isCompletedSeason || currentSummary || loading || attemptedCompletedReload) return;
+		setAttemptedCompletedReload(true);
+		void reload();
+	}, [isCompletedSeason, currentSummary, loading, attemptedCompletedReload, reload]);
+
+	const closeSeasonFinale = () => {
+		setShowSeasonFinale(false);
+		if (typeof window === "undefined") return;
+		try {
+			window.localStorage.setItem(finaleStorageKey, "1");
+		} catch {
+			// ignore storage errors
+		}
+	};
 
 	// Provide a scheduled start when we fake pre-stage so countdown renders
 	const stagedLobby: Lobby = shouldShowPre && !lobby.scheduledStart
@@ -138,33 +185,57 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 						</div>
 					</div>
 				)}
-				{
-					showRejoinCta ? null :
-					shouldShowTransitionPanel ? (
-						<RouletteTransitionPanel lobby={lobby} />
-					) : shouldShowPre ? (
-						<PreStageView lobby={stagedLobby} />
-					) : currentStage === "COMPLETED" && currentSummary ? (
-						<SeasonCompleteOverlay
-							lobbyId={lobby.id}
-							seasonNumber={lobby.seasonNumber ?? 1}
-							mode={lobby.mode}
-							seasonSummary={currentSummary}
-							isOwner={overlayIsOwner}
-							defaultWeekly={lobby.weeklyTarget ?? 3}
-							defaultLives={lobby.initialLives ?? 3}
-							defaultSeasonEnd={lobby.seasonEnd ?? new Date().toISOString()}
-							ownerPlayerId={lobby.ownerId}
-							onNextSeason={reload}
-						/>
-					) : (
-						<LobbyLayout 
-							lobby={lobby} 
-						liveData={liveData}
-						onRefresh={reload}
-					/>
-				)
-			}
+				{showRejoinCta ? null : shouldShowTransitionPanel ? (
+					<RouletteTransitionPanel lobby={lobby} />
+				) : isCompletedSeason ? (
+					<>
+						{!currentSummary && !loading && (
+							<div className="mx-auto mt-6 max-w-2xl scoreboard-panel p-6 text-center">
+								<div className="font-display tracking-widest text-primary">SEASON FINALE PREPARING</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									Final standings are syncing. Reload if this takes longer than a few seconds.
+								</div>
+								<button className="mt-4 arena-badge px-4 py-2 text-xs" onClick={() => reload()}>
+									Reload Finale
+								</button>
+							</div>
+						)}
+						{currentSummary && !showSeasonFinale && (
+							<div className="container mx-auto px-3 sm:px-4 mt-4">
+								<div className="scoreboard-panel p-3 sm:p-4 flex items-center justify-between gap-3">
+									<div className="font-display tracking-wider text-sm sm:text-base">SEASON {finaleSeasonNumber} FINALE READY</div>
+									<button
+										className="arena-badge arena-badge-primary px-3 py-2 text-xs"
+										onClick={() => setShowSeasonFinale(true)}
+									>
+										View Finale
+									</button>
+								</div>
+							</div>
+						)}
+						<LobbyLayout lobby={lobby} liveData={liveData} onRefresh={reload} />
+						{currentSummary && (
+							<SeasonCompleteOverlay
+								open={showSeasonFinale}
+								onClose={closeSeasonFinale}
+								lobbyId={lobby.id}
+								seasonNumber={finaleSeasonNumber}
+								mode={lobby.mode}
+								seasonSummary={currentSummary}
+								isOwner={overlayIsOwner}
+								defaultWeekly={lobby.weeklyTarget ?? 3}
+								defaultLives={lobby.initialLives ?? 3}
+								defaultSeasonEnd={lobby.seasonEnd ?? new Date().toISOString()}
+								ownerPlayerId={lobby.ownerId}
+								onNextSeason={reload}
+							/>
+						)}
+					</>
+				) : shouldShowPre ? (
+					<PreStageView lobby={stagedLobby} />
+				) : (
+					<LobbyLayout lobby={lobby} liveData={liveData} onRefresh={reload} />
+				)}
 			
 			{/* Debug toggle */}
 			{showDebugToggle && (

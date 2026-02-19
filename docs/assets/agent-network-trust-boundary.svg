@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="860" viewBox="0 0 1400 860">
+  <defs>
+    <style>
+      .bg { fill: #0b0908; }
+      .zone1 { fill: #15100d; stroke: #3a2b1f; stroke-width: 2; rx: 14; }
+      .zone2 { fill: #11151a; stroke: #28425b; stroke-width: 2; rx: 14; }
+      .zone3 { fill: #14140d; stroke: #4a3f16; stroke-width: 2; rx: 14; }
+      .card { fill: #1a1410; stroke: #4a392a; stroke-width: 1.8; rx: 10; }
+      .title { fill: #f4b03a; font: 700 24px 'Arial', sans-serif; }
+      .zoneTitle { fill: #f4b03a; font: 700 18px 'Arial', sans-serif; }
+      .txt { fill: #e7dfd2; font: 600 15px 'Arial', sans-serif; }
+      .sub { fill: #b7aa95; font: 500 13px 'Arial', sans-serif; }
+      .arrow { stroke: #f4b03a; stroke-width: 2.5; fill: none; marker-end: url(#m); }
+    </style>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4b03a" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="860" />
+  <text class="title" x="48" y="56">Trust Boundaries and Security Model</text>
+
+  <rect class="zone1" x="40" y="90" width="360" height="730" />
+  <text class="zoneTitle" x="64" y="125">External Systems</text>
+  <rect class="card" x="70" y="160" width="300" height="90" />
+  <text class="txt" x="90" y="195">GitHub</text>
+  <text class="sub" x="90" y="217">Repos, PRs, Checks, Branch Rules</text>
+  <rect class="card" x="70" y="280" width="300" height="90" />
+  <text class="txt" x="90" y="315">Jira / Linear</text>
+  <text class="sub" x="90" y="337">Roadmap, tickets, status tracking</text>
+  <rect class="card" x="70" y="400" width="300" height="90" />
+  <text class="txt" x="90" y="435">CI/CD</text>
+  <text class="sub" x="90" y="457">Build, test, deployment gates</text>
+  <rect class="card" x="70" y="520" width="300" height="120" />
+  <text class="txt" x="90" y="555">Observability Stack</text>
+  <text class="sub" x="90" y="577">Errors, traces, incidents, SLOs</text>
+  <text class="sub" x="90" y="599">Feeds learning + ticket creation</text>
+
+  <rect class="zone2" x="450" y="90" width="500" height="730" />
+  <text class="zoneTitle" x="474" y="125">Trusted Control Plane</text>
+  <rect class="card" x="485" y="160" width="430" height="110" />
+  <text class="txt" x="505" y="195">Orchestrator</text>
+  <text class="sub" x="505" y="217">Task graph, agent assignment, retries, priorities</text>
+  <text class="sub" x="505" y="239">Single source of workflow truth</text>
+
+  <rect class="card" x="485" y="300" width="430" height="110" />
+  <text class="txt" x="505" y="335">Policy Engine</text>
+  <text class="sub" x="505" y="357">RBAC, branch protection, approval gates, merge policy</text>
+  <text class="sub" x="505" y="379">Prevents unsafe autonomous actions</text>
+
+  <rect class="card" x="485" y="440" width="430" height="110" />
+  <text class="txt" x="505" y="475">Audit Ledger</text>
+  <text class="sub" x="505" y="497">Immutable action history for every agent step</text>
+  <text class="sub" x="505" y="519">Who did what, when, and why</text>
+
+  <rect class="card" x="485" y="580" width="430" height="170" />
+  <text class="txt" x="505" y="615">Secret Broker / Identity Boundary</text>
+  <text class="sub" x="505" y="637">Short-lived scoped credentials only</text>
+  <text class="sub" x="505" y="659">No long-lived secrets inside execution workers</text>
+  <text class="sub" x="505" y="681">Network allowlists + capability tokens</text>
+  <text class="sub" x="505" y="703">Per-task revocation and expiration</text>
+
+  <rect class="zone3" x="1000" y="90" width="360" height="730" />
+  <text class="zoneTitle" x="1024" y="125">Untrusted Execution Plane</text>
+  <rect class="card" x="1030" y="160" width="300" height="110" />
+  <text class="txt" x="1050" y="195">Ephemeral Sandbox A</text>
+  <text class="sub" x="1050" y="217">Feature worker, isolated filesystem</text>
+  <text class="sub" x="1050" y="239">Scoped repo + command policy</text>
+  <rect class="card" x="1030" y="300" width="300" height="110" />
+  <text class="txt" x="1050" y="335">Ephemeral Sandbox B</text>
+  <text class="sub" x="1050" y="357">Test/verifier worker</text>
+  <text class="sub" x="1050" y="379">Browser automation + QA traces</text>
+  <rect class="card" x="1030" y="440" width="300" height="110" />
+  <text class="txt" x="1050" y="475">Ephemeral Sandbox C</text>
+  <text class="sub" x="1050" y="497">Refactor/migration worker</text>
+  <text class="sub" x="1050" y="519">Branch-scoped execution only</text>
+  <rect class="card" x="1030" y="580" width="300" height="170" />
+  <text class="txt" x="1050" y="615">Output Artifacts</text>
+  <text class="sub" x="1050" y="637">PR diffs, logs, screenshots, traces</text>
+  <text class="sub" x="1050" y="659">No direct production write access</text>
+  <text class="sub" x="1050" y="681">All actions flow back through control plane</text>
+
+  <path class="arrow" d="M 370 205 L 485 205" />
+  <path class="arrow" d="M 370 325 L 485 215" />
+  <path class="arrow" d="M 370 445 L 485 355" />
+  <path class="arrow" d="M 370 565 L 485 475" />
+
+  <path class="arrow" d="M 915 215 L 1030 215" />
+  <path class="arrow" d="M 915 355 L 1030 355" />
+  <path class="arrow" d="M 915 665 L 1030 665" />
+
+  <path class="arrow" d="M 1030 695 L 915 735" />
+  <path class="arrow" d="M 915 735 L 370 735" />
+  <path class="arrow" d="M 370 735 L 370 445" />
+
+  <text class="sub" x="1010" y="795">All autonomous work is bounded by policy + approvals.</text>
+</svg>

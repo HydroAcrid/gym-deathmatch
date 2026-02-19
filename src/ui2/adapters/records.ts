@@ -67,6 +67,32 @@ export type LiveLobby = {
 
 export type Champion = { name: string; titles: number; seasons: string[]; avatarUrl?: string | null };
 export type AllTimeRecord = { record: string; holder: string; value: string; lobby: string };
+export type ArchivedSeasonStanding = {
+	playerId: string;
+	athleteName: string;
+	avatarUrl?: string | null;
+	rank: number;
+	workouts: number;
+	streak: number;
+	longestStreak: number;
+	hearts: number;
+	points: number;
+	result: string;
+};
+export type ArchivedSeasonRecord = {
+	lobbyId: string;
+	lobbyName: string;
+	seasonNumber: number;
+	mode?: string | null;
+	stage?: string | null;
+	status?: string | null;
+	seasonStart?: string | null;
+	seasonEnd?: string | null;
+	finalPot: number;
+	archivedAt?: string | null;
+	summary?: unknown;
+	standings: ArchivedSeasonStanding[];
+};
 export type PastSeason = {
 	lobbyId: string;
 	lobbyName: string;
@@ -78,6 +104,8 @@ export type PastSeason = {
 	totalWorkouts: number;
 	finalPot: number;
 	highlights: string;
+	archivedAt?: string | null;
+	standings: ArchivedSeasonStanding[];
 };
 export type ActiveSeason = {
 	lobbyId: string;
@@ -105,10 +133,12 @@ function formatDate(iso: string | null): string {
 export function buildRecordsViewModel(input: {
 	lobbies: LobbyRow[];
 	liveData: Map<string, LiveLobby>;
+	archivedSeasons?: ArchivedSeasonRecord[];
 }): RecordsViewModel {
 	const champMap = new Map<string, { titles: number; seasons: string[]; avatarUrl?: string | null }>();
 	const pastList: PastSeason[] = [];
 	const activeList: ActiveSeason[] = [];
+	const archivedSeasonKeys = new Set<string>();
 	const recordCandidates = {
 		longestStreak: { holder: "", value: 0, lobby: "" },
 		mostWorkouts: { holder: "", value: 0, lobby: "" },
@@ -116,6 +146,73 @@ export function buildRecordsViewModel(input: {
 		mostPoints: { holder: "", value: 0, lobby: "" },
 		mostConsistent: { holder: "", value: 0, lobby: "" },
 	};
+
+	for (const archived of input.archivedSeasons ?? []) {
+		const seasonKey = `${archived.lobbyId}:${archived.seasonNumber}`;
+		archivedSeasonKeys.add(seasonKey);
+		const standings = [...(archived.standings ?? [])].sort((a, b) => {
+			if (a.rank > 0 && b.rank > 0 && a.rank !== b.rank) return a.rank - b.rank;
+			if (b.points !== a.points) return b.points - a.points;
+			if (b.hearts !== a.hearts) return b.hearts - a.hearts;
+			if (b.workouts !== a.workouts) return b.workouts - a.workouts;
+			return a.athleteName.localeCompare(b.athleteName);
+		});
+		const championEntry = standings.find((row) => row.result === "CHAMPION") ?? standings[0];
+		const champion = championEntry?.athleteName ?? "UNKNOWN";
+		const totalWorkouts = standings.reduce((sum, row) => sum + row.workouts, 0);
+		const summary = (archived.summary ?? null) as
+			| {
+					highlights?: {
+						longestStreak?: { playerName: string; streak: number };
+						mostWorkouts?: { playerName: string; count: number };
+						mostConsistent?: { playerName: string; avgPerWeek: number };
+					};
+			  }
+			| null;
+		pastList.push({
+			lobbyId: archived.lobbyId,
+			lobbyName: archived.lobbyName,
+			season: archived.seasonNumber,
+			champion,
+			startDate: formatDate(archived.seasonStart ?? null),
+			endDate: formatDate(archived.seasonEnd ?? null),
+			participants: standings.length,
+			totalWorkouts,
+			finalPot: archived.finalPot,
+			highlights: summary?.highlights?.longestStreak
+				? `${summary.highlights.longestStreak.playerName} achieved a ${summary.highlights.longestStreak.streak}-day streak`
+				: summary?.highlights?.mostWorkouts
+					? `${summary.highlights.mostWorkouts.playerName} logged ${summary.highlights.mostWorkouts.count} workouts`
+					: "",
+			archivedAt: archived.archivedAt ?? null,
+			standings,
+		});
+		if (championEntry) {
+			const existing = champMap.get(champion) ?? { titles: 0, seasons: [], avatarUrl: championEntry.avatarUrl ?? null };
+			existing.titles++;
+			existing.seasons.push(`${archived.lobbyName} S${archived.seasonNumber}`);
+			if (!existing.avatarUrl && championEntry.avatarUrl) existing.avatarUrl = championEntry.avatarUrl;
+			champMap.set(champion, existing);
+		}
+		for (const row of standings) {
+			if (row.longestStreak > recordCandidates.longestStreak.value) {
+				recordCandidates.longestStreak = { holder: row.athleteName, value: row.longestStreak, lobby: archived.lobbyName };
+			}
+			if (row.workouts > recordCandidates.mostWorkouts.value) {
+				recordCandidates.mostWorkouts = { holder: row.athleteName, value: row.workouts, lobby: archived.lobbyName };
+			}
+			if (row.points > recordCandidates.mostPoints.value) {
+				recordCandidates.mostPoints = { holder: row.athleteName, value: row.points, lobby: archived.lobbyName };
+			}
+		}
+		if ((summary?.highlights?.mostConsistent?.avgPerWeek ?? 0) > recordCandidates.mostConsistent.value) {
+			recordCandidates.mostConsistent = {
+				holder: summary?.highlights?.mostConsistent?.playerName ?? "",
+				value: summary?.highlights?.mostConsistent?.avgPerWeek ?? 0,
+				lobby: archived.lobbyName,
+			};
+		}
+	}
 
 	for (const lobby of input.lobbies) {
 		const live = input.liveData.get(lobby.id);
@@ -159,13 +256,47 @@ export function buildRecordsViewModel(input: {
 		}
 
 		if (live.lobby.stage === "COMPLETED" && summary) {
+			const seasonNumber = summary.seasonNumber ?? live.lobby.seasonNumber;
+			const seasonKey = `${lobby.id}:${seasonNumber}`;
+			if (archivedSeasonKeys.has(seasonKey)) {
+				continue;
+			}
 			const winners = summary.winners ?? [];
 			const champion = winners[0]?.name ?? "UNKNOWN";
-			const totalW = [...(summary.winners ?? []), ...(summary.losers ?? [])].reduce(
+			const seasonPlayers = [...(summary.winners ?? []), ...(summary.losers ?? [])];
+			const totalW = seasonPlayers.reduce(
 				(s, p) => s + (p.totalWorkouts ?? 0),
 				0
 			);
-				const seasonPlayers = [...(summary.winners ?? []), ...(summary.losers ?? [])];
+			const standings: ArchivedSeasonStanding[] = seasonPlayers
+				.map((player) => ({
+					playerId: player.id,
+					athleteName: player.name,
+					avatarUrl:
+						(player as { avatarUrl?: string | null }).avatarUrl ??
+						players.find((row) => row.name === player.name)?.avatarUrl ??
+						null,
+					rank: 0,
+					workouts: player.totalWorkouts ?? 0,
+					streak: player.currentStreak ?? 0,
+					longestStreak: player.longestStreak ?? player.currentStreak ?? 0,
+					hearts: player.hearts ?? 0,
+					points:
+						player.points ??
+						calculatePoints({
+							workouts: player.totalWorkouts ?? 0,
+							streak: player.currentStreak ?? 0,
+							longestStreak: player.longestStreak ?? player.currentStreak ?? 0,
+						}),
+					result: (summary.winners ?? []).some((winner) => winner.id === player.id) ? "CHAMPION" : "ELIMINATED",
+				}))
+				.sort((a, b) => {
+					if (b.points !== a.points) return b.points - a.points;
+					if (b.hearts !== a.hearts) return b.hearts - a.hearts;
+					if (b.workouts !== a.workouts) return b.workouts - a.workouts;
+					return a.athleteName.localeCompare(b.athleteName);
+				})
+				.map((row, idx) => ({ ...row, rank: idx + 1 }));
 				const seasonTop = seasonPlayers.reduce(
 					(best, player) => {
 						const points =
@@ -190,11 +321,11 @@ export function buildRecordsViewModel(input: {
 			pastList.push({
 				lobbyId: lobby.id,
 				lobbyName: lobby.name,
-				season: summary.seasonNumber ?? live.lobby.seasonNumber,
+				season: seasonNumber,
 				champion,
 				startDate: formatDate(lobby.season_start),
 				endDate: formatDate(lobby.season_end),
-				participants: players.length,
+				participants: standings.length,
 				totalWorkouts: totalW,
 				finalPot: summary.finalPot ?? lobby.cash_pool,
 				highlights: summary.highlights?.longestStreak
@@ -202,6 +333,8 @@ export function buildRecordsViewModel(input: {
 					: summary.highlights?.mostWorkouts
 						? `${summary.highlights.mostWorkouts.playerName} logged ${summary.highlights.mostWorkouts.count} workouts`
 						: "",
+				archivedAt: null,
+				standings,
 			});
 
 			for (const w of winners) {
@@ -312,7 +445,13 @@ export function buildRecordsViewModel(input: {
 		}))
 		.sort((a, b) => b.titles - a.titles);
 
-	pastList.sort((a, b) => b.season - a.season);
+	pastList.sort((a, b) => {
+		const aTime = a.archivedAt ? Date.parse(a.archivedAt) : 0;
+		const bTime = b.archivedAt ? Date.parse(b.archivedAt) : 0;
+		if (aTime && bTime && aTime !== bTime) return bTime - aTime;
+		if (a.season !== b.season) return b.season - a.season;
+		return a.lobbyName.localeCompare(b.lobbyName);
+	});
 
 	const hasData =
 		championsList.length > 0 ||
