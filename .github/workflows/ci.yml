@@ -51,17 +51,31 @@ jobs:
         run: npm run build
 
   migration-smoke-shadow:
-    if: ${{ secrets.MIGRATION_SMOKE_DATABASE_URL != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Check shadow DB secret
+        id: secret-check
+        env:
+          SHADOW_DB: ${{ secrets.MIGRATION_SMOKE_DATABASE_URL }}
+        run: |
+          if [ -z "$SHADOW_DB" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping migration smoke shadow: MIGRATION_SMOKE_DATABASE_URL is not configured."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: ${{ steps.secret-check.outputs.enabled == 'true' }}
         uses: actions/checkout@v4
 
       - name: Install psql client
+        if: ${{ steps.secret-check.outputs.enabled == 'true' }}
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Apply schema on shadow database
+        if: ${{ steps.secret-check.outputs.enabled == 'true' }}
         env:
           DATABASE_URL: ${{ secrets.MIGRATION_SMOKE_DATABASE_URL }}
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/schema.sql

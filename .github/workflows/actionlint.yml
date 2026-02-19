@@ -28,7 +28,9 @@ jobs:
           go-version: "stable"
 
       - name: Install actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@latest
+        run: |
+          GOBIN="$HOME/.local/bin" go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run actionlint
-        run: $(go env GOPATH)/bin/actionlint
+        run: actionlint
