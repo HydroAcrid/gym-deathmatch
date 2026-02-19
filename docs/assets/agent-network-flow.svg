@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="940" viewBox="0 0 1400 940">
+  <defs>
+    <style>
+      .bg { fill: #0b0908; }
+      .card { fill: #14100d; stroke: #3a2b1f; stroke-width: 2; rx: 10; }
+      .title { fill: #f4b03a; font: 700 24px 'Arial', sans-serif; }
+      .txt { fill: #e7dfd2; font: 600 16px 'Arial', sans-serif; }
+      .sub { fill: #b7aa95; font: 500 13px 'Arial', sans-serif; }
+      .arrow { stroke: #f4b03a; stroke-width: 2.5; fill: none; marker-end: url(#m); }
+    </style>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4b03a" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="940" />
+  <text class="title" x="48" y="54">Autonomous Engineering Network - End-to-End Flow</text>
+
+  <rect class="card" x="60" y="90" width="220" height="70" />
+  <text class="txt" x="80" y="125">Product Owner</text>
+  <text class="sub" x="80" y="145">Goals, feedback, priorities</text>
+
+  <rect class="card" x="340" y="90" width="250" height="70" />
+  <text class="txt" x="360" y="125">Goal Intake</text>
+  <text class="sub" x="360" y="145">Prompt • Jira • Linear • Incident</text>
+
+  <rect class="card" x="640" y="90" width="300" height="70" />
+  <text class="txt" x="660" y="125">Orchestrator / Planner Agent</text>
+  <text class="sub" x="660" y="145">Task graph, risk, sequencing</text>
+
+  <rect class="card" x="980" y="90" width="300" height="70" />
+  <text class="txt" x="1000" y="125">Task DAG + Dispatch</text>
+  <text class="sub" x="1000" y="145">Assign work to specialized agents</text>
+
+  <rect class="card" x="110" y="250" width="360" height="170" />
+  <text class="txt" x="130" y="282">Worker Agent A</text>
+  <text class="sub" x="130" y="304">Feature implementation</text>
+  <rect class="card" x="130" y="320" width="320" height="80" />
+  <text class="txt" x="150" y="352">Ephemeral Sandbox A</text>
+  <text class="sub" x="150" y="374">Scoped creds, isolated runtime</text>
+
+  <rect class="card" x="520" y="250" width="360" height="170" />
+  <text class="txt" x="540" y="282">Worker Agent B</text>
+  <text class="sub" x="540" y="304">Refactor / migration tasks</text>
+  <rect class="card" x="540" y="320" width="320" height="80" />
+  <text class="txt" x="560" y="352">Ephemeral Sandbox B</text>
+  <text class="sub" x="560" y="374">Branch + artifacts + logs</text>
+
+  <rect class="card" x="930" y="250" width="360" height="170" />
+  <text class="txt" x="950" y="282">Worker Agent C</text>
+  <text class="sub" x="950" y="304">UI + test implementation</text>
+  <rect class="card" x="950" y="320" width="320" height="80" />
+  <text class="txt" x="970" y="352">Ephemeral Sandbox C</text>
+  <text class="sub" x="970" y="374">Parallel execution lane</text>
+
+  <rect class="card" x="390" y="490" width="620" height="100" />
+  <text class="txt" x="410" y="528">Draft PR + Artifacts</text>
+  <text class="sub" x="410" y="550">Diff, test logs, screenshots, trace, risk hints</text>
+  <text class="sub" x="410" y="572">Single review surface for humans and verifier agents</text>
+
+  <rect class="card" x="150" y="650" width="340" height="100" />
+  <text class="txt" x="170" y="688">Verifier Agents</text>
+  <text class="sub" x="170" y="710">Lint • Tests • Browser QA • Security checks</text>
+
+  <rect class="card" x="530" y="650" width="340" height="100" />
+  <text class="txt" x="550" y="688">Reviewer Agent</text>
+  <text class="sub" x="550" y="710">PR review, quality gates, confidence scoring</text>
+
+  <rect class="card" x="910" y="650" width="340" height="100" />
+  <text class="txt" x="930" y="688">Policy Engine</text>
+  <text class="sub" x="930" y="710">RBAC, branch protection, approval requirements</text>
+
+  <rect class="card" x="170" y="810" width="300" height="90" />
+  <text class="txt" x="190" y="845">Merge / Release</text>
+  <text class="sub" x="190" y="867">Only after policy pass</text>
+
+  <rect class="card" x="540" y="810" width="300" height="90" />
+  <text class="txt" x="560" y="845">Telemetry + Runtime Signals</text>
+  <text class="sub" x="560" y="867">Incidents, regressions, usage</text>
+
+  <rect class="card" x="910" y="810" width="300" height="90" />
+  <text class="txt" x="930" y="845">Backlog Agent</text>
+  <text class="sub" x="930" y="867">Creates follow-up tickets automatically</text>
+
+  <path class="arrow" d="M 280 125 L 340 125" />
+  <path class="arrow" d="M 590 125 L 640 125" />
+  <path class="arrow" d="M 940 125 L 980 125" />
+  <path class="arrow" d="M 1130 160 L 280 250" />
+  <path class="arrow" d="M 1130 160 L 690 250" />
+  <path class="arrow" d="M 1130 160 L 1100 250" />
+  <path class="arrow" d="M 290 420 L 600 490" />
+  <path class="arrow" d="M 700 420 L 700 490" />
+  <path class="arrow" d="M 1110 420 L 800 490" />
+  <path class="arrow" d="M 500 590 L 320 650" />
+  <path class="arrow" d="M 700 590 L 700 650" />
+  <path class="arrow" d="M 900 590 L 1080 650" />
+  <path class="arrow" d="M 1080 750 L 320 810" />
+  <path class="arrow" d="M 320 900 L 540 855" />
+  <path class="arrow" d="M 840 855 L 910 855" />
+  <path class="arrow" d="M 1060 810 L 790 160" />
+</svg>
