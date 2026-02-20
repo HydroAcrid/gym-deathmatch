@@ -1,6 +1,58 @@
 {
-  "latestReleaseId": "0000000000000000000000000000000000000000",
+  "latestReleaseId": "1e7751ff572a185326b520b528921a79f073cbc4",
   "entries": [
+    {
+      "releaseId": "1e7751ff572a185326b520b528921a79f073cbc4",
+      "versionLabel": "v0.1.1",
+      "title": "Release v0.1.1",
+      "deployedAt": "2026-02-20T17:05:44.819Z",
+      "bullets": [
+        "Architecture overhaul (#23)",
+        "Fix grammatical error in AGENT_NETWORK_PITCH.md to enhance clarity in… (#21)",
+        "Add Whats New feature with automated changelog generation and UI inte… (#20)",
+        "Architecture overhaul (#7)",
+        "Architecture overhaul (#6)",
+        "Architecture overhaul (#5)",
+        "Enhance lobby functionality with global loading overlay and integrati… (#4)",
+        "Migration (#3)"
+      ],
+      "links": [
+        {
+          "label": "Compare changes",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/compare/0000000000000000000000000000000000000000...1e7751ff572a185326b520b528921a79f073cbc4"
+        },
+        {
+          "label": "PR #23",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/23"
+        },
+        {
+          "label": "PR #21",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/21"
+        },
+        {
+          "label": "PR #20",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/20"
+        },
+        {
+          "label": "PR #7",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/7"
+        },
+        {
+          "label": "PR #6",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/6"
+        }
+      ],
+      "sourcePrs": [
+        23,
+        21,
+        20,
+        7,
+        6,
+        5,
+        4,
+        3
+      ]
+    },
     {
       "releaseId": "0000000000000000000000000000000000000000",
       "versionLabel": "v0.1.0",
@@ -19,5 +71,5 @@
       "sourcePrs": []
     }
   ],
-  "generatedAt": "2026-02-19T00:00:00.000Z"
+  "generatedAt": "2026-02-20T17:05:44.819Z"
 }
