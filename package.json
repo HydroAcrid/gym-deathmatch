@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit --incremental false",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:migration-smoke": "node --test tests/unit/migration-smoke.test.mjs",
     "test:integration": "node --test tests/integration/*.test.mjs",

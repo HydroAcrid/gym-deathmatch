@@ -10,4 +10,27 @@ export interface LiveLobbyResponse {
 	koEvent?: { loserPlayerId: PlayerId; potAtKO: number; winnerPlayerId?: PlayerId };
 }
 
+export interface LobbyPunishmentItem {
+	id: string;
+	text: string;
+	week: number;
+	created_by?: string | null;
+	week_status?: string | null;
+}
+
+export interface LobbySpinEvent {
+	spinId: string;
+	startedAt: string;
+	winnerItemId: string;
+	week: number;
+}
+
+export interface LobbyPunishmentsResponse {
+	week: number;
+	items: LobbyPunishmentItem[];
+	active: LobbyPunishmentItem | null;
+	locked: boolean;
+	weekStatus: string | null;
+	spinEvent: LobbySpinEvent | null;
+}
 

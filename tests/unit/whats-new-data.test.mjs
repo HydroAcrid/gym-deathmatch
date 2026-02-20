@@ -9,6 +9,10 @@ function isNonEmptyString(value) {
 	return typeof value === "string" && value.trim().length > 0;
 }
 
+function isVersionLabel(value) {
+	return typeof value === "string" && /^v?\d+\.\d+\.\d+$/.test(value.trim());
+}
+
 test("whats-new.json has a valid canonical shape", async () => {
 	const raw = JSON.parse(await readFile(dataPath, "utf8"));
 	assert.equal(typeof raw, "object");
@@ -31,6 +35,7 @@ test("whats-new.json entries are deduped and complete", async () => {
 	const seen = new Set();
 	for (const entry of raw.entries) {
 		assert.equal(isNonEmptyString(entry.releaseId), true, "releaseId must be non-empty");
+		assert.equal(isVersionLabel(entry.versionLabel), true, "versionLabel must be semver-like (vX.Y.Z)");
 		assert.equal(isNonEmptyString(entry.title), true, "title must be non-empty");
 		assert.equal(isNonEmptyString(entry.deployedAt), true, "deployedAt must be non-empty");
 		assert.equal(Array.isArray(entry.bullets), true, "bullets must be an array");
