@@ -25,12 +25,21 @@ export interface LobbySpinEvent {
 	week: number;
 }
 
+export interface LobbyPunishmentWeekContext {
+	week: number;
+	hasItems: boolean;
+	hasSpinEvent: boolean;
+	hasActive: boolean;
+	status: "PENDING_PUNISHMENT" | "PENDING_CONFIRMATION" | "ACTIVE" | "COMPLETE" | "UNKNOWN";
+}
+
 export interface LobbyPunishmentsResponse {
 	week: number;
 	items: LobbyPunishmentItem[];
 	active: LobbyPunishmentItem | null;
 	locked: boolean;
 	weekStatus: string | null;
+	needsSpin?: boolean;
+	weekContext?: LobbyPunishmentWeekContext;
 	spinEvent: LobbySpinEvent | null;
 }
-

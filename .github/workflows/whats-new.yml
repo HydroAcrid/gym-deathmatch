@@ -11,8 +11,13 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: whats-new-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   generate-whats-new:
+    if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -90,10 +90,6 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 		const lobbyId = String(lobby.id);
 		const challengeSettings = (lobby.challenge_settings || {}) as Record<string, unknown>;
 		const autoSpinEnabled = Boolean(challengeSettings.autoSpinAtWeekStart ?? false);
-		if (!autoSpinEnabled) {
-			skipped.push(`${lobbyId}:AUTO_SPIN_DISABLED`);
-			continue;
-		}
 		if (!lobby.season_start) {
 			skipped.push(`${lobbyId}:NO_SEASON_START`);
 			continue;
@@ -126,6 +122,10 @@ export async function runWeeklyRouletteJob(options: RunWeeklyRouletteJobOptions 
 			}
 			if (status !== "transition_spin") {
 				skipped.push(`${lobbyId}:STATUS_${status}`);
+				continue;
+			}
+			if (!autoSpinEnabled) {
+				skipped.push(`${lobbyId}:AUTO_SPIN_DISABLED`);
 				continue;
 			}
 

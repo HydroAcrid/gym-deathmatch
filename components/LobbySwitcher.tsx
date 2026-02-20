@@ -42,6 +42,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 	// Fallback poll for week status in challenge modes (every 5s)
 	// This could be moved to realtime if we have a table for it, but sticking to polling for now as requested
 	const [weekStatus, setWeekStatus] = useState<string | null>(null);
+	const [weekNeedsSpin, setWeekNeedsSpin] = useState<boolean>(false);
 	const [pendingSpinReplay, setPendingSpinReplay] = useState<boolean>(false);
 	const [punishmentsLoaded, setPunishmentsLoaded] = useState<boolean>(false);
 	useEffect(() => {
@@ -54,6 +55,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 				const j = await res.json();
 				if (!cancelled) {
 					setWeekStatus(j.weekStatus || null);
+					setWeekNeedsSpin(Boolean(j.needsSpin));
 					const spinId = j?.spinEvent?.spinId as string | undefined;
 					if (spinId) {
 						setPendingSpinReplay(!hasSeenSpinReplay(lobby.id, spinId));
@@ -76,6 +78,7 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 
 	useEffect(() => {
 		setWeekStatus(null);
+		setWeekNeedsSpin(false);
 		setPendingSpinReplay(false);
 		setPunishmentsLoaded(false);
 	}, [lobby.id]);
@@ -105,14 +108,13 @@ export function LobbySwitcher({ lobby: initialLobby }: { lobby: Lobby }) {
 				effectiveSeasonStatus !== "completed")) ||
 		overridePre;
 
-	const isRouletteTransition = 
-		effectiveSeasonStatus === "transition_spin" && 
-		String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE");
+	const isRouletteMode = String(lobby.mode || "").startsWith("CHALLENGE_ROULETTE");
 	const weekNeedsWheel =
+		weekNeedsSpin ||
 		weekStatus == null ||
 		weekStatus === "PENDING_PUNISHMENT" ||
 		weekStatus === "PENDING_CONFIRMATION";
-	const shouldShowTransitionPanel = isRouletteTransition && punishmentsLoaded && (pendingSpinReplay || weekNeedsWheel);
+	const shouldShowTransitionPanel = isRouletteMode && punishmentsLoaded && (pendingSpinReplay || weekNeedsWheel);
 
 	useEffect(() => {
 		setShowSeasonFinale(false);

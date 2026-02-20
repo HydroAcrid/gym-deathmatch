@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError, logError } from "@/lib/logger";
 import { resolveLobbyAccess } from "@/lib/lobbyAccess";
 import { resolvePunishmentWeek } from "@/lib/challengeWeek";
+import { resolveRouletteWeekState } from "@/lib/rouletteWeekState";
 import { refreshLobbyLiveSnapshot } from "@/lib/liveSnapshotStore";
 
 type LobbyPunishmentRow = {
@@ -37,11 +38,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const { data: lobbyData } = await supabase.from("lobby").select("season_start,status,mode").eq("id", lobbyId).maybeSingle();
 	const lobby = (lobbyData as LobbyPunishmentRow | null) ?? null;
 	if (!lobby) return jsonError("NOT_FOUND", "Lobby not found", 404);
-	const week = await resolvePunishmentWeek(supabase, lobbyId, {
+	const rouletteWeekState = await resolveRouletteWeekState({
+		supabase,
+		lobbyId,
 		mode: lobby.mode,
 		status: lobby.status,
 		seasonStart: lobby.season_start
 	});
+	const week = rouletteWeekState.week;
 	const { data } = await supabase
 		.from("lobby_punishments")
 		.select("*")
@@ -59,14 +63,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lob
 	const active = items.find((x) => !!x.active);
 	// Locked: when any row is locked true (we treat as list-level lock)
 	const locked = items.length > 0 ? items.every((x) => !!x.locked) : false;
-	// Week status: get from active punishment or default to PENDING_PUNISHMENT
-	const weekStatus = active?.week_status || (items.length > 0 ? "PENDING_PUNISHMENT" : null);
+	const weekStatus = rouletteWeekState.weekStatus === "UNKNOWN" ? null : rouletteWeekState.weekStatus;
 	return NextResponse.json({
 		week,
 		items,
 		active: active || null,
 		locked,
 		weekStatus,
+		needsSpin: rouletteWeekState.needsSpin,
+		weekContext: {
+			week: rouletteWeekState.week,
+			hasItems: rouletteWeekState.hasItems,
+			hasSpinEvent: rouletteWeekState.hasSpinEvent,
+			hasActive: rouletteWeekState.hasActive,
+			status: rouletteWeekState.weekStatus
+		},
 		spinEvent: spinEvent
 				? {
 						spinId: spinEvent.id,
