@@ -1,6 +1,52 @@
 {
-  "latestReleaseId": "1e7751ff572a185326b520b528921a79f073cbc4",
+  "latestReleaseId": "dea63a6472b4284e8920ab7b0fd28c3a95429f13",
   "entries": [
+    {
+      "releaseId": "dea63a6472b4284e8920ab7b0fd28c3a95429f13",
+      "versionLabel": "v0.1.2",
+      "title": "Release v0.1.2",
+      "deployedAt": "2026-02-20T17:39:47.111Z",
+      "bullets": [
+        "chore(changelog): update What's New for 1e7751ff572a185326b520b528921a79f073cbc4 (#24)",
+        "Bump baseline-browser-mapping from 2.9.19 to 2.10.0 (#18)",
+        "Bump react-dom and @types/react-dom (#16)",
+        "Bump eslint-config-next from 16.0.1 to 16.1.6 (#15)",
+        "Bump tailwindcss from 4.1.17 to 4.2.0 (#14)"
+      ],
+      "links": [
+        {
+          "label": "Compare changes",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/compare/1e7751ff572a185326b520b528921a79f073cbc4...dea63a6472b4284e8920ab7b0fd28c3a95429f13"
+        },
+        {
+          "label": "PR #24",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/24"
+        },
+        {
+          "label": "PR #18",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/18"
+        },
+        {
+          "label": "PR #16",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/16"
+        },
+        {
+          "label": "PR #15",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/15"
+        },
+        {
+          "label": "PR #14",
+          "href": "https://github.com/HydroAcrid/gym-deathmatch/pull/14"
+        }
+      ],
+      "sourcePrs": [
+        24,
+        18,
+        16,
+        15,
+        14
+      ]
+    },
     {
       "releaseId": "1e7751ff572a185326b520b528921a79f073cbc4",
       "versionLabel": "v0.1.1",
@@ -71,5 +117,5 @@
       "sourcePrs": []
     }
   ],
-  "generatedAt": "2026-02-20T17:05:44.819Z"
+  "generatedAt": "2026-02-20T17:39:47.112Z"
 }
