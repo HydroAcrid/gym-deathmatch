@@ -47,7 +47,7 @@ jobs:
 
       - name: Create PR
         if: ${{ steps.changes.outputs.changed == 'true' }}
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "chore(changelog): update what's new for ${{ github.sha }}"
           title: "chore(changelog): update What's New for ${{ github.sha }}"
